@@ -25,12 +25,20 @@ class OllamaManager {
   static bool get isInitialized => _isInitialized;
   static bool get isServiceRunning => _serviceRunning;
   
-  /// Initialize with auto-download capability
-  static Future<bool> initialize({bool forceReinstall = false}) async {
+  /// Initialize with auto-download capability - FORCE REINSTALL NOW ENABLED BY DEFAULT
+  static Future<bool> initialize({bool forceReinstall = true}) async {
+    // **ENHANCED**: Force reinstall is now enabled by default
+    if (forceReinstall) {
+      print('🔄 Force reinstall enabled - removing existing Ollama installation...');
+      await cleanupAllData();
+      _isInitialized = false;
+      _ollamaPath = null;
+    }
+
     if (_isInitialized && !forceReinstall) return true;
 
     try {
-      print('Initializing Ollama with auto-installation...');
+      print('🚀 Initializing Ollama with auto-installation (force reinstall enabled)...');
       
       // Check if Ollama is already installed on system
       if (await _isOllamaInstalled()) {
@@ -38,7 +46,7 @@ class OllamaManager {
         _ollamaPath = await _findOllamaExecutablePath();
       } else {
         print('Ollama not found - starting auto-installation...');
-        final installSuccess = await _autoInstallOllama();
+        final installSuccess = await _downloadAndInstallToUserPath();
         if (!installSuccess) {
           print('Failed to auto-install Ollama');
           return false;
@@ -65,14 +73,105 @@ class OllamaManager {
       }
       
       _isInitialized = true;
-      print('Ollama ready with smart caching and persistent service!');
+      print('🎉 Ollama ready with smart caching and persistent service!');
       return true;
       
     } catch (e) {
-      print('Failed to initialize Ollama: $e');
+      print('❌ Failed to initialize Ollama: $e');
       _isInitialized = false;
       return false;
     }
+  }
+
+  /// **NEW**: Trigger a fresh reinstall of Ollama from the official website
+  static Future<bool> triggerFreshInstall() async {
+    print('🔄 Triggering fresh Ollama installation from website...');
+    return await initialize(forceReinstall: true);
+  }
+
+  /// **ENHANCED**: Download installer to user-accessible path and install
+  static Future<bool> _downloadAndInstallToUserPath() async {
+    try {
+      print('📥 Downloading Ollama installer to user-accessible path...');
+      
+      // Get user's Downloads directory (most accessible for users)
+      Directory? downloadsDir;
+      if (Platform.isWindows) {
+        final userProfile = Platform.environment['USERPROFILE'];
+        if (userProfile != null) {
+          downloadsDir = Directory(path.join(userProfile, 'Downloads'));
+        }
+      } else {
+        downloadsDir = await getDownloadsDirectory();
+      }
+
+      // Fallback to application documents directory
+      downloadsDir ??= await getApplicationDocumentsDirectory();
+
+      if (!await downloadsDir.exists()) {
+        print('❌ Could not access Downloads directory');
+        return false;
+      }
+
+      final installerPath = path.join(downloadsDir.path, 'OllamaSetup_VentAI.exe');
+      
+      print('📍 Download location: $installerPath');
+      
+      // Download the official installer
+      final response = await http.get(Uri.parse(_ollamaDownloadUrl));
+      if (response.statusCode != 200) {
+        print('❌ Failed to download installer: ${response.statusCode}');
+        return false;
+      }
+      
+      // Save installer to user-accessible path
+      final installerFile = File(installerPath);
+      await installerFile.writeAsBytes(response.bodyBytes);
+      print('✅ Installer saved to Downloads folder (${response.bodyBytes.length} bytes)');
+      
+      // Run installer from the Downloads folder
+      print('🔧 Running Ollama installer from: $installerPath');
+      final installResult = await Process.run(
+        installerPath,
+        ['/S'], // Silent install flag
+        runInShell: true,
+      );
+      
+      if (installResult.exitCode == 0) {
+        print('✅ Ollama installer completed successfully');
+        
+        // Wait for installation to settle
+        await Future.delayed(const Duration(seconds: 20));
+        
+        // Verify installation
+        if (await _isOllamaInstalled()) {
+          // Clean up installer (optional - user can keep it)
+          try {
+            await installerFile.delete();
+            print('🧹 Cleaned up installer file from Downloads');
+          } catch (e) {
+            print('💡 Installer file kept in Downloads folder for user reference');
+          }
+          return true;
+        } else {
+          print('⚠️ Installation completed but Ollama not detected');
+          return false;
+        }
+      } else {
+        print('❌ Installer failed with exit code: ${installResult.exitCode}');
+        print('Error output: ${installResult.stderr}');
+        return false;
+      }
+      
+    } catch (e) {
+      print('❌ Download and install to user path failed: $e');
+      return false;
+    }
+  }
+
+  /// **NEW**: Direct download and install from website to user path (alternative method)
+  static Future<bool> downloadAndInstallFromWebsite() async {
+    return await _downloadAndInstallToUserPath();
   }
 
   /// Check if Ollama is installed on the system
@@ -111,90 +210,58 @@ class OllamaManager {
     return false;
   }
 
-  /// Auto-download and install Ollama from official source
+  /// Auto-download and install Ollama from official source (legacy method)
   static Future<bool> _autoInstallOllama() async {
-    try {
-      print('Downloading Ollama from official source...');
-      
-      // Create temp directory for download
-      final tempDir = await getTemporaryDirectory();
-      final installerPath = path.join(tempDir.path, 'OllamaSetup.exe');
-      
-      // Download the official installer
-      final response = await http.get(Uri.parse(_ollamaDownloadUrl));
-      if (response.statusCode != 200) {
-        print('Failed to download Ollama installer: ${response.statusCode}');
-        return false;
-      }
-      
-      // Save installer to temp file
-      final installerFile = File(installerPath);
-      await installerFile.writeAsBytes(response.bodyBytes);
-      print('Downloaded Ollama installer (${response.bodyBytes.length} bytes)');
-      
-      // NEW: Run installer silently
-      print('Running Ollama installer...');
-      final installResult = await Process.run(
-        installerPath,
-        ['/S'], // Silent install flag
-        runInShell: true,
-      );
-      
-      if (installResult.exitCode == 0) {
-        print('Ollama installed successfully');
-        
-        // Wait for installation to complete and settle
-        await Future.delayed(const Duration(seconds: 15));
-        
-        // Verify installation
-        if (await _isOllamaInstalled()) {
-          // Clean up installer
-          try {
-            await installerFile.delete();
-            print('Cleaned up installer file');
-          } catch (e) {
-            print('Could not delete installer: $e');
-          }
-          return true;
-        } else {
-          print('Installation completed but Ollama not detected');
-        }
-      } else {
-        print('Installer failed with exit code: ${installResult.exitCode}');
-        print('Error output: ${installResult.stderr}');
-      }
-      
-      return false;
-      
-    } catch (e) {
-      print('Auto-installation failed: $e');
-      return false;
-    }
+    // Redirect to the enhanced method
+    return await _downloadAndInstallToUserPath();
   }
 
   /// Find Ollama executable path
   static Future<String?> _findOllamaExecutablePath() async {
     if (_ollamaPath != null) return _ollamaPath;
     
-    // Try PATH first
-    try {
-      final result = await Process.run('where', ['ollama']);
-      if (result.exitCode == 0) {
-        final path = result.stdout.toString().trim();
-        if (path.isNotEmpty) {
-          print('Found Ollama in PATH: $path');
-          return path.split('\n').first;
+    // Enhanced search with more locations
+    final possiblePaths = [
+      // User profile locations
+      path.join(Platform.environment['USERPROFILE'] ?? '', 'AppData', 'Local', 'Programs', 'Ollama', 'ollama.exe'),
+      path.join(Platform.environment['LOCALAPPDATA'] ?? '', 'Programs', 'Ollama', 'ollama.exe'),
+      
+      // System-wide locations
+      r'C:\Program Files\Ollama\ollama.exe',
+      r'C:\Program Files (x86)\Ollama\ollama.exe',
+      
+      // Check PATH
+      'ollama',
+    ];
+    
+    for (String checkPath in possiblePaths) {
+      try {
+        if (checkPath == 'ollama') {
+          // Test PATH availability
+          final result = await Process.run('where', ['ollama']);
+          if (result.exitCode == 0) {
+            final pathResult = result.stdout.toString().trim();
+            if (pathResult.isNotEmpty) {
+              _ollamaPath = pathResult.split('\n').first;
+              print('✅ Found Ollama via PATH: $_ollamaPath');
+              return _ollamaPath;
+            }
+          }
+        } else {
+          // Test direct file path
+          if (await File(checkPath).exists()) {
+            _ollamaPath = checkPath;
+            print('✅ Found Ollama at: $_ollamaPath');
+            return _ollamaPath;
+          }
         }
+      } catch (e) {
+        continue;
       }
-    } catch (e) {
-      print('🔍 Could not find Ollama via where command: $e');
     }
     
-    // Check if already found during installation check
-    if (_ollamaPath != null) return _ollamaPath;
-    
-    // Default fallback - assume it's in PATH
-    return 'ollama';
+    print('❌ Ollama executable not found in any location');
+    return null;
   }
 
   /// Start Ollama as a persistent background service
