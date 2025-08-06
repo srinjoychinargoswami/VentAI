@@ -1,4 +1,3 @@
-// lib/widgets/empathy_chat_widget.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/offline_storage.dart';

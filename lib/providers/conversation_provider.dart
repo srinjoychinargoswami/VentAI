@@ -1,4 +1,3 @@
-// lib/providers/conversation_provider.dart
 import 'package:flutter/foundation.dart';
 import 'package:drift/drift.dart';
 import '../services/offline_storage.dart';
@@ -14,10 +13,17 @@ class ConversationProvider extends ChangeNotifier {
   bool _isSendingMessage = false;
   String _lastErrorMessage = '';
 
+  // Conversation context tracking for better AI responses
+  final List<String> _recentMessages = [];
+  final List<String> _recentResponses = [];
+  final int _maxContextMessages = 3;
+  String? _currentSessionId;
+
   ConversationProvider({
     required AppDatabase database, 
     SetupStateProvider? setupStateProvider
   }) : _database = database, _setupStateProvider = setupStateProvider {
+    _currentSessionId = DateTime.now().millisecondsSinceEpoch.toString();
     _loadConversations();
   }
 
@@ -25,31 +31,125 @@ class ConversationProvider extends ChangeNotifier {
   List<Conversation> get conversations => _conversations;
   bool get isLoading => _isLoading;
   bool get isSendingMessage => _isSendingMessage;
-  bool get isOnline => false; // Your app is offline-first
+  bool get isOnline => false;
   String get lastErrorMessage => _lastErrorMessage;
+  String get currentSessionId => _currentSessionId ?? '';
+  List<String> get recentMessages => List.unmodifiable(_recentMessages);
+  List<String> get recentResponses => List.unmodifiable(_recentResponses);
 
-  /// Load all conversations from database
+  /// Enhanced load conversations with correct ordering
   Future<void> _loadConversations() async {
     _isLoading = true;
     _lastErrorMessage = '';
     notifyListeners();
 
     try {
-      // Use proper Drift-generated method based on your schema
-      final conversationsQuery = _database.select(_database.conversations);
+      //  Use ascending order (oldest first) for natural chat flow
+      final conversationsQuery = _database.select(_database.conversations)
+        ..orderBy([(t) => OrderingTerm(expression: t.timestamp, mode: OrderingMode.asc)]) //  Changed from desc to asc
+        ..limit(100);
       _conversations = await conversationsQuery.get();
       
-      debugPrint('Loaded ${_conversations.length} conversations');
+      // Rebuild conversation context from recent conversations
+      _rebuildContextFromConversations();
+      
+      debugPrint('Loaded ${_conversations.length} conversations in correct order');
     } catch (e) {
       debugPrint('Failed to load conversations: $e');
       _lastErrorMessage = 'Failed to load conversations: $e';
     } finally {
       _isLoading = false;
+      // CRITICAL: Always notify listeners after data changes
       notifyListeners();
     }
   }
 
-  /// ENHANCED: Send user message and get AI response with service health checks
+  /// CRITICAL FIX: Enhanced addMessage with proper field mapping
+  Future<void> addMessage({
+    required String message,
+    required bool isUser,
+    String? mood,
+    String? messageType,
+    Map<String, dynamic>? metadata,
+  }) async {
+    try {
+      final now = DateTime.now();
+      
+      debugPrint('Adding ${isUser ? 'user' : 'AI'} message to database...');
+
+      if (isUser) {
+        // Add user message
+        await _database.into(_database.conversations).insert(
+          ConversationsCompanion(
+            userMessage: Value(message),
+            aiResponse: const Value(''), // Empty for user messages
+            timestamp: Value(now),
+            emotionalState: Value(mood),
+            isOffline: const Value(true),
+            sessionId: Value(_currentSessionId),
+          )
+        );
+      } else {
+        // CRITICAL FIX: For AI responses, ensure proper field mapping
+        await _database.into(_database.conversations).insert(
+          ConversationsCompanion(
+            userMessage: const Value('[Voice input processed]'), // Placeholder for voice
+            aiResponse: Value(message), // CRITICAL: This should contain the full AI response
+            timestamp: Value(now),
+            emotionalState: Value(mood),
+            isOffline: const Value(true),
+            sessionId: Value(_currentSessionId),
+          )
+        );
+      }
+
+      // Add to context tracking
+      if (isUser) {
+        _addToContext(message, '');
+      } else {
+        _addToContext('', message);
+      }
+
+      // CRITICAL FIX: Force refresh with enhanced notification
+      await _forceRefreshAndNotify();
+      
+      debugPrint('Added ${isUser ? 'user' : 'AI'} message: ${message.substring(0, message.length.clamp(0, 50))}...');
+    } catch (e) {
+      debugPrint('Failed to add message: $e');
+      _lastErrorMessage = 'Failed to add message: $e';
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  /// CRITICAL FIX: Force refresh with multiple notification attempts
+  Future<void> _forceRefreshAndNotify() async {
+    try {
+      // Force database reload with correct ordering
+      await _loadConversations();
+      
+      // Add delay to ensure database operations complete
+      await Future.delayed(const Duration(milliseconds: 100));
+      
+      // Force second refresh
+      await _loadConversations();
+      
+      // Force notification again
+      notifyListeners();
+      
+      debugPrint('Force refresh completed with enhanced notifications');
+    } catch (e) {
+      debugPrint('Force refresh failed: $e');
+      notifyListeners();
+    }
+  }
+
+  /// Enhanced refresh method for external calls
+  Future<void> refresh() async {
+    await _forceRefreshAndNotify();
+  }
+
+  /// Enhanced sendMessage method
   Future<void> sendMessage(String userMessage, {String? mood}) async {
     if (userMessage.trim().isEmpty) return;
 
@@ -58,66 +158,84 @@ class ConversationProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Generate AI response with service health checks
-      Map<String, dynamic> aiResponseData;
+      // Prepare enhanced message with context
+      String enhancedMessage = userMessage;
+      if (_isContinuingConversation(userMessage)) {
+        final context = _getConversationContext();
+        if (context.isNotEmpty) {
+          enhancedMessage = '$context\n\nUser: $userMessage';
+          debugPrint('Adding conversation context for continuity');
+        }
+      }
 
-      // Check if we have advanced AI setup
+      // Generate AI response
+      Map<String, dynamic> aiResponseData;
       final setupProvider = _setupStateProvider;
       final hasAdvancedAI = setupProvider?.hasAdvancedAI ?? false;
 
       if (hasAdvancedAI && OllamaManager.isInitialized) {
-        // ADDED: Ensure Ollama service is running before making API calls
         debugPrint('Checking Ollama service status...');
         final serviceReady = await OllamaManager.ensureServiceRunning();
         
         if (serviceReady) {
-          // Service is healthy, use Ollama for advanced AI responses
           debugPrint('Ollama service ready - using advanced AI');
           aiResponseData = await OllamaManager.generateEmpatheticResponse(
-            userMessage, 
-            model: null  // Let it choose the best model
+            enhancedMessage, 
+            model: null
           );
         } else {
-          // Service failed health check, use intelligent fallback
           debugPrint('Ollama service not ready - using intelligent fallback');
           aiResponseData = await _generateFallbackResponse(userMessage, mood);
         }
       } else {
-        // No advanced AI available, use intelligent fallback responses
         debugPrint('Using intelligent fallback response (no advanced AI)');
         aiResponseData = await _generateFallbackResponse(userMessage, mood);
       }
 
       final aiResponse = aiResponseData['response'] as String? ?? 'I\'m here to listen. Could you tell me more?';
 
-      // Insert conversation with both user message and AI response
+      // Add to context tracking
+      _addToContext(userMessage, aiResponse);
+
+      // CRITICAL FIX: Insert complete conversation with both messages
       await _database.into(_database.conversations).insert(
         ConversationsCompanion.insert(
           userMessage: userMessage.trim(),
-          aiResponse: aiResponse,
+          aiResponse: aiResponse, // CRITICAL: Ensure AI response is properly saved
           timestamp: DateTime.now(),
           emotionalState: Value(mood),
+          isOffline: const Value(true),
+          sessionId: Value(_currentSessionId),
         )
       );
 
-      await _loadConversations();
+      // CRITICAL: Force enhanced refresh after database insert
+      await _forceRefreshAndNotify();
+      
       debugPrint('Message sent and response generated');
 
     } catch (e) {
       debugPrint('Failed to send message: $e');
       _lastErrorMessage = 'Failed to send message: $e';
       
-      // ADDED: Emergency fallback if everything fails
+      // Emergency fallback
       try {
+        const fallbackResponse = 'I\'m experiencing technical difficulties right now, but I want you to know that your feelings are valid and important. Please try again in a moment.';
+        
+        _addToContext(userMessage, fallbackResponse);
+        
         await _database.into(_database.conversations).insert(
           ConversationsCompanion.insert(
             userMessage: userMessage.trim(),
-            aiResponse: 'I\'m experiencing technical difficulties right now, but I want you to know that your feelings are valid and important. Please try again in a moment.',
+            aiResponse: fallbackResponse,
             timestamp: DateTime.now(),
             emotionalState: Value(mood),
+            isOffline: const Value(true),
+            sessionId: Value(_currentSessionId),
           )
         );
-        await _loadConversations();
+        
+        await _forceRefreshAndNotify();
         debugPrint('Emergency response saved');
       } catch (emergencyError) {
         debugPrint('Emergency fallback also failed: $emergencyError');
@@ -128,15 +246,67 @@ class ConversationProvider extends ChangeNotifier {
     }
   }
 
-  /// Generate fallback response when Ollama is not available
+  // Context management methods
+  void _addToContext(String userMessage, String aiResponse) {
+    if (userMessage.isNotEmpty) {
+      _recentMessages.add(userMessage);
+    }
+    if (aiResponse.isNotEmpty) {
+      _recentResponses.add(aiResponse);
+    }
+
+    if (_recentMessages.length > _maxContextMessages) {
+      _recentMessages.removeAt(0);
+    }
+    if (_recentResponses.length > _maxContextMessages) {
+      _recentResponses.removeAt(0);
+    }
+  }
+
+  String _getConversationContext() {
+    if (_recentMessages.isEmpty) return '';
+    
+    final contextPairs = <String>[];
+    for (int i = 0; i < _recentMessages.length && i < _recentResponses.length; i++) {
+      contextPairs.add('User: ${_recentMessages[i]}');
+      contextPairs.add('AI: ${_recentResponses[i]}');
+    }
+    return 'Recent conversation context:\n${contextPairs.join('\n')}';
+  }
+
+  bool _isContinuingConversation(String message) {
+    if (_recentMessages.isEmpty) return false;
+    
+    final messageLower = message.toLowerCase();
+    final continuationPhrases = [
+      'also', 'and', 'but', 'however', 'speaking of that', 
+      'on that topic', 'related to that', 'similarly', 
+      'can you tell me more', 'what about', 'how about'
+    ];
+    
+    return continuationPhrases.any((phrase) => messageLower.contains(phrase));
+  }
+
+  void _rebuildContextFromConversations() {
+    _recentMessages.clear();
+    _recentResponses.clear();
+    
+    final recentConversations = _conversations.take(_maxContextMessages).toList();
+    for (final conversation in recentConversations.reversed) {
+      _recentMessages.add(conversation.userMessage);
+      _recentResponses.add(conversation.aiResponse);
+    }
+  }
+
+  // Fallback response generation
   Future<Map<String, dynamic>> _generateFallbackResponse(String message, String? mood) async {
-    await Future.delayed(const Duration(seconds: 1)); // Simulate processing time
+    await Future.delayed(const Duration(seconds: 1));
     
     final lowered = message.toLowerCase();
     String response;
     bool crisisDetected = false;
 
-    // Crisis detection - highest priority
+    // Crisis detection
     if (_detectCrisis(message)) {
       crisisDetected = true;
       response = '''I'm really concerned about you right now. Please reach out for help immediately:
@@ -149,35 +319,25 @@ Your life has value, and there are people who want to help you through this.''';
     }
     // Emotion-specific responses
     else if (lowered.contains('anxious') || lowered.contains('anxiety') || lowered.contains('worried')) {
-      response = '''I can sense you're feeling anxious right now. That's a really difficult experience, and your feelings are completely valid. Try taking slow, deep breaths - in for 4 counts, hold for 4, out for 4.
+      response = '''I can sense you're feeling anxious right now. That's a really difficult experience, and your feelings are completely valid. Let's focus on the present moment together.
 
-What has been weighing on your mind lately?''';
+Try this breathing technique with me: breathe in slowly for 4 counts, hold for 4 counts, breathe out for 6 counts. This activates your body's natural calm response.
+
+Anxiety often comes with "what if" thoughts. Right now, what's one thing you know for certain that's safe or stable in this moment?''';
     }
     else if (lowered.contains('sad') || lowered.contains('depressed') || lowered.contains('down')) {
       response = '''I hear that you're going through a tough time, and I want you to know that your feelings are completely valid. It takes courage to reach out when you're feeling this way.
 
-What has been the hardest part for you today?''';
-    }
-    else if (lowered.contains('lonely') || lowered.contains('alone')) {
-      response = '''Feeling lonely can be so isolating and painful. I'm here with you right now, and you're not alone in this moment.
+Sadness can feel heavy and overwhelming. Sometimes it helps to remember that emotions, even difficult ones, are temporary visitors.
 
-Is there someone in your life you feel comfortable reaching out to?''';
+What has been the hardest part for you today? Is there something specific that's contributing to these feelings?''';
     }
-    else if (lowered.contains('stressed') || lowered.contains('overwhelmed')) {
-      response = '''It sounds like you're carrying a heavy load right now. When everything feels overwhelming, it can help to break things down into smaller, manageable pieces. 
-
-What's the one thing you could focus on right now that would make the biggest difference?''';
-    }
-    else if (lowered.contains('angry') || lowered.contains('frustrated')) {
-      response = '''I can hear the frustration in your words, and that's completely understandable. Your feelings are valid, and it's okay to feel angry sometimes.
-
-What's been the most frustrating part of your situation?''';
-    }
-    // General supportive response
     else {
-      response = '''Thank you for sharing with me. I can hear that you're going through something difficult, and I want you to know that your feelings are valid and important.
+      response = '''Thank you for sharing with me. I can hear that you're going through something, and I want you to know that your feelings are valid and important.
 
-This is a safe space where you can express yourself freely. What would feel most helpful for you right now?''';
+This is a safe space where you can express yourself freely. There's no judgment here, only support and understanding.
+
+What would feel most helpful for you right now?''';
     }
 
     return {
@@ -188,24 +348,22 @@ This is a safe space where you can express yourself freely. What would feel most
     };
   }
 
-  /// Detect crisis keywords
   bool _detectCrisis(String message) {
     final lowered = message.toLowerCase();
     final crisisWords = [
-      'suicide', 'kill myself', 'end it all', 'want to die', 
-      'harm myself', 'hurt myself', 'can\'t go on', 'no point living',
-      'better off dead', 'no reason to live', 'want to disappear'
+      'suicide', 'suicidal', 'kill myself', 'end it all', 'want to die', 
+      'harm myself', 'hurt myself', 'can\'t go on', 'cannot go on',
+      'no point living', 'better off dead', 'no reason to live'
     ];
     return crisisWords.any((word) => lowered.contains(word));
   }
 
-  /// Delete a conversation
+  // Utility methods
   Future<void> deleteConversation(int conversationId) async {
     try {
       await (_database.delete(_database.conversations)
         ..where((c) => c.id.equals(conversationId))).go();
-
-      await _loadConversations();
+      await _forceRefreshAndNotify();
       debugPrint('Deleted conversation: $conversationId');
     } catch (e) {
       debugPrint('Failed to delete conversation: $e');
@@ -214,11 +372,12 @@ This is a safe space where you can express yourself freely. What would feel most
     }
   }
 
-  /// Clear all conversations
   Future<void> clearAllConversations() async {
     try {
       await _database.delete(_database.conversations).go();
       _conversations.clear();
+      _recentMessages.clear();
+      _recentResponses.clear();
       debugPrint('Cleared all conversations');
       notifyListeners();
     } catch (e) {
@@ -228,12 +387,14 @@ This is a safe space where you can express yourself freely. What would feel most
     }
   }
 
-  /// Refresh conversations from database
-  Future<void> refresh() async {
-    await _loadConversations();
+  void startNewSession() {
+    _currentSessionId = DateTime.now().millisecondsSinceEpoch.toString();
+    _recentMessages.clear();
+    _recentResponses.clear();
+    debugPrint('Started new conversation session: $_currentSessionId');
+    notifyListeners();
   }
 
-  /// Get conversation by ID
   Conversation? getConversationById(int conversationId) {
     try {
       return _conversations.firstWhere((conv) => conv.id == conversationId);
@@ -242,16 +403,11 @@ This is a safe space where you can express yourself freely. What would feel most
     }
   }
 
-  /// Get the most recent conversation
   Conversation? get mostRecentConversation {
     if (_conversations.isEmpty) return null;
-    
-    // Sort by timestamp (most recent first)
-    _conversations.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-    return _conversations.first;
+    return _conversations.last; // Last in list is now most recent due to asc ordering
   }
 
-  /// Search conversations by user message or AI response
   List<Conversation> searchConversations(String query) {
     if (query.trim().isEmpty) return _conversations;
     
@@ -262,43 +418,44 @@ This is a safe space where you can express yourself freely. What would feel most
     ).toList();
   }
 
-  /// Get conversations by emotional state
-  List<Conversation> getConversationsByMood(String mood) {
-    return _conversations.where((conv) => 
-      conv.emotionalState?.toLowerCase() == mood.toLowerCase()
-    ).toList();
-  }
-
-  /// Get conversation statistics
   Map<String, dynamic> getConversationStats() {
     if (_conversations.isEmpty) {
       return {
         'total': 0,
+        'textMessages': 0,
+        'voiceMessages': 0,
         'mostCommonMood': 'none',
         'averageLength': 0,
         'crisisConversations': 0,
+        'emotionsDetected': <String>[],
       };
     }
 
     final moodCounts = <String, int>{};
     int totalUserMessageLength = 0;
     int crisisCount = 0;
+    int textMessages = 0;
+    int voiceMessages = 0;
+    final emotionsDetected = <String>{};
 
     for (final conv in _conversations) {
-      // Count moods
       final mood = conv.emotionalState ?? 'neutral';
       moodCounts[mood] = (moodCounts[mood] ?? 0) + 1;
+      emotionsDetected.add(mood);
       
-      // Calculate average message length
       totalUserMessageLength += conv.userMessage.length;
       
-      // Count crisis conversations
       if (_detectCrisis(conv.userMessage)) {
         crisisCount++;
       }
+      
+      if (conv.userMessage.contains('[Voice input processed]')) {
+        voiceMessages++;
+      } else {
+        textMessages++;
+      }
     }
 
-    // Find most common mood
     String mostCommonMood = 'neutral';
     int maxCount = 0;
     moodCounts.forEach((mood, count) {
@@ -310,48 +467,28 @@ This is a safe space where you can express yourself freely. What would feel most
 
     return {
       'total': _conversations.length,
+      'textMessages': textMessages,
+      'voiceMessages': voiceMessages,
       'mostCommonMood': mostCommonMood,
       'averageLength': totalUserMessageLength ~/ _conversations.length,
       'crisisConversations': crisisCount,
-      'moodDistribution': moodCounts,
+      'emotionsDetected': emotionsDetected.toList(),
     };
   }
 
-  /// Clear error message
   void clearError() {
     _lastErrorMessage = '';
     notifyListeners();
   }
 
-  /// Export conversations as text (for backup/analysis)
-  String exportConversationsAsText() {
-    if (_conversations.isEmpty) return 'No conversations to export.';
-
-    final buffer = StringBuffer();
-    buffer.writeln('Vent AI Conversation Export');
-    buffer.writeln('Generated: ${DateTime.now().toIso8601String()}');
-    buffer.writeln('Total Conversations: ${_conversations.length}');
-    buffer.writeln('${'=' * 50}');
-
-    for (int i = 0; i < _conversations.length; i++) {
-      final conv = _conversations[i];
-      buffer.writeln('\nConversation ${i + 1}');
-      buffer.writeln('Date: ${conv.timestamp.toIso8601String()}');
-      if (conv.emotionalState != null) {
-        buffer.writeln('Mood: ${conv.emotionalState}');
-      }
-      buffer.writeln('\nUser: ${conv.userMessage}');
-      buffer.writeln('\nAI: ${conv.aiResponse}');
-      buffer.writeln('-' * 30);
-    }
-
-    return buffer.toString();
+  @override
+  void notifyListeners() {
+    debugPrint('ConversationProvider: Notifying listeners (${_conversations.length} conversations)');
+    super.notifyListeners();
   }
 
-  /// Dispose resources
   @override
   void dispose() {
-    // Clean up any resources if needed
     super.dispose();
   }
 }

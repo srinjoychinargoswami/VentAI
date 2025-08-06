@@ -1,5 +1,4 @@
-// lib/providers/setup_state_provider.dart
-import 'dart:io'; // ✅ ADDED: For Process and Platform classes
+import 'dart:io'; 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -131,7 +130,7 @@ class SetupStateProvider extends ChangeNotifier {
   ///Check if Ollama is installed on the system
   Future<bool> _checkOllamaInstallation() async {
     try {
-      debugPrint('🔍 Checking for existing Ollama installation...');
+      debugPrint('Checking for existing Ollama installation...');
       
       // Try to detect system Ollama installation
       try {
@@ -141,7 +140,7 @@ class SetupStateProvider extends ChangeNotifier {
           return true;
         }
       } catch (e) {
-        debugPrint('🔍 System Ollama not found, checking common locations...');
+        debugPrint('System Ollama not found, checking common locations...');
       }
       
       // Check common installation paths
@@ -252,7 +251,7 @@ class SetupStateProvider extends ChangeNotifier {
     }
   }
 
-  /// ✅ ENHANCED: Handle installation failures with detailed error messaging
+  ///  Handle installation failures with detailed error messaging
   Future<void> _handleInstallationFailure(String error) async {
     debugPrint('Installation failure: $error');
     

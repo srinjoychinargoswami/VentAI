@@ -1,4 +1,3 @@
-// lib/widgets/installation_progress_widget.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/ollama_manager.dart';

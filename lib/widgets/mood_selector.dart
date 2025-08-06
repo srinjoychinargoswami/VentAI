@@ -1,4 +1,3 @@
-// lib/widgets/mood_selector.dart
 import 'package:flutter/material.dart';
 
 class MoodSelector extends StatelessWidget {

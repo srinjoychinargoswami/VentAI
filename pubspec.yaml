@@ -33,11 +33,22 @@ dependencies:
   path_provider: ^2.1.0           # For file path operations
   path: ^1.8.3                   # For path utilities
 
+  # Voice Recording & Analysis Dependencies (NEW)
+  record: ^6.0.0                  # For audio recording
+  permission_handler: ^12.0.1    # For microphone permissions
+  just_audio: ^0.9.34            # For audio playback
+  audioplayers: ^5.2.1           # Alternative audio player
+  fftea: ^1.0.3                   # For Fast Fourier Transform (audio analysis)
+
   # Multimodal Features
   speech_to_text: ^6.3.0          # For voice input
-  text_to_speech: ^0.2.3          # For voice output
+  text_to_speech: ^0.2.3          # For voice output  
   image_picker: ^1.0.4           # For visual emotion detection
   camera: ^0.10.5                # For camera access
+
+  # Additional Utilities for Voice Processing
+  convert: ^3.1.1                # For base64 encoding/decoding
+  collection: ^1.17.2            # For advanced data structures
 
 dev_dependencies:
   flutter_test:
@@ -50,7 +61,6 @@ dev_dependencies:
   flutter_lints: ^4.0.0          # For code analysis
   build_runner: ^2.4.6           # For Drift code generation
   drift_dev: ^2.12.1             # For Drift development
-
 
 flutter:
   uses-material-design: true

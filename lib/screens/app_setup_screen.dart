@@ -1,4 +1,3 @@
-// lib/screens/app_setup_screen.dart
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -144,7 +143,7 @@ class _AppSetupScreenState extends State<AppSetupScreen>
         return true;
       }
     } catch (e) {
-      debugPrint('🔍 System Ollama not found, checking common locations...');
+      debugPrint('System Ollama not found, checking common locations...');
     }
     
     // Check common installation paths
@@ -547,7 +546,7 @@ class _AppSetupScreenState extends State<AppSetupScreen>
                   ),
                 ],
                 
-                // Offline AI indicator
+                // ENHANCED: Offline AI indicator with voice capability
                 if (_currentStage >= 4) ...[
                   const SizedBox(height: 16),
                   Container(
@@ -567,7 +566,7 @@ class _AppSetupScreenState extends State<AppSetupScreen>
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          'Offline AI • Privacy Protected',
+                          'Offline AI • Voice Enabled • Privacy Protected',
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.green.shade700,
