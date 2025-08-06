@@ -1,0 +1,77 @@
+name: vent_ai
+description: "A Multimodal Offline Emotional Support Companion"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # UI Dependencies
+  cupertino_icons: ^1.0.8
+  google_fonts: ^5.1.0
+  flutter_svg: ^2.1.0
+
+  # Core Dependencies
+  http: ^1.1.0              # For API communication with Ollama
+  provider: ^6.0.5          # For state management
+  shared_preferences: ^2.2.0 # For storing setup preferences
+
+  # AI & ML Dependencies
+  tflite_flutter: ^0.10.4          # For TensorFlow Lite models
+  device_info_plus: ^9.1.0         # For device capability detection
+  google_generative_ai: ^0.4.7     # Official Google AI SDK
+
+  # Database Dependencies
+  drift: ^2.12.1                  # For local database management
+  sqlite3_flutter_libs: ^0.5.0    # For SQLite support
+  path_provider: ^2.1.0           # For file path operations
+  path: ^1.8.3                   # For path utilities
+
+  # Multimodal Features
+  speech_to_text: ^6.3.0          # For voice input
+  text_to_speech: ^0.2.3          # For voice output
+  image_picker: ^1.0.4           # For visual emotion detection
+  camera: ^0.10.5                # For camera access
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  # Windows Distribution
+  msix: ^3.16.10                 # For Windows packaging
+
+  # Code Quality & Generation
+  flutter_lints: ^4.0.0          # For code analysis
+  build_runner: ^2.4.6           # For Drift code generation
+  drift_dev: ^2.12.1             # For Drift development
+
+
+flutter:
+  uses-material-design: true
+
+  # Asset Declarations
+  assets:
+    - assets/runtime/
+
+  # Uncomment and add additional assets as needed
+  # - assets/images/
+  # - assets/icons/
+
+  # Custom fonts (uncomment if needed)
+  # fonts:
+  #   - family: Schyler
+  #     fonts:
+  #       - asset: fonts/Schyler-Regular.ttf
+  #       - asset: fonts/Schyler-Italic.ttf
+  #         style: italic
+  #   - family: Trajan Pro
+  #     fonts:
+  #       - asset: fonts/TrajanPro.ttf
+  #       - asset: fonts/TrajanPro_Bold.ttf
+  #         weight: 700
