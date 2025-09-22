@@ -335,7 +335,7 @@ class VoiceInputService {
     bool autoCleanup = true,
   }) async {
     try {
-      debugPrint('🎤 Starting quick recording for ${durationSeconds}s...');
+      debugPrint('Starting quick recording for ${durationSeconds}s...');
       
       // Start recording
       final started = await startRecording();

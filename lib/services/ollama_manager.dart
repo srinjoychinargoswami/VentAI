@@ -29,7 +29,7 @@ class OllamaManager {
   static Future<bool> initialize({bool forceReinstall = true}) async {
     // **ENHANCED**: Force reinstall is now enabled by default
     if (forceReinstall) {
-      print('🔄 Force reinstall enabled - removing existing Ollama installation...');
+      print('Force reinstall enabled - removing existing Ollama installation...');
       await cleanupAllData();
       _isInitialized = false;
       _ollamaPath = null;
@@ -38,7 +38,7 @@ class OllamaManager {
     if (_isInitialized && !forceReinstall) return true;
 
     try {
-      print('🚀 Initializing Ollama with auto-installation (force reinstall enabled)...');
+      print('Initializing Ollama with auto-installation (force reinstall enabled)...');
       
       // Check if Ollama is already installed on system
       if (await _isOllamaInstalled()) {
@@ -73,11 +73,11 @@ class OllamaManager {
       }
       
       _isInitialized = true;
-      print('🎉 Ollama ready with smart caching and persistent service!');
+      print('Ollama ready with smart caching and persistent service!');
       return true;
       
     } catch (e) {
-      print('❌ Failed to initialize Ollama: $e');
+      print('Failed to initialize Ollama: $e');
       _isInitialized = false;
       return false;
     }
@@ -85,14 +85,14 @@ class OllamaManager {
 
   /// **NEW**: Trigger a fresh reinstall of Ollama from the official website
   static Future<bool> triggerFreshInstall() async {
-    print('🔄 Triggering fresh Ollama installation from website...');
+    print('Triggering fresh Ollama installation from website...');
     return await initialize(forceReinstall: true);
   }
 
   /// **ENHANCED**: Download installer to user-accessible path and install
   static Future<bool> _downloadAndInstallToUserPath() async {
     try {
-      print('📥 Downloading Ollama installer to user-accessible path...');
+      print('Downloading Ollama installer to user-accessible path...');
       
       // Get user's Downloads directory (most accessible for users)
       Directory? downloadsDir;
@@ -109,28 +109,28 @@ class OllamaManager {
       downloadsDir ??= await getApplicationDocumentsDirectory();
 
       if (!await downloadsDir.exists()) {
-        print('❌ Could not access Downloads directory');
+        print('Could not access Downloads directory');
         return false;
       }
 
       final installerPath = path.join(downloadsDir.path, 'OllamaSetup_VentAI.exe');
       
-      print('📍 Download location: $installerPath');
+      print('Download location: $installerPath');
       
       // Download the official installer
       final response = await http.get(Uri.parse(_ollamaDownloadUrl));
       if (response.statusCode != 200) {
-        print('❌ Failed to download installer: ${response.statusCode}');
+        print('Failed to download installer: ${response.statusCode}');
         return false;
       }
       
       // Save installer to user-accessible path
       final installerFile = File(installerPath);
       await installerFile.writeAsBytes(response.bodyBytes);
-      print('✅ Installer saved to Downloads folder (${response.bodyBytes.length} bytes)');
+      print('Installer saved to Downloads folder (${response.bodyBytes.length} bytes)');
       
       // Run installer from the Downloads folder
-      print('🔧 Running Ollama installer from: $installerPath');
+      print('Running Ollama installer from: $installerPath');
       final installResult = await Process.run(
         installerPath,
         ['/S'], // Silent install flag
@@ -138,7 +138,7 @@ class OllamaManager {
       );
       
       if (installResult.exitCode == 0) {
-        print('✅ Ollama installer completed successfully');
+        print('Ollama installer completed successfully');
         
         // Wait for installation to settle
         await Future.delayed(const Duration(seconds: 20));
@@ -148,23 +148,23 @@ class OllamaManager {
           // Clean up installer (optional - user can keep it)
           try {
             await installerFile.delete();
-            print('🧹 Cleaned up installer file from Downloads');
+            print('Cleaned up installer file from Downloads');
           } catch (e) {
-            print('💡 Installer file kept in Downloads folder for user reference');
+            print('Installer file kept in Downloads folder for user reference');
           }
           return true;
         } else {
-          print('⚠️ Installation completed but Ollama not detected');
+          print('Installation completed but Ollama not detected');
           return false;
         }
       } else {
-        print('❌ Installer failed with exit code: ${installResult.exitCode}');
+        print('Installer failed with exit code: ${installResult.exitCode}');
         print('Error output: ${installResult.stderr}');
         return false;
       }
       
     } catch (e) {
-      print('❌ Download and install to user path failed: $e');
+      print('Download and install to user path failed: $e');
       return false;
     }
   }
@@ -243,7 +243,7 @@ class OllamaManager {
             final pathResult = result.stdout.toString().trim();
             if (pathResult.isNotEmpty) {
               _ollamaPath = pathResult.split('\n').first;
-              print('✅ Found Ollama via PATH: $_ollamaPath');
+              print('Found Ollama via PATH: $_ollamaPath');
               return _ollamaPath;
             }
           }
@@ -251,7 +251,7 @@ class OllamaManager {
           // Test direct file path
           if (await File(checkPath).exists()) {
             _ollamaPath = checkPath;
-            print('✅ Found Ollama at: $_ollamaPath');
+            print('Found Ollama at: $_ollamaPath');
             return _ollamaPath;
           }
         }
@@ -260,7 +260,7 @@ class OllamaManager {
       }
     }
     
-    print('❌ Ollama executable not found in any location');
+    print('Ollama executable not found in any location');
     return null;
   }
 
@@ -722,7 +722,7 @@ class OllamaManager {
   static String _buildEmpatheticPrompt(String message) {
     return '''You are Vent AI, a compassionate emotional support companion. Someone has shared: "$message"
 
-Respond with warmth, empathy, and understanding. Acknowledge their feelings and provide gentle, supportive guidance. Keep your response caring but concise (2-3 sentences).''';
+Respond to their message with warmth, empathy, and understanding. Acknowledge their feelings, their problem or struggle, and let them know that you are there for them. Suggest practical coping strategies that can apply to their situation. Make sure to provide gentle, supportive guidance. Keep your response caring and as long as necessary (4-6 sentences).''';
   }
 
   /// Detect crisis keywords

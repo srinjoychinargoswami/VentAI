@@ -23,7 +23,7 @@ class MultimodalFusionService {
           if (await audioFile.exists()) {
             final audioBytes = await audioFile.readAsBytes();
             audios.add(base64Encode(audioBytes));
-            debugPrint('🎵 Audio loaded: ${audioBytes.length} bytes');
+            debugPrint('Audio loaded: ${audioBytes.length} bytes');
           }
         } catch (e) {
           debugPrint('Error reading audio file: $e');
@@ -106,7 +106,7 @@ class MultimodalFusionService {
           final data = jsonDecode(response.body);
           final gemmaResponse = data['response'] as String? ?? 'I hear you and I\'m here to support you.';
           
-          debugPrint('✅ Gemma 3n response received: ${gemmaResponse.substring(0, gemmaResponse.length.clamp(0, 100))}...');
+          debugPrint('Gemma 3n response received: ${gemmaResponse.substring(0, gemmaResponse.length.clamp(0, 100))}...');
           
           // Return the structured result with actual Gemma response
           final result = {
@@ -333,7 +333,7 @@ class MultimodalFusionService {
     String? textMessage, 
     String? audioPath
   ) async {
-    debugPrint('🔄 Providing voice-focused fallback analysis');
+    debugPrint('Providing voice-focused fallback analysis');
     
     // Try voice analysis first if available
     if (audioPath != null) {
