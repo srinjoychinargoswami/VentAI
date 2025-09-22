@@ -21,7 +21,7 @@ import 'themes/app_theme.dart';
 /// Initialize voice services with proper permission handling
 Future<void> _initVoiceServices() async {
   try {
-    debugPrint('🎤 Requesting microphone permissions...');
+    debugPrint('Requesting microphone permissions...');
     
     final status = await Permission.microphone.status;
     if (!status.isGranted) {
@@ -147,7 +147,7 @@ class _VentAiAppState extends State<VentAiApp> with WidgetsBindingObserver {
       // Reset OllamaManager state
       OllamaManager.resetForTesting();
       
-      debugPrint('🧹 All setup data cleared - will run fresh installation');
+      debugPrint('All setup data cleared - will run fresh installation');
       
     } catch (e) {
       debugPrint('Error during force reset: $e');
@@ -182,7 +182,7 @@ class _VentAiAppState extends State<VentAiApp> with WidgetsBindingObserver {
       final tempOllamaDir = Directory(path.join(tempDir.path, 'ollama'));
       if (await tempOllamaDir.exists()) {
         await tempOllamaDir.delete(recursive: true);
-        debugPrint('🗑️ Deleted temp Ollama directory');
+        debugPrint('Deleted temp Ollama directory');
       }
 
     } catch (e) {
