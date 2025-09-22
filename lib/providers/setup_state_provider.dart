@@ -112,7 +112,7 @@ class SetupStateProvider extends ChangeNotifier {
         await _verifyAIIsFullyWorking();
         
         await markSetupComplete('ollama_gemma3n');
-        debugPrint('🏆 COMPLETE SETUP FINISHED - Auto-download and caching active');
+        debugPrint('COMPLETE SETUP FINISHED - Auto-download and caching active');
       } else {
         await _handleInstallationFailure('Ollama initialization failed - using intelligent offline fallback');
       }
@@ -352,7 +352,7 @@ class SetupStateProvider extends ChangeNotifier {
         case 'ollama_gemma3n':
           // Check if Ollama is initialized
           if (!OllamaManager.isInitialized) {
-            debugPrint('🔍 Ollama not initialized, verification failed');
+            debugPrint('Ollama not initialized, verification failed');
             return false;
           }
           
@@ -361,7 +361,7 @@ class SetupStateProvider extends ChangeNotifier {
           final allModelsAvailable = cacheInfo['allRequiredAvailable'] as bool? ?? false;
           
           if (!allModelsAvailable) {
-            debugPrint('🔍 Required models not cached after auto-download, verification failed');
+            debugPrint('Required models not cached after auto-download, verification failed');
             return false;
           }
           
@@ -372,7 +372,7 @@ class SetupStateProvider extends ChangeNotifier {
           );
           
           final isOllamaResponse = response['source']?.toString().contains('ollama') ?? false;
-          debugPrint('🔍 AI verification result with auto-downloaded components: $isOllamaResponse');
+          debugPrint('AI verification result with auto-downloaded components: $isOllamaResponse');
           return isOllamaResponse;
           
         case 'offline_intelligent':
