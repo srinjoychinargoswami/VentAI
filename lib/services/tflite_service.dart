@@ -5,10 +5,7 @@ import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'dart:convert';
-<<<<<<< HEAD
 import 'package:device_info_plus/device_info_plus.dart';
-=======
->>>>>>> de83f749acd4b0aaa03e84ccbf2ae8f87b338eef
 
 class TFLiteService {
   static TFLiteService? _instance;
@@ -19,47 +16,30 @@ class TFLiteService {
   Interpreter? _interpreter;
   Map<String, dynamic>? _tokenizer;
   bool _isModelLoaded = false;
-  bool _useEnhancedRules = false; // Switch to false when real models are ready
+  bool _useEnhancedRules = true; // Start with enhanced rules as fallback
   
   // Model selection and device specs
   String? _selectedModelName;
   String? _selectedModelPath;
   int? _deviceRAM;
   
-<<<<<<< HEAD
-  // UPDATED: Model configuration for MobileBERT (your actual model)
+  // FIXED: Model configuration for MobileBERT
   static const Map<String, String> _availableModels = {
-    'mobilebert': 'assets/models/1.tflite',  // ~96MB - Your MobileBERT model
-    // Removed gemma models since they're not available yet
+    'mobilebert': 'assets/models/mobilebert.tflite',
+    'enhanced_rules': 'built_in',
   };
   
   static const Map<String, int> _modelMemoryRequirements = {
     'mobilebert': 1,  // 1GB RAM minimum - very lightweight
+    'enhanced_rules': 0, // No RAM requirement
   };
   
   // Model paths (for when tokenizers are available)
   static const String _tokenizerAssetPath = 'assets/models/tokenizer_vocab.json';
   static const int _maxSequenceLength = 512;
   static const int _vocabularySize = 30522; // MobileBERT vocabulary size
-=======
-  // Model configuration for different device tiers (mirrors your Ollama approach)
-  static const Map<String, String> _availableModels = {
-    'gemma3n_e2b': 'assets/models/gemma3n_e2b.tflite',  // ~1.5GB - Standard devices
-    'gemma3n_e4b': 'assets/models/gemma3n_e4b.tflite',  // ~3GB - High-end devices
-  };
   
-  static const Map<String, int> _modelMemoryRequirements = {
-    'gemma3n_e2b': 3,  // 3GB RAM minimum
-    'gemma3n_e4b': 6,  // 6GB RAM minimum
-  };
-  
-  // Model paths (for when models are available)
-  static const String _tokenizerAssetPath = 'assets/models/tokenizer_vocab.json';
-  static const int _maxSequenceLength = 512;
-  static const int _vocabularySize = 32000;
->>>>>>> de83f749acd4b0aaa03e84ccbf2ae8f87b338eef
-
-  /// Mirror your OllamaService API exactly
+  /// FIXED: Check if TensorFlow Lite service is running
   Future<bool> isServiceRunning() async {
     // TensorFlow Lite is always "running" on mobile/supported platforms
     return Platform.isAndroid || Platform.isIOS;
@@ -70,20 +50,27 @@ class TFLiteService {
     final available = <String>[];
     
     for (final entry in _availableModels.entries) {
+      if (entry.key == 'enhanced_rules') {
+        available.add(entry.key);
+        continue;
+      }
+      
       try {
         // Check if model file exists in assets
         await rootBundle.load(entry.value);
         available.add(entry.key);
-        print('✅ Found model: ${entry.key}');
+        print('Found model: ${entry.key}');
       } catch (e) {
-        print('❌ Model not found: ${entry.key}');
+        print('Model not found: ${entry.key}');
       }
     }
     
     // Fallback if no real models found
-    if (available.isEmpty) {
-      print('📚 No TensorFlow Lite models found - using enhanced rules');
-      available.add('enhanced_rules');
+    if (available.isEmpty || available.every((model) => model == 'enhanced_rules')) {
+      print('No TensorFlow Lite models found - using enhanced rules');
+      if (!available.contains('enhanced_rules')) {
+        available.add('enhanced_rules');
+      }
     }
     
     return available;
@@ -92,7 +79,7 @@ class TFLiteService {
   /// Check if required models are available
   Future<bool> hasRequiredModels() async {
     final models = await getAvailableModels();
-    return models.isNotEmpty && !models.contains('enhanced_rules');
+    return models.isNotEmpty && models.any((model) => model != 'enhanced_rules');
   }
   
   /// Get device RAM in GB (mobile version of your Windows logic)
@@ -108,15 +95,14 @@ class TFLiteService {
         _deviceRAM = 4; // Default for other platforms
       }
     } catch (e) {
-      print('⚠️ Could not detect RAM, using safe default: $e');
+      print('Could not detect RAM, using safe default: $e');
       _deviceRAM = 4;
     }
     
-    print('📊 Device RAM detected: ${_deviceRAM}GB');
+    print('Device RAM detected: ${_deviceRAM}GB');
     return _deviceRAM!;
   }
 
-<<<<<<< HEAD
   /// Estimate Android device RAM based on available indicators (enhanced with device_info_plus)
   Future<int> _estimateAndroidRAM() async {
     try {
@@ -141,29 +127,12 @@ class TFLiteService {
       return 4; // Conservative estimate for older devices
     } catch (e) {
       print('Device info detection failed: $e');
-=======
-  /// Estimate Android device RAM based on available indicators
-  Future<int> _estimateAndroidRAM() async {
-    try {
-      // This is a simplified approach - could be enhanced with device_info_plus plugin
-      // For now, use educated guesses based on platform capabilities
-      
-      // Check available disk space as a proxy for device tier
-      final tempDir = await getTemporaryDirectory();
-      final stat = await tempDir.stat();
-      
-      // High-end devices usually have more storage
-      // This is a rough heuristic - you can improve with device_info_plus
-      return 6; // Assume modern Android device for now
-    } catch (e) {
->>>>>>> de83f749acd4b0aaa03e84ccbf2ae8f87b338eef
       return 4; // Conservative estimate
     }
   }
 
   /// Estimate iOS device RAM
   Future<int> _estimateiOSRAM() async {
-<<<<<<< HEAD
     try {
       final deviceInfo = DeviceInfoPlugin();
       final iosInfo = await deviceInfo.iosInfo;
@@ -183,48 +152,31 @@ class TFLiteService {
     }
   }
   
-  /// UPDATED: Get best model based on device specs (focuses on MobileBERT)
-=======
-    // iOS devices generally have good specs and efficient memory management
-    // Most modern iOS devices can handle larger models
-    return 6; // Most iOS devices can handle e4b model
-  }
-  
-  /// Get best model based on device specs (mirrors your Ollama getBestAvailableModel)
->>>>>>> de83f749acd4b0aaa03e84ccbf2ae8f87b338eef
+  /// FIXED: Get best model based on device specs (focuses on MobileBERT)
   Future<String> getBestAvailableModelForDevice() async {
     final deviceRAM = await _getDeviceRAM();
     final availableModels = await getAvailableModels();
     
-    print('🎯 Selecting best model for device...');
-    print('📊 Device specs: ${deviceRAM}GB RAM');
-    print('📦 Available models: $availableModels');
+    print('Selecting best model for device...');
+    print('Device specs: ${deviceRAM}GB RAM');
+    print('Available models: $availableModels');
     
-<<<<<<< HEAD
     // Use MobileBERT if available (works on any device with 1GB+ RAM)
     if (availableModels.contains('mobilebert')) {
-      print('🤖 Using MobileBERT for efficient offline processing');
+      print('Using MobileBERT for efficient offline processing');
       return 'mobilebert';
-=======
-    // Prefer e4b for high-end devices (like your Ollama logic)
-    if (deviceRAM >= 6 && availableModels.contains('gemma3n_e4b')) {
-      print('🚀 Using Gemma 3n E4B for high-spec device');
-      return 'gemma3n_e4b';
-    } else if (deviceRAM >= 3 && availableModels.contains('gemma3n_e2b')) {
-      print('📱 Using Gemma 3n E2B for standard device');
-      return 'gemma3n_e2b';
->>>>>>> de83f749acd4b0aaa03e84ccbf2ae8f87b338eef
     }
     
     // Fallback to whatever is available
-    if (availableModels.isNotEmpty && !availableModels.contains('enhanced_rules')) {
-      final fallbackModel = availableModels.first;
-      print('⚠️ Using fallback model: $fallbackModel');
+    final realModels = availableModels.where((model) => model != 'enhanced_rules').toList();
+    if (realModels.isNotEmpty) {
+      final fallbackModel = realModels.first;
+      print('Using fallback model: $fallbackModel');
       return fallbackModel;
     }
     
     // If no models available, use enhanced rules
-    print('📚 No models available - will use enhanced rules');
+    print('No models available - will use enhanced rules');
     return 'enhanced_rules';
   }
   
@@ -233,7 +185,7 @@ class TFLiteService {
     try {
       return await getBestAvailableModelForDevice();
     } catch (e) {
-      print('❌ Error selecting model: $e');
+      print('Error selecting model: $e');
       return 'enhanced_rules';
     }
   }
@@ -241,11 +193,7 @@ class TFLiteService {
   /// Initialize - tries to load models, falls back gracefully (enhanced version)
   Future<bool> initialize() async {
     try {
-<<<<<<< HEAD
-      print('🤖 Initializing TensorFlow Lite service with MobileBERT...');
-=======
-      print('🤖 Initializing TensorFlow Lite service with adaptive model selection...');
->>>>>>> de83f749acd4b0aaa03e84ccbf2ae8f87b338eef
+      print('Initializing TensorFlow Lite service with MobileBERT...');
       
       // Get the best model for this device
       _selectedModelName = await getBestAvailableModelForDevice();
@@ -253,7 +201,7 @@ class TFLiteService {
       if (_selectedModelName == 'enhanced_rules') {
         _isModelLoaded = false;
         _useEnhancedRules = true;
-        print('📚 Using enhanced intelligent response system (no models found)');
+        print(' Using enhanced intelligent response system (no models found)');
         return true;
       }
       
@@ -263,52 +211,47 @@ class TFLiteService {
       if (modelLoadSuccess) {
         _isModelLoaded = true;
         _useEnhancedRules = false;
-        print('✅ Real TensorFlow Lite model loaded successfully: $_selectedModelName');
+        print('Real TensorFlow Lite model loaded successfully: $_selectedModelName');
       } else {
         _isModelLoaded = false;
         _useEnhancedRules = true;
-        print('📚 Model loading failed - using enhanced intelligent responses');
+        print('Model loading failed - using enhanced intelligent responses');
       }
       
       // Test the system
       await _testSystem();
       
-      print('✅ TensorFlow Lite service ready!');
+      print('TensorFlow Lite service ready!');
       return true;
       
     } catch (e) {
-      print('❌ TensorFlow Lite initialization error: $e');
+      print('TensorFlow Lite initialization error: $e');
       _useEnhancedRules = true;
       return true; // Still return true - enhanced rules work fine
     }
   }
   
-<<<<<<< HEAD
   /// Try to load real TensorFlow Lite models with enhanced error handling
-=======
-  /// Try to load real TensorFlow Lite models
->>>>>>> de83f749acd4b0aaa03e84ccbf2ae8f87b338eef
   Future<bool> _tryLoadRealModels() async {
     try {
-      print('📦 Attempting to load TensorFlow Lite model: $_selectedModelName');
+      print('Attempting to load TensorFlow Lite model: $_selectedModelName');
       
       _selectedModelPath = _availableModels[_selectedModelName];
       if (_selectedModelPath == null) {
-        print('❌ No path found for model: $_selectedModelName');
+        print(' No path found for model: $_selectedModelName');
         return false;
       }
       
       // Check if model asset exists
       try {
         await rootBundle.load(_selectedModelPath!);
-        print('✅ Model asset found: $_selectedModelPath');
+        print('Model asset found: $_selectedModelPath');
         
         _interpreter = await Interpreter.fromAsset(_selectedModelPath!);
-<<<<<<< HEAD
         
         // ENHANCED: Validate interpreter and tensors
         if (_interpreter == null) {
-          print('❌ Interpreter is null after loading');
+          print('Interpreter is null after loading');
           return false;
         }
         
@@ -318,52 +261,46 @@ class TFLiteService {
           final outputTensor = _interpreter!.getOutputTensor(0);
           
           if (inputTensor.shape.isEmpty || outputTensor.shape.isEmpty) {
-            print('❌ Invalid tensor shapes - input: ${inputTensor.shape}, output: ${outputTensor.shape}');
+            print('Invalid tensor shapes - input: ${inputTensor.shape}, output: ${outputTensor.shape}');
             _interpreter!.close();
             _interpreter = null;
             return false;
           }
           
-          print('✅ TensorFlow Lite interpreter loaded for $_selectedModelName');
-          print('📊 Input shape: ${inputTensor.shape}');
-          print('📊 Output shape: ${outputTensor.shape}');
-          print('📊 Input type: ${inputTensor.type}');
-          print('📊 Output type: ${outputTensor.type}');
+          print('TensorFlow Lite interpreter loaded for $_selectedModelName');
+          print('Input shape: ${inputTensor.shape}');
+          print('Output shape: ${outputTensor.shape}');
+          print('Input type: ${inputTensor.type}');
+          print('Output type: ${outputTensor.type}');
           
         } catch (tensorError) {
-          print('❌ Tensor access error: $tensorError');
+          print('Tensor access error: $tensorError');
           _interpreter?.close();
           _interpreter = null;
           return false;
         }
-=======
-        print('✅ TensorFlow Lite interpreter loaded for $_selectedModelName');
->>>>>>> de83f749acd4b0aaa03e84ccbf2ae8f87b338eef
         
         // Try to load tokenizer (optional)
         try {
           final tokenizerData = await rootBundle.loadString(_tokenizerAssetPath);
           _tokenizer = jsonDecode(tokenizerData);
-          print('✅ Tokenizer loaded');
+          print('Tokenizer loaded');
         } catch (tokenizerError) {
-          print('💡 No external tokenizer found - using built-in tokenization');
+          print('No external tokenizer found - using built-in tokenization');
           _tokenizer = null;
         }
         
         return true;
         
       } catch (assetError) {
-        print('📝 Model assets not found: $assetError');
+        print('Model assets not found: $assetError');
         return false;
       }
       
     } catch (e) {
-      print('❌ Model loading failed: $e');
-<<<<<<< HEAD
+      print('Model loading failed: $e');
       _interpreter?.close();
       _interpreter = null;
-=======
->>>>>>> de83f749acd4b0aaa03e84ccbf2ae8f87b338eef
       return false;
     }
   }
@@ -371,7 +308,7 @@ class TFLiteService {
   /// Test the current system configuration
   Future<void> _testSystem() async {
     try {
-      print('🧪 Testing current system configuration...');
+      print('Testing current system configuration...');
       
       final testResponse = await generateEmotionalResponse(
         "I'm feeling a bit anxious today",
@@ -379,47 +316,39 @@ class TFLiteService {
       );
       
       if (testResponse != null && testResponse.isNotEmpty) {
-        print('✅ System test successful');
-        print('📊 Response mode: ${_useEnhancedRules ? "Enhanced Rules" : "Neural Network ($_selectedModelName)"}');
+        print('System test successful');
+        print('Response mode: ${_useEnhancedRules ? "Enhanced Rules" : "Neural Network ($_selectedModelName)"}');
       } else {
-        print('❌ System test failed');
+        print('System test failed');
       }
       
     } catch (e) {
-      print('❌ System test error: $e');
+      print('System test error: $e');
     }
   }
   
   /// Mirror your emotional response method signature exactly
   Future<String?> generateEmotionalResponse(String userMessage, {String? mood}) async {
     try {
-      print('🧠 TFLiteService.generateEmotionalResponse called with: "${userMessage.length > 30 ? userMessage.substring(0, 30) + "..." : userMessage}"');
+      print('TFLiteService.generateEmotionalResponse called with: "${userMessage.length > 30 ? userMessage.substring(0, 30) + "..." : userMessage}"');
       
       // Ensure service is initialized
       if (!_isModelLoaded && !_useEnhancedRules) {
-        print('⚙️ TensorFlow Lite not initialized, initializing now...');
+        print('TensorFlow Lite not initialized, initializing now...');
         await initialize();
       }
       
       // Use real model if available
       if (_isModelLoaded && !_useEnhancedRules && _interpreter != null) {
-<<<<<<< HEAD
         print('Using neural network model: $_selectedModelName');
         final neuralResponse = await _runModelInference(userMessage, mood);
         if (neuralResponse != null && neuralResponse.isNotEmpty) {
           print('Neural network response: ${neuralResponse.substring(0, neuralResponse.length > 50 ? 50 : neuralResponse.length)}...');
-=======
-        print('🔥 Using neural network model: $_selectedModelName');
-        final neuralResponse = await _runModelInference(userMessage, mood);
-        if (neuralResponse != null && neuralResponse.isNotEmpty) {
-          print('✅ Neural network response: ${neuralResponse.substring(0, neuralResponse.length > 50 ? 50 : neuralResponse.length)}...');
->>>>>>> de83f749acd4b0aaa03e84ccbf2ae8f87b338eef
           return neuralResponse;
         }
       }
       
       // Fallback to enhanced rules
-<<<<<<< HEAD
       print('Using enhanced intelligent responses');
       final response = _generateContextAwareResponse(userMessage, mood);
       
@@ -429,22 +358,10 @@ class TFLiteService {
       
     } catch (e) {
       print('TensorFlow Lite response generation failed: $e');
-=======
-      print('📚 Using enhanced intelligent responses');
-      final response = _generateContextAwareResponse(userMessage, mood);
-      
-      print('✅ Generated response: ${response.substring(0, response.length > 50 ? 50 : response.length)}...');
-      print('📊 Response length: ${response.length} characters');
-      return response;
-      
-    } catch (e) {
-      print('❌ TensorFlow Lite response generation failed: $e');
->>>>>>> de83f749acd4b0aaa03e84ccbf2ae8f87b338eef
       return _generateContextAwareResponse(userMessage, mood); // Always have fallback
     }
   }
   
-<<<<<<< HEAD
   /// Mirror the exact signature from your OllamaManager - THIS IS THE KEY METHOD
   Future<Map<String, dynamic>> generateEmpatheticResponse(String message, [String? model]) async {
     print('TFLiteService.generateEmpatheticResponse called with: "${message.length > 50 ? message.substring(0, 50) + "..." : message}"');
@@ -519,7 +436,7 @@ class TFLiteService {
     return ['Take deep breaths', 'Stay present in the moment', 'You are worthy of support'];
   }
   
-  /// FINAL DEBUGGED FIX: Run the actual MobileBERT model inference with correct data types
+  /// FIXED: Run the actual MobileBERT model inference with correct data types
   Future<String?> _runModelInference(String userMessage, String? mood) async {
     // SAFE: Multiple null checks
     if (_interpreter == null) {
@@ -528,7 +445,7 @@ class TFLiteService {
     }
     
     try {
-      print(' Running MobileBERT inference...');
+      print('Running MobileBERT inference...');
       
       // SAFE: Get tensors with null checks
       final inputTensor = _interpreter!.getInputTensor(0);
@@ -547,19 +464,10 @@ class TFLiteService {
       
       print('Tensor validation passed - input: ${inputTensor.shape}, output: ${outputTensor.shape}');
       print('Input type: ${inputTensor.type}, Output type: ${outputTensor.type}');
-=======
-  /// Run the actual model inference
-  Future<String?> _runModelInference(String userMessage, String? mood) async {
-    if (_interpreter == null) return null;
-    
-    try {
-      print('🔥 Running TensorFlow Lite inference...');
->>>>>>> de83f749acd4b0aaa03e84ccbf2ae8f87b338eef
       
       // Create empathetic prompt
       final prompt = _buildEmpatheticPrompt(userMessage, mood);
       
-<<<<<<< HEAD
       // Tokenize input for BERT model
       final tokens = _tokenizeTextForBERT(prompt);
       final maxLen = inputTensor.shape[1]; // Get max length safely
@@ -578,7 +486,7 @@ class TFLiteService {
       print('Output buffer prepared - size: $outputSize (Float32List)');
       
       // DEBUG: Check types before inference
-      print(' Debug types - input: ${input.runtimeType}, output: ${output.runtimeType}');
+      print('Debug types - input: ${input.runtimeType}, output: ${output.runtimeType}');
       
       // SAFE: Run inference with proper error handling
       final startTime = DateTime.now();
@@ -605,7 +513,7 @@ class TFLiteService {
     }
   }
   
-  /// UPDATED: Generate contextual response using BERT embeddings (handles both data types)
+  /// FIXED: Generate contextual response using BERT embeddings (handles both data types)
   String _generateBERTContextualResponse(String userMessage, Float32List embeddings) {
     try {
       // Analyze the embeddings to understand emotional context
@@ -652,44 +560,6 @@ What would feel most helpful for you right now in our conversation?''';
     } catch (e) {
       print('BERT response generation error: $e');
       return _generateContextAwareResponse(userMessage, null);
-=======
-      // Tokenize input
-      final tokens = _tokenizeText(prompt);
-      final inputShape = _interpreter!.getInputTensor(0).shape;
-      
-      // Prepare input (pad or truncate to model's expected length)
-      final maxLen = inputShape[1];
-      final input = List<int>.filled(maxLen, 0);
-      for (int i = 0; i < tokens.length && i < maxLen; i++) {
-        input[i] = tokens[i];
-      }
-      
-      // Prepare output tensor
-      final outputShape = _interpreter!.getOutputTensor(0).shape;
-      final output = List.generate(
-        outputShape[0], 
-        (i) => List.generate(
-          outputShape[1], 
-          (j) => List.filled(outputShape[2], 0.0)
-        )
-      );
-      
-      // Run inference
-      final startTime = DateTime.now();
-      _interpreter!.run([input], output);
-      final inferenceTime = DateTime.now().difference(startTime).inMilliseconds;
-      
-      print('⚡ Inference completed in ${inferenceTime}ms');
-      
-      // Convert output to text
-      final responseText = _detokenizeOutput(output);
-      
-      return responseText;
-      
-    } catch (e) {
-      print('Model inference error: $e');
-      return null;
->>>>>>> de83f749acd4b0aaa03e84ccbf2ae8f87b338eef
     }
   }
   
@@ -704,8 +574,7 @@ Respond with empathy and understanding. Provide emotional support and gentle gui
 Response:""";
   }
   
-<<<<<<< HEAD
-  /// UPDATED: Tokenize text for BERT model with enhanced error handling
+  /// FIXED: Tokenize text for BERT model with enhanced error handling
   List<int> _tokenizeTextForBERT(String text) {
     try {
       // If we have external tokenizer, use it
@@ -750,80 +619,15 @@ Response:""";
       // External tokenizer logic (when available)
       if (_tokenizer!.containsKey('vocab')) {
         // Process with external tokenizer
-        return [];
+        return [101, 102]; // Placeholder
       }
-      return [];
+      return [101, 102];
     } catch (e) {
       print('External tokenizer error: $e');
-      return [];
+      return [101, 102];
     }
   }
   
-=======
-  /// Tokenize text input (with built-in fallback)
-  List<int> _tokenizeText(String text) {
-    // If we have external tokenizer, use it
-    if (_tokenizer != null) {
-      return _useExternalTokenizer(text);
-    }
-    
-    // Otherwise, use simple built-in approach
-    print('🔤 Using built-in tokenization');
-    
-    final words = text.toLowerCase().split(' ');
-    final tokens = <int>[];
-    
-    for (final word in words) {
-      // Simple hash-based approach (model will handle internally)
-      final hash = word.hashCode.abs() % _vocabularySize;
-      tokens.add(hash);
-    }
-    
-    return tokens.take(_maxSequenceLength).toList();
-  }
-  
-  List<int> _useExternalTokenizer(String text) {
-    // External tokenizer logic (when available)
-    return [];
-  }
-  
-  /// Convert model output back to text
-  String _detokenizeOutput(List<List<List<double>>> output) {
-    try {
-      // Get the most likely tokens from output
-      final tokens = <int>[];
-      for (final timestep in output[0]) {
-        var maxIndex = 0;
-        var maxValue = timestep[0];
-        
-        for (int i = 1; i < timestep.length; i++) {
-          if (timestep[i] > maxValue) {
-            maxValue = timestep[i];
-            maxIndex = i;
-          }
-        }
-        tokens.add(maxIndex);
-      }
-      
-      // Convert tokens back to text (simplified)
-      final words = tokens.map((token) => _tokenToWord(token)).where((word) => word.isNotEmpty).toList();
-      
-      return words.join(' ').trim();
-      
-    } catch (e) {
-      print('❌ Detokenization error: $e');
-      return '';
-    }
-  }
-  
-  /// Convert token ID back to word (placeholder)
-  String _tokenToWord(int tokenId) {
-    // This is a simplified conversion - real tokenizers have vocabulary maps
-    final words = ['I', 'understand', 'you', 'are', 'feeling', 'this', 'way', 'and', 'want', 'to', 'help'];
-    return tokenId < words.length ? words[tokenId % words.length] : '';
-  }
-  
->>>>>>> de83f749acd4b0aaa03e84ccbf2ae8f87b338eef
   /// Generate intelligent responses based on context (enhanced version)
   String _generateContextAwareResponse(String userMessage, String? mood) {
     print('Generating context-aware response for emotional content analysis...');
@@ -952,10 +756,9 @@ Would you like to tell me more about what's been on your mind? I'm here to suppo
       'interpreter_ready': _interpreter != null,
       'using_enhanced_rules': _useEnhancedRules,
       'platform': Platform.isAndroid ? 'android' : Platform.isIOS ? 'ios' : 'other',
-<<<<<<< HEAD
       'unlimited_usage': true, // Key selling point
-      'model_file': '1.tflite',
-      'model_size': '96MB',
+      'model_file': _selectedModelPath ?? 'enhanced_rules',
+      'model_size': _isModelLoaded ? '96MB' : '0MB (rules-based)',
     };
   }
   
@@ -971,22 +774,8 @@ Would you like to tell me more about what's been on your mind? I'm here to suppo
       _deviceRAM = null;
       _selectedModelName = null;
       _selectedModelPath = null;
-      print('TensorFlow Lite service disposed safely');
+      print('🧹 TensorFlow Lite service disposed safely');
     }
-=======
-    };
-  }
-  
-  /// Cleanup method
-  Future<void> dispose() async {
-    _interpreter?.close();
-    _interpreter = null;
-    _isModelLoaded = false;
-    _deviceRAM = null;
-    _selectedModelName = null;
-    _selectedModelPath = null;
-    print('TensorFlow Lite service disposed');
->>>>>>> de83f749acd4b0aaa03e84ccbf2ae8f87b338eef
   }
 }
 
