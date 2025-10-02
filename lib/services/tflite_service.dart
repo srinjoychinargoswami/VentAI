@@ -5,7 +5,10 @@ import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'dart:convert';
+<<<<<<< HEAD
 import 'package:device_info_plus/device_info_plus.dart';
+=======
+>>>>>>> de83f749acd4b0aaa03e84ccbf2ae8f87b338eef
 
 class TFLiteService {
   static TFLiteService? _instance;
@@ -23,6 +26,7 @@ class TFLiteService {
   String? _selectedModelPath;
   int? _deviceRAM;
   
+<<<<<<< HEAD
   // UPDATED: Model configuration for MobileBERT (your actual model)
   static const Map<String, String> _availableModels = {
     'mobilebert': 'assets/models/1.tflite',  // ~96MB - Your MobileBERT model
@@ -37,6 +41,23 @@ class TFLiteService {
   static const String _tokenizerAssetPath = 'assets/models/tokenizer_vocab.json';
   static const int _maxSequenceLength = 512;
   static const int _vocabularySize = 30522; // MobileBERT vocabulary size
+=======
+  // Model configuration for different device tiers (mirrors your Ollama approach)
+  static const Map<String, String> _availableModels = {
+    'gemma3n_e2b': 'assets/models/gemma3n_e2b.tflite',  // ~1.5GB - Standard devices
+    'gemma3n_e4b': 'assets/models/gemma3n_e4b.tflite',  // ~3GB - High-end devices
+  };
+  
+  static const Map<String, int> _modelMemoryRequirements = {
+    'gemma3n_e2b': 3,  // 3GB RAM minimum
+    'gemma3n_e4b': 6,  // 6GB RAM minimum
+  };
+  
+  // Model paths (for when models are available)
+  static const String _tokenizerAssetPath = 'assets/models/tokenizer_vocab.json';
+  static const int _maxSequenceLength = 512;
+  static const int _vocabularySize = 32000;
+>>>>>>> de83f749acd4b0aaa03e84ccbf2ae8f87b338eef
 
   /// Mirror your OllamaService API exactly
   Future<bool> isServiceRunning() async {
@@ -95,6 +116,7 @@ class TFLiteService {
     return _deviceRAM!;
   }
 
+<<<<<<< HEAD
   /// Estimate Android device RAM based on available indicators (enhanced with device_info_plus)
   Future<int> _estimateAndroidRAM() async {
     try {
@@ -119,12 +141,29 @@ class TFLiteService {
       return 4; // Conservative estimate for older devices
     } catch (e) {
       print('Device info detection failed: $e');
+=======
+  /// Estimate Android device RAM based on available indicators
+  Future<int> _estimateAndroidRAM() async {
+    try {
+      // This is a simplified approach - could be enhanced with device_info_plus plugin
+      // For now, use educated guesses based on platform capabilities
+      
+      // Check available disk space as a proxy for device tier
+      final tempDir = await getTemporaryDirectory();
+      final stat = await tempDir.stat();
+      
+      // High-end devices usually have more storage
+      // This is a rough heuristic - you can improve with device_info_plus
+      return 6; // Assume modern Android device for now
+    } catch (e) {
+>>>>>>> de83f749acd4b0aaa03e84ccbf2ae8f87b338eef
       return 4; // Conservative estimate
     }
   }
 
   /// Estimate iOS device RAM
   Future<int> _estimateiOSRAM() async {
+<<<<<<< HEAD
     try {
       final deviceInfo = DeviceInfoPlugin();
       final iosInfo = await deviceInfo.iosInfo;
@@ -145,6 +184,14 @@ class TFLiteService {
   }
   
   /// UPDATED: Get best model based on device specs (focuses on MobileBERT)
+=======
+    // iOS devices generally have good specs and efficient memory management
+    // Most modern iOS devices can handle larger models
+    return 6; // Most iOS devices can handle e4b model
+  }
+  
+  /// Get best model based on device specs (mirrors your Ollama getBestAvailableModel)
+>>>>>>> de83f749acd4b0aaa03e84ccbf2ae8f87b338eef
   Future<String> getBestAvailableModelForDevice() async {
     final deviceRAM = await _getDeviceRAM();
     final availableModels = await getAvailableModels();
@@ -153,10 +200,20 @@ class TFLiteService {
     print('📊 Device specs: ${deviceRAM}GB RAM');
     print('📦 Available models: $availableModels');
     
+<<<<<<< HEAD
     // Use MobileBERT if available (works on any device with 1GB+ RAM)
     if (availableModels.contains('mobilebert')) {
       print('🤖 Using MobileBERT for efficient offline processing');
       return 'mobilebert';
+=======
+    // Prefer e4b for high-end devices (like your Ollama logic)
+    if (deviceRAM >= 6 && availableModels.contains('gemma3n_e4b')) {
+      print('🚀 Using Gemma 3n E4B for high-spec device');
+      return 'gemma3n_e4b';
+    } else if (deviceRAM >= 3 && availableModels.contains('gemma3n_e2b')) {
+      print('📱 Using Gemma 3n E2B for standard device');
+      return 'gemma3n_e2b';
+>>>>>>> de83f749acd4b0aaa03e84ccbf2ae8f87b338eef
     }
     
     // Fallback to whatever is available
@@ -184,7 +241,11 @@ class TFLiteService {
   /// Initialize - tries to load models, falls back gracefully (enhanced version)
   Future<bool> initialize() async {
     try {
+<<<<<<< HEAD
       print('🤖 Initializing TensorFlow Lite service with MobileBERT...');
+=======
+      print('🤖 Initializing TensorFlow Lite service with adaptive model selection...');
+>>>>>>> de83f749acd4b0aaa03e84ccbf2ae8f87b338eef
       
       // Get the best model for this device
       _selectedModelName = await getBestAvailableModelForDevice();
@@ -222,7 +283,11 @@ class TFLiteService {
     }
   }
   
+<<<<<<< HEAD
   /// Try to load real TensorFlow Lite models with enhanced error handling
+=======
+  /// Try to load real TensorFlow Lite models
+>>>>>>> de83f749acd4b0aaa03e84ccbf2ae8f87b338eef
   Future<bool> _tryLoadRealModels() async {
     try {
       print('📦 Attempting to load TensorFlow Lite model: $_selectedModelName');
@@ -239,6 +304,7 @@ class TFLiteService {
         print('✅ Model asset found: $_selectedModelPath');
         
         _interpreter = await Interpreter.fromAsset(_selectedModelPath!);
+<<<<<<< HEAD
         
         // ENHANCED: Validate interpreter and tensors
         if (_interpreter == null) {
@@ -270,6 +336,9 @@ class TFLiteService {
           _interpreter = null;
           return false;
         }
+=======
+        print('✅ TensorFlow Lite interpreter loaded for $_selectedModelName');
+>>>>>>> de83f749acd4b0aaa03e84ccbf2ae8f87b338eef
         
         // Try to load tokenizer (optional)
         try {
@@ -290,8 +359,11 @@ class TFLiteService {
       
     } catch (e) {
       print('❌ Model loading failed: $e');
+<<<<<<< HEAD
       _interpreter?.close();
       _interpreter = null;
+=======
+>>>>>>> de83f749acd4b0aaa03e84ccbf2ae8f87b338eef
       return false;
     }
   }
@@ -331,15 +403,23 @@ class TFLiteService {
       
       // Use real model if available
       if (_isModelLoaded && !_useEnhancedRules && _interpreter != null) {
+<<<<<<< HEAD
         print('Using neural network model: $_selectedModelName');
         final neuralResponse = await _runModelInference(userMessage, mood);
         if (neuralResponse != null && neuralResponse.isNotEmpty) {
           print('Neural network response: ${neuralResponse.substring(0, neuralResponse.length > 50 ? 50 : neuralResponse.length)}...');
+=======
+        print('🔥 Using neural network model: $_selectedModelName');
+        final neuralResponse = await _runModelInference(userMessage, mood);
+        if (neuralResponse != null && neuralResponse.isNotEmpty) {
+          print('✅ Neural network response: ${neuralResponse.substring(0, neuralResponse.length > 50 ? 50 : neuralResponse.length)}...');
+>>>>>>> de83f749acd4b0aaa03e84ccbf2ae8f87b338eef
           return neuralResponse;
         }
       }
       
       // Fallback to enhanced rules
+<<<<<<< HEAD
       print('Using enhanced intelligent responses');
       final response = _generateContextAwareResponse(userMessage, mood);
       
@@ -349,10 +429,22 @@ class TFLiteService {
       
     } catch (e) {
       print('TensorFlow Lite response generation failed: $e');
+=======
+      print('📚 Using enhanced intelligent responses');
+      final response = _generateContextAwareResponse(userMessage, mood);
+      
+      print('✅ Generated response: ${response.substring(0, response.length > 50 ? 50 : response.length)}...');
+      print('📊 Response length: ${response.length} characters');
+      return response;
+      
+    } catch (e) {
+      print('❌ TensorFlow Lite response generation failed: $e');
+>>>>>>> de83f749acd4b0aaa03e84ccbf2ae8f87b338eef
       return _generateContextAwareResponse(userMessage, mood); // Always have fallback
     }
   }
   
+<<<<<<< HEAD
   /// Mirror the exact signature from your OllamaManager - THIS IS THE KEY METHOD
   Future<Map<String, dynamic>> generateEmpatheticResponse(String message, [String? model]) async {
     print('TFLiteService.generateEmpatheticResponse called with: "${message.length > 50 ? message.substring(0, 50) + "..." : message}"');
@@ -455,10 +547,19 @@ class TFLiteService {
       
       print('Tensor validation passed - input: ${inputTensor.shape}, output: ${outputTensor.shape}');
       print('Input type: ${inputTensor.type}, Output type: ${outputTensor.type}');
+=======
+  /// Run the actual model inference
+  Future<String?> _runModelInference(String userMessage, String? mood) async {
+    if (_interpreter == null) return null;
+    
+    try {
+      print('🔥 Running TensorFlow Lite inference...');
+>>>>>>> de83f749acd4b0aaa03e84ccbf2ae8f87b338eef
       
       // Create empathetic prompt
       final prompt = _buildEmpatheticPrompt(userMessage, mood);
       
+<<<<<<< HEAD
       // Tokenize input for BERT model
       final tokens = _tokenizeTextForBERT(prompt);
       final maxLen = inputTensor.shape[1]; // Get max length safely
@@ -551,6 +652,44 @@ What would feel most helpful for you right now in our conversation?''';
     } catch (e) {
       print('BERT response generation error: $e');
       return _generateContextAwareResponse(userMessage, null);
+=======
+      // Tokenize input
+      final tokens = _tokenizeText(prompt);
+      final inputShape = _interpreter!.getInputTensor(0).shape;
+      
+      // Prepare input (pad or truncate to model's expected length)
+      final maxLen = inputShape[1];
+      final input = List<int>.filled(maxLen, 0);
+      for (int i = 0; i < tokens.length && i < maxLen; i++) {
+        input[i] = tokens[i];
+      }
+      
+      // Prepare output tensor
+      final outputShape = _interpreter!.getOutputTensor(0).shape;
+      final output = List.generate(
+        outputShape[0], 
+        (i) => List.generate(
+          outputShape[1], 
+          (j) => List.filled(outputShape[2], 0.0)
+        )
+      );
+      
+      // Run inference
+      final startTime = DateTime.now();
+      _interpreter!.run([input], output);
+      final inferenceTime = DateTime.now().difference(startTime).inMilliseconds;
+      
+      print('⚡ Inference completed in ${inferenceTime}ms');
+      
+      // Convert output to text
+      final responseText = _detokenizeOutput(output);
+      
+      return responseText;
+      
+    } catch (e) {
+      print('Model inference error: $e');
+      return null;
+>>>>>>> de83f749acd4b0aaa03e84ccbf2ae8f87b338eef
     }
   }
   
@@ -565,6 +704,7 @@ Respond with empathy and understanding. Provide emotional support and gentle gui
 Response:""";
   }
   
+<<<<<<< HEAD
   /// UPDATED: Tokenize text for BERT model with enhanced error handling
   List<int> _tokenizeTextForBERT(String text) {
     try {
@@ -619,6 +759,71 @@ Response:""";
     }
   }
   
+=======
+  /// Tokenize text input (with built-in fallback)
+  List<int> _tokenizeText(String text) {
+    // If we have external tokenizer, use it
+    if (_tokenizer != null) {
+      return _useExternalTokenizer(text);
+    }
+    
+    // Otherwise, use simple built-in approach
+    print('🔤 Using built-in tokenization');
+    
+    final words = text.toLowerCase().split(' ');
+    final tokens = <int>[];
+    
+    for (final word in words) {
+      // Simple hash-based approach (model will handle internally)
+      final hash = word.hashCode.abs() % _vocabularySize;
+      tokens.add(hash);
+    }
+    
+    return tokens.take(_maxSequenceLength).toList();
+  }
+  
+  List<int> _useExternalTokenizer(String text) {
+    // External tokenizer logic (when available)
+    return [];
+  }
+  
+  /// Convert model output back to text
+  String _detokenizeOutput(List<List<List<double>>> output) {
+    try {
+      // Get the most likely tokens from output
+      final tokens = <int>[];
+      for (final timestep in output[0]) {
+        var maxIndex = 0;
+        var maxValue = timestep[0];
+        
+        for (int i = 1; i < timestep.length; i++) {
+          if (timestep[i] > maxValue) {
+            maxValue = timestep[i];
+            maxIndex = i;
+          }
+        }
+        tokens.add(maxIndex);
+      }
+      
+      // Convert tokens back to text (simplified)
+      final words = tokens.map((token) => _tokenToWord(token)).where((word) => word.isNotEmpty).toList();
+      
+      return words.join(' ').trim();
+      
+    } catch (e) {
+      print('❌ Detokenization error: $e');
+      return '';
+    }
+  }
+  
+  /// Convert token ID back to word (placeholder)
+  String _tokenToWord(int tokenId) {
+    // This is a simplified conversion - real tokenizers have vocabulary maps
+    final words = ['I', 'understand', 'you', 'are', 'feeling', 'this', 'way', 'and', 'want', 'to', 'help'];
+    return tokenId < words.length ? words[tokenId % words.length] : '';
+  }
+  
+>>>>>>> de83f749acd4b0aaa03e84ccbf2ae8f87b338eef
   /// Generate intelligent responses based on context (enhanced version)
   String _generateContextAwareResponse(String userMessage, String? mood) {
     print('Generating context-aware response for emotional content analysis...');
@@ -747,6 +952,7 @@ Would you like to tell me more about what's been on your mind? I'm here to suppo
       'interpreter_ready': _interpreter != null,
       'using_enhanced_rules': _useEnhancedRules,
       'platform': Platform.isAndroid ? 'android' : Platform.isIOS ? 'ios' : 'other',
+<<<<<<< HEAD
       'unlimited_usage': true, // Key selling point
       'model_file': '1.tflite',
       'model_size': '96MB',
@@ -767,6 +973,20 @@ Would you like to tell me more about what's been on your mind? I'm here to suppo
       _selectedModelPath = null;
       print('TensorFlow Lite service disposed safely');
     }
+=======
+    };
+  }
+  
+  /// Cleanup method
+  Future<void> dispose() async {
+    _interpreter?.close();
+    _interpreter = null;
+    _isModelLoaded = false;
+    _deviceRAM = null;
+    _selectedModelName = null;
+    _selectedModelPath = null;
+    print('TensorFlow Lite service disposed');
+>>>>>>> de83f749acd4b0aaa03e84ccbf2ae8f87b338eef
   }
 }
 
