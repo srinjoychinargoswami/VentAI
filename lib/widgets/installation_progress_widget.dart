@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../services/ollama_manager.dart';
+import '../services/ai_edge_service.dart'; // ADDED: Mobile AI service
 
 class InstallationProgressWidget extends StatefulWidget {
   const InstallationProgressWidget({super.key});
@@ -18,6 +20,10 @@ class _InstallationProgressWidgetState extends State<InstallationProgressWidget>
   bool _isConnected = false;
   bool _hasError = false;
   List<String> _availableModels = [];
+  
+  // ADDED: Platform detection
+  bool get _isMobile => Platform.isAndroid || Platform.isIOS;
+  bool get _isDesktop => Platform.isWindows || Platform.isMacOS || Platform.isLinux;
 
   @override
   void initState() {
@@ -32,9 +38,91 @@ class _InstallationProgressWidgetState extends State<InstallationProgressWidget>
     _updateProgress(); // Initial update
   }
 
-  ///Update progress with auto-installation phase detection
+  /// UPDATED: Platform-specific progress monitoring
   Future<void> _updateProgress() async {
     try {
+      if (_isMobile) {
+        await _updateMobileProgress();
+      } else if (_isDesktop) {
+        await _updateDesktopProgress();
+      }
+    } catch (e) {
+      _handleProgressError(e);
+    }
+  }
+
+  /// ADDED: Mobile progress monitoring
+  Future<void> _updateMobileProgress() async {
+    try {
+      final platformPrefix = '📱';
+      
+      // Get AIService status
+      final status = await AIService.instance.getStatus();
+      
+      final modelDownloaded = status['model_downloaded'] as bool? ?? false;
+      final modelLoaded = status['model_loaded'] as bool? ?? false;
+      final isDownloading = status['is_downloading'] as bool? ?? false;
+      final downloadProgress = status['download_progress'] as double? ?? 0.0;
+      final canGenerate = status['can_generate'] as bool? ?? false;
+      final usingEnhancedRules = status['using_enhanced_rules'] as bool? ?? false;
+      final availableModels = status['available_models'] as List? ?? [];
+      
+      double progress = 0.0;
+      String statusText = 'Initializing mobile AI...';
+      String details = '';
+      bool hasError = false;
+      String errorMsg = '';
+      
+      if (isDownloading) {
+        // Model is downloading
+        progress = 0.3 + (downloadProgress * 0.5); // 30% - 80%
+        statusText = 'Downloading Gemma model...';
+        details = '${(downloadProgress * 100).toInt()}% complete';
+      } else if (modelLoaded) {
+        // Model loaded and ready
+        progress = 1.0;
+        statusText = 'Mobile AI Ready';
+        details = 'Gemma AI loaded and ready';
+      } else if (modelDownloaded) {
+        // Model downloaded but not loaded yet
+        progress = 0.8;
+        statusText = 'Loading AI model...';
+        details = 'Preparing Gemma for inference';
+      } else if (canGenerate && usingEnhancedRules) {
+        // Using enhanced rules (fallback)
+        progress = 1.0;
+        statusText = 'Mobile AI Ready';
+        details = 'Using enhanced response system';
+      } else {
+        // Initial state
+        progress = 0.1;
+        statusText = 'Initializing mobile AI...';
+        details = 'Checking AI service status';
+      }
+      
+      if (mounted) {
+        setState(() {
+          _isConnected = canGenerate;
+          _downloadProgress = progress;
+          _currentStatus = '$platformPrefix $statusText';
+          _detailStatus = details;
+          _availableModels = availableModels.map((m) => m.toString()).toList();
+          _hasError = hasError;
+          _errorMessage = errorMsg;
+        });
+      }
+      
+    } catch (e) {
+      debugPrint('📱 Mobile progress error: $e');
+      _handleProgressError(e);
+    }
+  }
+
+  /// Desktop progress monitoring (existing logic)
+  Future<void> _updateDesktopProgress() async {
+    try {
+      final platformPrefix = '🖥️';
+      
       // Check Ollama service status
       final serviceRunning = await OllamaManager.ensureServiceRunning();
       
@@ -42,7 +130,6 @@ class _InstallationProgressWidgetState extends State<InstallationProgressWidget>
       final models = await OllamaManager.getAvailableModels();
       final cacheInfo = await OllamaManager.getModelCacheInfo();
       
-      // Calculate progress and status based on auto-installation phases
       double progress = 0.0;
       String status = 'Connecting...';
       String details = '';
@@ -50,7 +137,6 @@ class _InstallationProgressWidgetState extends State<InstallationProgressWidget>
       String errorMsg = '';
 
       if (!serviceRunning) {
-        // Check if this is initial installation or service restart
         if (await _checkIfOllamaInstalled()) {
           progress = 0.3;
           status = 'Starting Ollama service...';
@@ -58,10 +144,9 @@ class _InstallationProgressWidgetState extends State<InstallationProgressWidget>
         } else {
           progress = 0.1;
           status = 'Installing Ollama...';
-          details = 'Downloading and installing Ollama from official source';
+          details = 'Downloading and installing from official source';
         }
       } else {
-        // Service is running - check model status
         final allModelsAvailable = cacheInfo['allRequiredAvailable'] as bool? ?? false;
         final downloadStatus = cacheInfo['downloadStatus'] as Map<String, dynamic>? ?? {};
         
@@ -70,7 +155,6 @@ class _InstallationProgressWidgetState extends State<InstallationProgressWidget>
           status = 'Downloading AI models...';
           details = 'Downloading Gemma models (this may take several minutes)';
           
-          //  Show specific model download progress
           if (downloadStatus.isNotEmpty) {
             final downloadingModels = downloadStatus.entries
                 .where((e) => e.value == false)
@@ -82,7 +166,7 @@ class _InstallationProgressWidgetState extends State<InstallationProgressWidget>
           }
         } else if (models.isNotEmpty) {
           progress = 1.0;
-          status = 'AI Ready - All Systems Operational';
+          status = 'Desktop AI Ready';
           details = 'Models cached and ready: ${models.length} available';
         } else {
           progress = 0.5;
@@ -91,12 +175,11 @@ class _InstallationProgressWidgetState extends State<InstallationProgressWidget>
         }
       }
 
-      // Update UI state
       if (mounted) {
         setState(() {
           _isConnected = serviceRunning && models.isNotEmpty;
           _downloadProgress = progress;
-          _currentStatus = status;
+          _currentStatus = '$platformPrefix $status';
           _detailStatus = details;
           _availableModels = models;
           _hasError = hasError;
@@ -104,44 +187,53 @@ class _InstallationProgressWidgetState extends State<InstallationProgressWidget>
         });
       }
     } catch (e) {
-      //Specific error handling for different failure types
-      String errorType = 'Connection Error';
-      String errorDetails = e.toString();
-      
-      if (errorDetails.contains('download')) {
-        errorType = 'Download Failed';
-        errorDetails = 'Check internet connection and try again';
-      } else if (errorDetails.contains('permission')) {
-        errorType = 'Permission Error';
-        errorDetails = 'Installation blocked - try running as administrator';
-      } else if (errorDetails.contains('space')) {
-        errorType = 'Storage Error';
-        errorDetails = 'Insufficient disk space (~13GB required)';
-      } else if (errorDetails.contains('timeout')) {
-        errorType = 'Connection Timeout';
-        errorDetails = 'Service taking longer than expected to respond';
-      }
-
-      if (mounted) {
-        setState(() {
-          _currentStatus = errorType;
-          _detailStatus = errorDetails;
-          _errorMessage = e.toString();
-          _hasError = true;
-          _isConnected = false;
-          _downloadProgress = 0.0;
-        });
-      }
+      debugPrint('🖥️ Desktop progress error: $e');
+      _handleProgressError(e);
     }
   }
 
-  ///Check if Ollama is installed (simplified version)
+  /// ADDED: Unified error handling
+  void _handleProgressError(dynamic e) {
+    String errorType = 'Connection Error';
+    String errorDetails = e.toString();
+    
+    if (errorDetails.contains('download')) {
+      errorType = 'Download Failed';
+      errorDetails = 'Check internet connection and try again';
+    } else if (errorDetails.contains('permission')) {
+      errorType = 'Permission Error';
+      errorDetails = _isMobile 
+          ? 'App permissions issue - check settings'
+          : 'Installation blocked - try running as administrator';
+    } else if (errorDetails.contains('space') || errorDetails.contains('storage')) {
+      errorType = 'Storage Error';
+      errorDetails = _isMobile
+          ? 'Insufficient storage (model requires ~2GB)'
+          : 'Insufficient disk space (~13GB required)';
+    } else if (errorDetails.contains('timeout')) {
+      errorType = 'Connection Timeout';
+      errorDetails = 'Service taking longer than expected';
+    }
+
+    if (mounted) {
+      setState(() {
+        _currentStatus = errorType;
+        _detailStatus = errorDetails;
+        _errorMessage = e.toString();
+        _hasError = true;
+        _isConnected = false;
+        _downloadProgress = 0.0;
+      });
+    }
+  }
+
+  /// Check if Ollama is installed (Desktop only)
   Future<bool> _checkIfOllamaInstalled() async {
+    if (_isMobile) return false;
+    
     try {
-      // This would ideally call a method from OllamaManager
-      // For now, we'll use a simple heuristic
       final models = await OllamaManager.getAvailableModels();
-      return models.isNotEmpty; // If we can get models, Ollama is likely installed
+      return models.isNotEmpty;
     } catch (e) {
       return false;
     }
@@ -149,6 +241,9 @@ class _InstallationProgressWidgetState extends State<InstallationProgressWidget>
 
   @override
   Widget build(BuildContext context) {
+    final platformEmoji = _isMobile ? '📱' : '🖥️';
+    final platformName = _isMobile ? 'Mobile' : 'Desktop';
+    
     return Card(
       margin: const EdgeInsets.all(16),
       child: Padding(
@@ -157,7 +252,7 @@ class _InstallationProgressWidgetState extends State<InstallationProgressWidget>
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            //Status Header with better visual indicators
+            // Status Header
             Row(
               children: [
                 Container(
@@ -183,7 +278,7 @@ class _InstallationProgressWidgetState extends State<InstallationProgressWidget>
                     ),
                   ),
                 ),
-                //Progress percentage display
+                // Progress percentage
                 if (_downloadProgress > 0 && !_hasError && !_isConnected) ...[
                   Text(
                     '${(_downloadProgress * 100).toInt()}%',
@@ -199,7 +294,7 @@ class _InstallationProgressWidgetState extends State<InstallationProgressWidget>
             
             const SizedBox(height: 12),
             
-            //Progress Bar with better visual feedback
+            // Progress Bar
             LinearProgressIndicator(
               value: _downloadProgress,
               backgroundColor: Colors.grey[300],
@@ -212,7 +307,7 @@ class _InstallationProgressWidgetState extends State<InstallationProgressWidget>
             
             const SizedBox(height: 12),
             
-            //Detailed Status with auto-installation phases
+            // Detailed Status
             Text(
               _detailStatus,
               style: TextStyle(
@@ -222,7 +317,7 @@ class _InstallationProgressWidgetState extends State<InstallationProgressWidget>
               ),
             ),
             
-            //Error message display (if any)
+            // Error message
             if (_hasError && _errorMessage.isNotEmpty) ...[
               const SizedBox(height: 8),
               Container(
@@ -243,7 +338,7 @@ class _InstallationProgressWidgetState extends State<InstallationProgressWidget>
               ),
             ],
             
-            //Available Models display
+            // Available Models
             if (_availableModels.isNotEmpty) ...[
               const SizedBox(height: 12),
               Container(
@@ -278,7 +373,7 @@ class _InstallationProgressWidgetState extends State<InstallationProgressWidget>
               ),
             ],
             
-            //Auto-installation indicator
+            // Platform indicator
             if (_downloadProgress > 0 && _downloadProgress < 1.0 && !_hasError) ...[
               const SizedBox(height: 12),
               Container(
@@ -291,14 +386,13 @@ class _InstallationProgressWidgetState extends State<InstallationProgressWidget>
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      Icons.download_outlined,
-                      size: 16,
-                      color: Colors.blue.shade600,
+                    Text(
+                      platformEmoji,
+                      style: const TextStyle(fontSize: 14),
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      'Auto-Installing • Offline AI',
+                      '$platformName Setup • Offline AI',
                       style: TextStyle(
                         fontSize: 11,
                         color: Colors.blue.shade600,

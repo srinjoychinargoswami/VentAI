@@ -10,6 +10,7 @@ import 'package:path/path.dart' as path;
 
 import 'services/offline_storage.dart';
 import 'services/ollama_manager.dart';
+import 'services/ai_edge_service.dart'; // ADDED: Mobile AI service
 import 'services/voice_input_service.dart';
 import 'services/voice_emotion_analyzer.dart';
 import 'providers/conversation_provider.dart';
@@ -17,6 +18,10 @@ import 'providers/setup_state_provider.dart';
 import 'screens/app_setup_screen.dart';
 import 'screens/chat_screen.dart';
 import 'themes/app_theme.dart';
+
+// ADDED: Platform detection
+bool get _isMobile => Platform.isAndroid || Platform.isIOS;
+bool get _isDesktop => Platform.isWindows || Platform.isMacOS || Platform.isLinux;
 
 /// Initialize voice services with proper permission handling
 Future<void> _initVoiceServices() async {
@@ -27,54 +32,74 @@ Future<void> _initVoiceServices() async {
     if (!status.isGranted) {
       final result = await Permission.microphone.request();
       if (result.isGranted) {
-        debugPrint('Microphone permission granted');
+        debugPrint('✅ Microphone permission granted');
       } else {
-        debugPrint('Microphone permission denied');
-        return; // Don't initialize voice services without permission
+        debugPrint('⚠️ Microphone permission denied');
+        return;
       }
     } else {
-      debugPrint('Microphone permission already granted');
+      debugPrint('✅ Microphone permission already granted');
     }
 
-    // Pre-initialize voice services for faster first-use experience
+    // Pre-initialize voice services
     await VoiceInputService.initialize();
     await VoiceEmotionAnalyzer.initialize();
     
-    debugPrint('Voice services initialized successfully');
+    debugPrint('✅ Voice services initialized');
   } catch (e) {
-    debugPrint('Voice services initialization error: $e');
-    // Continue app initialization even if voice services fail
+    debugPrint('❌ Voice services error: $e');
+  }
+}
+
+/// ADDED: Initialize mobile AI services
+Future<void> _initMobileAI() async {
+  if (!_isMobile) return;
+  
+  try {
+    final platformPrefix = '📱';
+    debugPrint('$platformPrefix Initializing mobile AI...');
+    
+    await AIService.instance.initialize();
+    
+    debugPrint('$platformPrefix Mobile AI initialized');
+  } catch (e) {
+    debugPrint('📱 Mobile AI initialization error: $e');
   }
 }
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize voice services early for better UX
+  // Platform-specific initialization
+  if (_isMobile) {
+    debugPrint('📱 Running on mobile platform');
+    await _initMobileAI();
+  } else {
+    debugPrint('🖥️ Running on desktop platform');
+  }
+
+  // Initialize voice services (works on all platforms)
   await _initVoiceServices();
 
-  // Initialize database with error handling
+  // Initialize database
   late final AppDatabase database;
   try {
     database = AppDatabase();
-    debugPrint('Database initialized successfully');
+    debugPrint('✅ Database initialized');
   } catch (e) {
-    debugPrint('Database initialization failed: $e');
+    debugPrint('❌ Database initialization failed: $e');
     rethrow;
   }
 
   runApp(
     MultiProvider(
       providers: [
-        // Provide the database instance
         Provider<AppDatabase>.value(value: database),
-
-        // Setup provider first to ensure dependency order
+        
         ChangeNotifierProvider<SetupStateProvider>(
           create: (_) => SetupStateProvider(),
         ),
-
-        // Conversation provider with proper dependency injection
+        
         ChangeNotifierProvider<ConversationProvider>(
           create: (context) => ConversationProvider(
             database: context.read<AppDatabase>(),
@@ -102,62 +127,76 @@ class _VentAiAppState extends State<VentAiApp> with WidgetsBindingObserver {
     _initializeApp();
   }
 
-  /// Initialize app with proper service lifecycle management
+  /// UPDATED: Platform-aware app initialization
   Future<void> _initializeApp() async {
     try {
-      // Clean up orphaned processes first
-      await OllamaManager.cleanupOrphanedProcesses();
+      final platformPrefix = _isMobile ? '📱' : '🖥️';
+      debugPrint('$platformPrefix Starting app initialization...');
+      
+      // Desktop-only: Clean up orphaned processes
+      if (_isDesktop) {
+        await OllamaManager.cleanupOrphanedProcesses();
+      }
 
-      // COMMENTED OUT: Force reset to preserve cached models
+      // Debug mode: Force reset (commented by default)
       // if (kDebugMode) {
       //   await _forceResetForTesting();
       // }
-      debugPrint('Force reset disabled - preserving cached models');
 
-      // Proper timing for setup initialization
+      // Initialize setup provider
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         if (!mounted) return;
 
         final setupProvider = context.read<SetupStateProvider>();
         await setupProvider.initialize();
 
-        // Start complete setup process that manages Ollama service
         if (setupProvider.needsSetup) {
           await setupProvider.startCompleteSetup();
         }
       });
 
     } catch (e) {
-      debugPrint('App initialization error: $e');
+      debugPrint('❌ App initialization error: $e');
     }
   }
 
-  /// Force reset all setup data for fresh testing (DISABLED by default)
+  /// UPDATED: Platform-aware force reset
   Future<void> _forceResetForTesting() async {
     try {
-      debugPrint('FORCING FRESH SETUP FOR TESTING...');
+      final platformPrefix = _isMobile ? '📱' : '🖥️';
+      debugPrint('$platformPrefix FORCING FRESH SETUP FOR TESTING...');
       
-      // Clear SharedPreferences
+      // Clear SharedPreferences (all platforms)
       final prefs = await SharedPreferences.getInstance();
       await prefs.clear();
       
-      // Clean Ollama data directories
-      await _cleanAllOllamaData();
+      // Desktop-only: Clean Ollama data
+      if (_isDesktop) {
+        await _cleanAllOllamaData();
+        OllamaManager.resetForTesting();
+      }
       
-      // Reset OllamaManager state
-      OllamaManager.resetForTesting();
+      // Mobile-only: Clear AI service cache (if method exists)
+      if (_isMobile) {
+        // Note: AIService doesn't have clearModelCache method
+        debugPrint('📱 Mobile AI cache cleanup skipped');
+      }
       
-      debugPrint('All setup data cleared - will run fresh installation');
+      debugPrint('$platformPrefix Setup data cleared');
       
     } catch (e) {
-      debugPrint('Error during force reset: $e');
+      debugPrint('❌ Force reset error: $e');
     }
   }
 
-  /// Clean all Ollama data from system
+  /// Clean Ollama data (Desktop only)
   Future<void> _cleanAllOllamaData() async {
+    if (!_isDesktop) return;
+    
     try {
-      // Clean app-specific Ollama directory
+      debugPrint('🖥️ Cleaning Ollama data...');
+      
+      // Clean app-specific directory
       final appDir = await getApplicationSupportDirectory();
       final ollamaAppDir = Directory(path.join(appDir.path, 'ollama'));
       if (await ollamaAppDir.exists()) {
@@ -165,7 +204,7 @@ class _VentAiAppState extends State<VentAiApp> with WidgetsBindingObserver {
         debugPrint('Deleted app Ollama directory');
       }
 
-      // Clean system Ollama directory (Windows)
+      // Windows-specific cleanup
       if (Platform.isWindows) {
         final userProfile = Platform.environment['USERPROFILE'];
         if (userProfile != null) {
@@ -177,7 +216,7 @@ class _VentAiAppState extends State<VentAiApp> with WidgetsBindingObserver {
         }
       }
 
-      // Clean temp directories that might contain Ollama data
+      // Clean temp directories
       final tempDir = Directory.systemTemp;
       final tempOllamaDir = Directory(path.join(tempDir.path, 'ollama'));
       if (await tempOllamaDir.exists()) {
@@ -186,59 +225,71 @@ class _VentAiAppState extends State<VentAiApp> with WidgetsBindingObserver {
       }
 
     } catch (e) {
-      debugPrint('Error cleaning Ollama data: $e');
+      debugPrint('❌ Error cleaning Ollama data: $e');
     }
   }
 
-  /// Proper service shutdown on app termination
+  /// UPDATED: Platform-aware disposal
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    // Shutdown persistent Ollama service
-    OllamaManager.shutdown();
+    
+    // Desktop-only: Shutdown Ollama service
+    if (_isDesktop) {
+      OllamaManager.shutdown();
+    }
+    
+    // Mobile-only: Dispose AIService
+    if (_isMobile) {
+      AIService.instance.dispose();
+    }
+    
     super.dispose();
   }
   
-  /// Handle app lifecycle changes for service management
+  /// UPDATED: Platform-aware lifecycle management
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    final platformPrefix = _isMobile ? '📱' : '🖥️';
+    
     switch (state) {
       case AppLifecycleState.detached:
-        // App is terminating - shutdown service
-        debugPrint('App detached - shutting down Ollama service');
-        OllamaManager.shutdown();
+        debugPrint('$platformPrefix App detached');
+        if (_isDesktop) {
+          OllamaManager.shutdown();
+        }
         break;
+        
       case AppLifecycleState.paused:
-        // App is backgrounded - service can continue running
-        debugPrint('App paused - Ollama service continues running');
+        debugPrint('$platformPrefix App paused');
+        // Services can continue running
         break;
+        
       case AppLifecycleState.resumed:
-        // App is foregrounded - ensure service is healthy
-        debugPrint('App resumed - checking Ollama service health');
+        debugPrint('$platformPrefix App resumed');
         _ensureServiceHealthy();
         break;
+        
       case AppLifecycleState.inactive:
-        // App is becoming inactive - no action needed
-        break;
       case AppLifecycleState.hidden:
-        // App is hidden - no action needed  
+        // No action needed
         break;
     }
   }
 
-  /// Ensure Ollama service is healthy when app resumes
+  /// UPDATED: Platform-aware service health check
   Future<void> _ensureServiceHealthy() async {
     try {
-      if (OllamaManager.isInitialized) {
+      if (_isDesktop && OllamaManager.isInitialized) {
         final serviceReady = await OllamaManager.ensureServiceRunning();
-        if (serviceReady) {
-          debugPrint('Ollama service healthy on app resume');
-        } else {
-          debugPrint('Ollama service unhealthy on app resume');
-        }
+        debugPrint('🖥️ Ollama service ${serviceReady ? "healthy" : "unhealthy"}');
+      } else if (_isMobile) {
+        final status = await AIService.instance.getStatus();
+        final canGenerate = status['can_generate'] as bool? ?? false;
+        debugPrint('📱 Mobile AI ${canGenerate ? "ready" : "not ready"}');
       }
     } catch (e) {
-      debugPrint('Error checking service health: $e');
+      debugPrint('❌ Service health check error: $e');
     }
   }
 
@@ -251,12 +302,16 @@ class _VentAiAppState extends State<VentAiApp> with WidgetsBindingObserver {
       themeMode: ThemeMode.system,
       home: Consumer<SetupStateProvider>(
         builder: (context, setupState, child) {
-          // Proper setup flow control
           if (setupState.needsSetup || setupState.isInitializing) {
-            String message = 'Setting up your voice-enabled AI companion...';
+            final platformName = _isMobile ? 'mobile' : 'desktop';
+            String message = 'Setting up your $platformName AI companion...';
+            
             if (setupState.isInitializing) {
-              message = 'Installing AI and downloading models...\n\nThis may take several minutes on first run.';
+              message = _isMobile
+                  ? 'Initializing mobile AI...\n\nThis may take a moment on first run.'
+                  : 'Installing AI and downloading models...\n\nThis may take several minutes on first run.';
             }
+            
             return AppSetupScreen(message: message);
           } else {
             return const ChatScreen();

@@ -21,11 +21,15 @@ dependencies:
   http: ^1.1.0              # For API communication with Ollama
   provider: ^6.0.5          # For state management
   shared_preferences: ^2.2.0 # For storing setup preferences
+  dio: ^5.4.0
 
   # AI & ML Dependencies
-  tflite_flutter: ^0.10.4          # For TensorFlow Lite models
   device_info_plus: ^9.1.0         # For device capability detection
   google_generative_ai: ^0.4.7     # Official Google AI SDK
+  flutter_gemma: ^0.11.3
+
+  
+
 
   # Database Dependencies
   drift: ^2.12.1                  # For local database management
@@ -42,7 +46,6 @@ dependencies:
 
   # Multimodal Features
   speech_to_text: ^6.3.0          # For voice input
-  text_to_speech: ^0.2.3          # For voice output  
   image_picker: ^1.0.4           # For visual emotion detection
   camera: ^0.10.5                # For camera access
 

@@ -1,459 +1,600 @@
-// lib/services/ai_edge_service.dart
-import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as path;
-import 'package:tflite_flutter/tflite_flutter.dart';
+import 'package:device_info_plus/device_info_plus.dart';
+import 'package:flutter_gemma/flutter_gemma.dart';
 
-/// Mobile Gemma 3n service with bundled .litertlm model - Like desktop with bundled Ollama
-class AIEdgeService {
-  static AIEdgeService? _instance;
-  static AIEdgeService get instance => _instance ??= AIEdgeService._();
-  AIEdgeService._();
-
-  // UPDATED: Bundled .litertlm model configuration
-  static const String modelAssetPath = 'packages/gemma_model/gemma-3n-E2B-it-int4.litertlm';
-  static const String modelFileName = 'gemma-3n-E2B-it-int4.litertlm';  // UPDATED to match your file
-
-  Interpreter? _interpreter;
-  bool _isInitialized = false;
-  bool _isModelReady = false;
-  String? _modelPath;
+/// AI Edge Service - Flutter Gemma Integration for VentAI
+/// Provides on-device Gemma 3 Nano with intelligent emotional support fallback
+class AIService {
+  static AIService? _instance;
+  static AIService get instance => _instance ??= AIService._internal();
+  AIService._internal();
   
-  /// Initialize - Extract bundled .litertlm model like desktop Ollama
-  static Future<void> initialize() async {
-    try {
-      debugPrint('📱 Initializing VentAI with bundled Gemma 3n (.litertlm) model...');
-      
-      if (!(Platform.isAndroid || Platform.isIOS)) {
-        debugPrint('📱 Mobile AI only available on Android/iOS');
-        return;
-      }
+  bool _isInitialized = false;
+  bool _isInitializing = false;
+  int? _deviceRAM;
+  
+  // Flutter Gemma instances
+  final _gemma = FlutterGemmaPlugin.instance;
+  InferenceModel? _inferenceModel;
+  InferenceChat? _chat;
+  
+  // Model state
+  bool _isModelDownloaded = false;
+  bool _isModelLoading = false;
+  double _downloadProgress = 0.0;
+  String? _currentModelName;
+  
+ // Gemma 3 Nano model URLs - UPDATED TO GOOGLE DIRECT DOWNLOADS
+  static const _gemma3Nano2B = 'https://storage.googleapis.com/download.tensorflow.org/models/gemma/gemma-3-2b-it-int4.task';
+  static const _gemma3Nano4B = 'https://storage.googleapis.com/download.tensorflow.org/models/gemma/gemma-3-4b-it-int4.task';
 
-      final instance = AIEdgeService.instance;
-      
-      if (instance._isInitialized) {
-        debugPrint('📱 Mobile AI service already initialized');
-        return;
-      }
-
-      // Extract bundled .litertlm model on first run - LIKE DESKTOP ASSET EXTRACTION
-      final modelReady = await instance._ensureBundledModel();
-      
-      if (modelReady) {
-        debugPrint('📱 Bundled Gemma 3n .litertlm model ready for use!');
-        instance._isModelReady = true;
-      } else {
-        debugPrint('📱 Bundled .litertlm model setup failed - using advanced fallbacks');
-        instance._isModelReady = false;
-      }
-
-      instance._isInitialized = true;
-      debugPrint('📱 VentAI mobile service initialized (bundled .litertlm model: ${instance._isModelReady})');
-      
-    } catch (e) {
-      debugPrint('📱 Mobile AI initialization failed: $e');
-      AIEdgeService.instance._isInitialized = true;
+  
+  /// Initialize service AND automatically attempt Gemma download
+  Future<bool> initialize({bool autoDownloadModel = true}) async {
+    if (_isInitialized) {
+      debugPrint('AI Service already initialized');
+      return true;
     }
-  }
-
-  /// Ensure bundled .litertlm model is extracted and ready
-  Future<bool> _ensureBundledModel() async {
-    try {
-      // Check if model already extracted
-      final modelPath = await _getModelPath();
-      if (await File(modelPath).exists()) {
-        final size = await File(modelPath).length();
-        if (size > 10000000) { // At least 10MB for .litertlm models
-          debugPrint('📱 Bundled .litertlm model already extracted: ${(size / 1024 / 1024).toStringAsFixed(1)}MB');
-          _modelPath = modelPath;
-          return true;
-        }
+    
+    if (_isInitializing) {
+      debugPrint('Initialization already in progress, waiting...');
+      while (_isInitializing && !_isInitialized) {
+        await Future.delayed(const Duration(milliseconds: 100));
       }
-
-      debugPrint('📱 Extracting bundled Gemma 3n .litertlm model from app bundle...');
-      
-      // Extract from app bundle
-      try {
-        final ByteData assetData = await rootBundle.load(modelAssetPath);
-        final List<int> bytes = assetData.buffer.asUint8List();
-        
-        debugPrint('📱 Bundled .litertlm model loaded: ${(bytes.length / 1024 / 1024).toStringAsFixed(1)}MB');
-        
-        // Write to app storage
-        final modelFile = File(modelPath);
-        await modelFile.parent.create(recursive: true);
-        await modelFile.writeAsBytes(bytes);
-        
-        final extractedSize = await modelFile.length();
-        debugPrint('📱 Bundled .litertlm model extracted successfully: ${(extractedSize / 1024 / 1024).toStringAsFixed(1)}MB');
-        
-        _modelPath = modelPath;
-        await _saveModelInfo();
-        return true;
-        
-      } catch (e) {
-        debugPrint('📱 Bundled .litertlm model extraction failed: $e');
-        return false;
-      }
-      
-    } catch (e) {
-      debugPrint('📱 Bundled .litertlm model setup failed: $e');
-      return false;
+      return _isInitialized;
     }
-  }
-
-  /// Load Gemma 3n .litertlm model for inference
-  Future<bool> _loadModelForInference() async {
+    
     try {
-      if (_isModelReady && _interpreter != null) {
-        return true;
+      _isInitializing = true;
+      debugPrint('Initializing AI Edge Service with Flutter Gemma');
+      
+      await _detectDeviceSpecs();
+      
+      _isInitialized = true;
+      _isInitializing = false;
+      
+      debugPrint('AI Edge Service initialized successfully');
+      debugPrint('Model downloaded: $_isModelDownloaded');
+      debugPrint('Using fallback: ${!_isModelDownloaded}');
+      
+      // AUTO-DOWNLOAD GEMMA MODEL if requested and not already downloaded
+      if (autoDownloadModel && !_isModelDownloaded) {
+        debugPrint('Auto-downloading Gemma model...');
+        // Don't await - let it download in background
+        downloadGemmaModel().then((success) {
+          if (success) {
+            debugPrint('Background Gemma download completed');
+          } else {
+            debugPrint('Background Gemma download failed, using fallback');
+          }
+        });
       }
-      
-      if (_modelPath == null || !await File(_modelPath!).exists()) {
-        debugPrint('📱 .litertlm model not found for loading');
-        return false;
-      }
-      
-      debugPrint('📱 Loading bundled Gemma 3n .litertlm model for inference...');
-      
-      // Load TensorFlow Lite model (.litertlm is compatible with TFLite)
-      _interpreter = await Interpreter.fromFile(File(_modelPath!));
-      
-      debugPrint('📱 Bundled Gemma 3n .litertlm model loaded successfully!');
-      debugPrint('📱 Input tensors: ${_interpreter!.getInputTensors()}');
-      debugPrint('📱 Output tensors: ${_interpreter!.getOutputTensors()}');
       
       return true;
       
     } catch (e) {
-      debugPrint('📱 .litertlm model loading failed: $e');
-      return false;
+      debugPrint('AI Service initialization error: $e');
+      _isInitialized = true; // Mark as initialized anyway (fallback works)
+      _isInitializing = false;
+      return true;
     }
   }
-
-  /// Generate emotional response - REAL GEMMA 3N .litertlm or ADVANCED FALLBACKS
-  Future<String> generateEmotionalResponse({
-    required String userMessage,
-    String? mood,
-    Map<String, dynamic>? voiceData,
-    Uint8List? imageData,
-  }) async {
+  
+  /// Detect device specifications
+  Future<void> _detectDeviceSpecs() async {
     try {
-      debugPrint('📱 Generating response with bundled Gemma 3n .litertlm...');
+      _deviceRAM = await _getDeviceRAM();
+      debugPrint('Device RAM: ${_deviceRAM}GB');
+    } catch (e) {
+      debugPrint('Could not detect device specs: $e');
+      _deviceRAM = 4; // Default assumption
+    }
+  }
+  
+  /// Get device RAM estimate
+  Future<int> _getDeviceRAM() async {
+    if (_deviceRAM != null) return _deviceRAM!;
+    
+    try {
+      final deviceInfo = DeviceInfoPlugin();
       
-      // Try to use real bundled Gemma 3n .litertlm model
-      if (_isModelReady || await _ensureBundledModel()) {
-        if (await _loadModelForInference()) {
-          final gemmaResponse = await _tryGemmaGeneration(userMessage, mood);
-          if (gemmaResponse.isNotEmpty) {
-            debugPrint('📱 Real bundled Gemma 3n .litertlm response generated!');
-            return gemmaResponse;
-          }
+      if (Platform.isAndroid) {
+        final androidInfo = await deviceInfo.androidInfo;
+        final model = androidInfo.model.toLowerCase();
+        
+        if (model.contains('pro') || model.contains('ultra') || model.contains('plus')) {
+          _deviceRAM = 8;
+        } else if (androidInfo.version.sdkInt >= 30) {
+          _deviceRAM = 6;
+        } else {
+          _deviceRAM = 4;
+        }
+      } else if (Platform.isIOS) {
+        final iosInfo = await deviceInfo.iosInfo;
+        final model = iosInfo.model.toLowerCase();
+        
+        if (model.contains('pro') || model.contains('max')) {
+          _deviceRAM = 8;
+        } else {
+          _deviceRAM = 6;
+        }
+      } else {
+        _deviceRAM = 4;
+      }
+      
+      return _deviceRAM!;
+      
+    } catch (e) {
+      debugPrint('RAM detection error: $e');
+      _deviceRAM = 4;
+      return 4;
+    }
+  }
+  
+  /// Download Gemma model (call when user wants to upgrade from fallback)
+Future<bool> downloadGemmaModel({
+  Function(double)? onProgress,
+}) async {
+  if (_isModelDownloaded) {
+    debugPrint('Model already downloaded');
+    return true;
+  }
+  
+  if (_isModelLoading) {
+    debugPrint('Model download already in progress');
+    return false;
+  }
+  
+  try {
+    _isModelLoading = true;
+    _downloadProgress = 0.0;
+    
+    // Select model based on device RAM
+    final modelUrl = (_deviceRAM ?? 4) >= 6 ? _gemma3Nano4B : _gemma3Nano2B;
+    final modelName = (_deviceRAM ?? 4) >= 6 ? 'gemma-3-4b-it-int4.task' : 'gemma-3-2b-it-int4.task';
+    _currentModelName = modelName;
+    
+    debugPrint('Starting Gemma download: $modelName');
+    debugPrint('Device RAM: ${_deviceRAM}GB');
+    debugPrint('Estimated model size: ~${(_deviceRAM ?? 4) >= 6 ? "2.5GB" : "1.5GB"}');
+    debugPrint('This may take several minutes...');
+    
+    final modelManager = _gemma.modelManager;
+    
+    // ensureModelReady automatically checks if model exists and skips download if so
+    debugPrint('⬇Downloading/verifying model from: $modelUrl');
+    
+    await modelManager.ensureModelReady(
+      modelName,
+      modelUrl,
+    );
+    
+    debugPrint('Model download complete');
+    
+    // Initialize the model for inference
+    await _initializeModel();
+    
+    _isModelDownloaded = true;
+    _isModelLoading = false;
+    _downloadProgress = 100.0;
+    
+    onProgress?.call(100.0);
+    
+    debugPrint('Gemma model ready for use!');
+    return true;
+    
+  } catch (e, stackTrace) {
+    debugPrint('Model download failed: $e');
+    debugPrint('Stack trace: $stackTrace');
+    _isModelLoading = false;
+    _downloadProgress = 0.0;
+    _isModelDownloaded = false;
+    return false;
+  }
+}
+
+  /// Initialize the downloaded model for inference
+  Future<void> _initializeModel() async {
+    try {
+      debugPrint('Initializing Gemma model for inference...');
+      
+      // Create inference model with GPU backend for better performance
+      _inferenceModel = await _gemma.createModel(
+        modelType: ModelType.gemmaIt,
+        preferredBackend: PreferredBackend.gpu,
+        maxTokens: 512, // Appropriate for emotional support responses
+      );
+      
+      debugPrint('Inference model created');
+      
+      // Create chat instance for conversations with emotional parameters
+      _chat = await _inferenceModel!.createChat(
+        temperature: 0.8, // Balanced creativity and coherence
+        topK: 40, // Good diversity for emotional responses
+        randomSeed: 1, // Must provide int value, not null
+      );
+      
+      debugPrint('Gemma chat instance ready for emotional support!');
+      
+    } catch (e, stackTrace) {
+      debugPrint('Model initialization failed: $e');
+      debugPrint('Stack trace: $stackTrace');
+      _inferenceModel = null;
+      _chat = null;
+      _isModelDownloaded = false;
+    }
+  }
+  
+  /// Generate emotional response (main API method - mirrors existing interface)
+  Future<String?> generateEmotionalResponse(String userMessage, {String? mood}) async {
+    try {
+      // Try Gemma first if available
+      if (_isModelDownloaded && _chat != null) {
+        debugPrint('Using Gemma 3 Nano for response...');
+        return await _generateGemmaResponse(userMessage, mood);
+      }
+      
+      // Fallback to intelligent rules
+      debugPrint('Using intelligent fallback system...');
+      return _generateContextAwareResponse(userMessage, mood);
+      
+    } catch (e) {
+      debugPrint('Response generation error: $e');
+      return _generateContextAwareResponse(userMessage, mood);
+    }
+  }
+  
+  /// Generate response using Gemma model
+  Future<String> _generateGemmaResponse(String userMessage, String? mood) async {
+    try {
+      debugPrint('Generating response with Gemma 3 Nano...');
+      
+      // Create emotional support prompt
+      final systemPrompt = _buildEmotionalSupportPrompt(mood);
+      final fullPrompt = '$systemPrompt\n\nUser: $userMessage\n\nAssistant:';
+      
+      // Add user message to chat
+      await _chat!.addQueryChunk(
+        Message.text(text: fullPrompt, isUser: true)
+      );
+      
+      // Generate response with streaming
+      final responseBuffer = StringBuffer();
+      
+      await for (final response in _chat!.generateChatResponseAsync()) {
+        if (response is TextResponse) {
+          responseBuffer.write(response.token);
         }
       }
       
-      debugPrint('📱 Using advanced emotional AI fallbacks...');
-      return _generateAdvancedEmotionalResponse(
-        userMessage: userMessage,
-        mood: mood,
-        hasVoice: voiceData != null,
-        hasImage: imageData != null,
-      );
+      final response = responseBuffer.toString().trim();
       
-    } catch (e) {
-      debugPrint('📱 Response generation failed: $e');
-      return _getBasicFallback(userMessage);
+      // Fallback if response is too short or empty
+      if (response.isEmpty || response.length < 20) {
+        debugPrint('Gemma response too short, using fallback');
+        return _generateContextAwareResponse(userMessage, mood);
+      }
+      
+      debugPrint('Gemma response generated successfully');
+      return response;
+      
+    } catch (e, stackTrace) {
+      debugPrint('Gemma generation error: $e');
+      debugPrint('Stack trace: $stackTrace');
+      return _generateContextAwareResponse(userMessage, mood);
     }
   }
+  
+  /// Build emotional support system prompt for Gemma
+  String _buildEmotionalSupportPrompt(String? mood) {
+    final moodContext = mood != null 
+        ? ' The user has indicated they are feeling $mood.' 
+        : '';
+    
+    return '''You are VentAI, a compassionate emotional support companion. Your role is to provide empathetic, supportive responses to people experiencing difficult emotions.$moodContext
 
-  /// Try to generate response with real Gemma 3n .litertlm
-  Future<String> _tryGemmaGeneration(String userMessage, String? mood) async {
+Guidelines:
+- Be warm, empathetic, and non-judgmental
+- Validate the user's feelings
+- Offer gentle coping strategies when appropriate
+- Keep responses concise but meaningful (2-4 sentences)
+- CRITICAL: If you detect crisis language (suicide, self-harm), immediately provide crisis hotline information: 988 Suicide Crisis Lifeline, text HOME to 741741
+- Never claim to be a replacement for professional therapy
+- Focus on emotional support and active listening''';
+  }
+  
+  /// Generate empathetic response (mirrors Ollama API for compatibility)
+  Future<Map<String, dynamic>> generateEmpatheticResponse(String message, [String? model]) async {
     try {
-      if (_interpreter == null) return '';
+      final response = await generateEmotionalResponse(message);
       
-      // Build emotional support prompt
-      final prompt = _buildEmotionalPrompt(userMessage, mood);
-      
-      debugPrint('📱 Running inference with .litertlm model...');
-      debugPrint('📱 Input: ${prompt.substring(0, prompt.length > 100 ? 100 : prompt.length)}...');
-      
-      // For actual inference, you'd need proper tokenization
-      // This is a simplified example
-      try {
-        // Get input/output tensor info
-        final inputTensor = _interpreter!.getInputTensor(0);
-        final outputTensor = _interpreter!.getOutputTensor(0);
-        
-        debugPrint('📱 Input tensor shape: ${inputTensor.shape}');
-        debugPrint('📱 Output tensor shape: ${outputTensor.shape}');
-        
-        // Create dummy input (replace with proper tokenization)
-        final inputShape = inputTensor.shape;
-        final inputData = List.generate(
-          inputShape.reduce((a, b) => a * b), 
-          (index) => prompt.hashCode % 1000
-        ).reshape(inputShape);
-        
-        // Create output buffer
-        final outputShape = outputTensor.shape;
-        final outputData = List.filled(
-          outputShape.reduce((a, b) => a * b), 
-          0.0
-        ).reshape(outputShape);
-        
-        // Run inference
-        _interpreter!.run(inputData, outputData);
-        
-        debugPrint('📱 .litertlm model inference completed successfully!');
-        
-        // For now, return a contextual response based on the attempt
-        return _generateContextualResponse(userMessage, mood);
-        
-      } catch (inferenceError) {
-        debugPrint('📱 .litertlm inference error: $inferenceError');
-        return '';
+      if (response != null && response.isNotEmpty) {
+        return {
+          'response': response,
+          'source': _isModelDownloaded ? 'gemma_3_nano' : 'enhanced_rules',
+          'model': _isModelDownloaded ? (_currentModelName ?? 'gemma-3n') : 'enhanced_rules_v1',
+          'mood': _detectEmotion(message),
+          'crisisDetected': _detectCrisis(message),
+          'copingStrategies': _extractCopingStrategies(message),
+          'platform': Platform.isAndroid ? 'android' : Platform.isIOS ? 'ios' : 'mobile',
+          'device_ram': _deviceRAM ?? 4,
+          'model_downloaded': _isModelDownloaded,
+          'unlimited_usage': true,
+        };
       }
+      
+      return {
+        'response': "I'm here to listen and support you. Please share what's on your mind.",
+        'source': 'fallback',
+        'model': 'safety_fallback',
+        'mood': 'neutral',
+        'crisisDetected': false,
+        'copingStrategies': ['Take deep breaths', 'Stay present', 'You matter'],
+        'platform': 'mobile',
+        'unlimited_usage': true,
+      };
       
     } catch (e) {
-      debugPrint('📱 Bundled Gemma 3n .litertlm generation failed: $e');
-      return '';
+      debugPrint('Error: $e');
+      
+      return {
+        'response': "I'm experiencing a technical issue, but I'm still here for you. Your feelings matter.",
+        'source': 'error_fallback',
+        'model': 'error_recovery',
+        'mood': 'supportive',
+        'crisisDetected': false,
+        'copingStrategies': ['Your feelings are valid'],
+        'platform': 'mobile',
+        'unlimited_usage': true,
+      };
     }
   }
+  
+  /// ENHANCED RULES SYSTEM - Context-aware intelligent responses
+  String _generateContextAwareResponse(String userMessage, String? mood) {
+    final lowered = userMessage.toLowerCase();
+    final moodContext = mood != null ? " I can sense you're feeling $mood right now." : "";
+    
+    // Crisis detection first (highest priority)
+    if (_detectCrisis(userMessage)) {
+      return '''I'm really concerned about what you've shared with me.$moodContext Please reach out for help immediately:
 
-  /// Generate contextual response (enhanced fallback when model runs)
-  String _generateContextualResponse(String userMessage, String? mood) {
-    final message = userMessage.toLowerCase();
-    
-    if (message.contains(RegExp(r'\b(anxious|anxiety|worried|stress)\b'))) {
-      return "I can sense the anxiety in your message. It's completely understandable to feel overwhelmed sometimes. Let's take this one step at a time. What's been the biggest source of stress for you lately?";
+• Call 988 Suicide Crisis Lifeline - 24/7 support
+• Text HOME to 741741 Crisis Text Line
+• Call 911 if you're in immediate danger
+
+Your life has value, and there are people who want to help you through this difficult time.''';
     }
     
-    if (message.contains(RegExp(r'\b(sad|depressed|down|hopeless)\b'))) {
-      return "I hear the weight of sadness in your words. Those feelings are so valid, and I want you to know that you're not alone in this. Sometimes just sharing these feelings can be the first step. What's been the hardest part of your day?";
+    // Anxiety responses
+    if (lowered.contains('anxious') || lowered.contains('anxiety') || 
+        lowered.contains('worried') || lowered.contains('panic')) {
+      return '''I can hear the anxiety in what you've shared with me.$moodContext Anxiety can feel overwhelming, but you're not alone in this experience.
+
+Try this right now: Take a slow breath in for 4 counts, hold for 4, then exhale for 6. This helps activate your body's calm response.
+
+You can also try the 5-4-3-2-1 grounding technique: name 5 things you can see, 4 you can touch, 3 you can hear, 2 you can smell, and 1 you can taste.
+
+What's been the most challenging part of feeling this way? I'm here to listen and support you through this.''';
     }
     
-    if (mood != null) {
-      return "Thank you for sharing that you're feeling $mood. I'm here to listen and support you through whatever you're experiencing. Your emotions are important, and I want to understand what's on your mind.";
+    // Sadness/depression responses
+    if (lowered.contains('sad') || lowered.contains('depressed') || 
+        lowered.contains('down') || lowered.contains('hopeless')) {
+      return '''Thank you for sharing something so difficult with me.$moodContext I can hear the pain in your words, and I want you to know that what you're feeling is completely valid.
+
+When we're feeling this low, even small steps can feel monumental. That's okay - healing isn't linear, and it's okay to take things one moment at a time.
+
+Consider these gentle approaches: stepping outside for just a few minutes, drinking a glass of water mindfully, or reaching out to one person who cares about you.
+
+You mentioned feeling this way - can you tell me what's been weighing most heavily on your heart? I'm here to listen without judgment.''';
     }
     
-    return "I'm here with you, and I want you to know that your feelings matter. Whatever you're going through, you don't have to face it alone. What would feel most helpful to talk about right now?";
+    // Loneliness responses
+    if (lowered.contains('lonely') || lowered.contains('alone') || 
+        lowered.contains('isolated')) {
+      return '''I hear how isolated you're feeling right now.$moodContext Loneliness can be one of the most difficult emotions to experience, and I want you to know that reaching out like this shows real strength.
+
+Even though you feel alone, you're not - I'm here with you in this moment, and your feelings matter.
+
+Sometimes loneliness can feel less overwhelming when we connect with others, even in small ways. This could be texting a friend, calling a family member, or even just being around people in a public space like a coffee shop or library.
+
+What kind of connection would feel most comforting to you right now? I'm here to help you think through some options.''';
+    }
+    
+    // Stress responses
+    if (lowered.contains('stress') || lowered.contains('overwhelmed') || 
+        lowered.contains('pressure')) {
+      return '''I can sense you're feeling really overwhelmed right now.$moodContext When life feels this stressful, it's important to remember that you don't have to carry everything at once.
+
+Let's start with what you can control right now: your breathing. Take three deep breaths with me - inhale slowly, pause, then exhale fully.
+
+It might help to write down everything that's stressing you, then identify just one small thing you can address today. Sometimes breaking things into smaller pieces makes them feel more manageable.
+
+What's been contributing most to feeling overwhelmed? Sometimes just naming it can help us figure out the next step forward.''';
+    }
+    
+    // Anger responses
+    if (lowered.contains('angry') || lowered.contains('mad') || 
+        lowered.contains('furious') || lowered.contains('irritated')) {
+      return '''I can hear the anger in what you've shared.$moodContext Anger is a natural emotion, and often it's telling us something important about our boundaries or values.
+
+When we're feeling this intense, it can help to pause and breathe before responding to the situation. Try taking 5 deep breaths, or even stepping away for a few minutes if possible.
+
+Physical movement can also help process anger - even just walking around or doing some stretches can help your body release that tension.
+
+What situation or person has triggered these feelings? Sometimes talking through what happened can help us understand what we need to do next.''';
+    }
+    
+    // Fear responses
+    if (lowered.contains('scared') || lowered.contains('afraid') || 
+        lowered.contains('terrified') || lowered.contains('fear')) {
+      return '''I can hear that you're feeling scared right now.$moodContext Fear is our mind's way of trying to protect us, but sometimes it can feel overwhelming.
+
+Let's ground you in this moment: You are safe right now as you read this. Take a deep breath and notice what's around you.
+
+Fear often comes with "what if" thoughts. Let's focus on what is true right now, in this present moment. What can you see, hear, or feel that reminds you that you're okay in this exact moment?
+
+What's making you feel this way? Talking about it can sometimes help us understand if the fear is about something we can address.''';
+    }
+    
+    // Gratitude/positive responses
+    if (lowered.contains('happy') || lowered.contains('grateful') || 
+        lowered.contains('joyful') || lowered.contains('thankful')) {
+      return '''It's wonderful to hear that you're feeling good!$moodContext Moments of happiness and gratitude are precious, and it's beautiful that you're taking time to acknowledge them.
+
+Savoring positive emotions can help strengthen our resilience for more challenging times. Take a moment to really notice what this feeling is like in your body.
+
+What's been bringing you joy or gratitude today? Sharing these moments can help make them even more meaningful.''';
+    }
+    
+    // Default supportive response
+    return '''Thank you for sharing with me.$moodContext I can hear that you're going through something important, and I want you to know that your feelings and experiences are valid.
+
+This is a safe space where you can express whatever is on your mind. I'm here to listen with empathy and without judgment.
+
+Sometimes it helps to take a moment to breathe deeply and ground yourself in the present moment. You're not alone in whatever you're facing.
+
+Would you like to tell me more about what's been on your mind? I'm here to support you through this conversation in whatever way feels most helpful.''';
   }
-
-  /// Build emotional support prompt for Gemma 3n
-  String _buildEmotionalPrompt(String userMessage, String? mood) {
-    final buffer = StringBuffer();
-    buffer.writeln('You are VentAI, a compassionate emotional support companion.');
-    buffer.writeln('Provide empathetic, helpful responses to users seeking emotional support.');
+  
+  /// Detect emotion from text
+  String _detectEmotion(String message) {
+    final lowered = message.toLowerCase();
     
-    if (mood != null && mood.isNotEmpty) {
-      buffer.writeln('The user is currently feeling: $mood');
+    if (lowered.contains('happy') || lowered.contains('joy') || 
+        lowered.contains('excited') || lowered.contains('grateful')) {
+      return 'happy';
+    }
+    if (lowered.contains('sad') || lowered.contains('depressed') || 
+        lowered.contains('down') || lowered.contains('hopeless')) {
+      return 'sad';
+    }
+    if (lowered.contains('angry') || lowered.contains('mad') || 
+        lowered.contains('furious') || lowered.contains('annoyed')) {
+      return 'angry';
+    }
+    if (lowered.contains('anxious') || lowered.contains('anxiety') || 
+        lowered.contains('worried') || lowered.contains('nervous')) {
+      return 'anxious';
+    }
+    if (lowered.contains('scared') || lowered.contains('afraid') || 
+        lowered.contains('terrified')) {
+      return 'fearful';
+    }
+    if (lowered.contains('lonely') || lowered.contains('alone') || 
+        lowered.contains('isolated')) {
+      return 'lonely';
+    }
+    if (lowered.contains('stress') || lowered.contains('overwhelmed')) {
+      return 'stressed';
     }
     
-    buffer.writeln('User: "$userMessage"');
-    buffer.writeln('Provide a supportive response:');
-    
-    return buffer.toString();
+    return 'neutral';
   }
-
-  /// Advanced emotional response system (your existing excellent system)
-  String _generateAdvancedEmotionalResponse({
-    required String userMessage,
-    String? mood,
-    bool hasVoice = false,
-    bool hasImage = false,
-  }) {
-    final message = userMessage.toLowerCase().trim();
+  
+  /// Extract coping strategies based on message
+  List<String> _extractCopingStrategies(String message) {
+    final lowered = message.toLowerCase();
     
-    // Anxiety detection with context
-    if (_containsPattern(message, [
-      ['anxious', 'anxiety', 'worried', 'stress', 'panic', 'overwhelmed'],
-      ['can\'t', 'breathe', 'racing', 'heart', 'chest', 'tight']
-    ])) {
-      if (mood == 'anxious' || hasVoice) {
-        return "I can hear the anxiety in your words, and I want you to know that what you're feeling is completely valid. Let's try some grounding together - can you name 5 things you can see around you right now? Sometimes focusing on our immediate surroundings helps calm that racing mind.";
-      }
-      return "It sounds like anxiety is really weighing on you right now. That feeling of being overwhelmed is so difficult to experience. Would it help to talk through what's triggering these feelings, or would you prefer to try a quick breathing exercise together?";
+    if (lowered.contains('anxious') || lowered.contains('panic')) {
+      return [
+        'Deep breathing (4-4-6 pattern)',
+        '5-4-3-2-1 grounding technique',
+        'Progressive muscle relaxation'
+      ];
     }
     
-    // Depression detection with empathy
-    if (_containsPattern(message, [
-      ['sad', 'depression', 'depressed', 'hopeless', 'empty', 'worthless'],
-      ['nothing', 'matters', 'point', 'tired', 'exhausted', 'alone']
-    ])) {
-      if (mood == 'sad' || mood == 'depressed') {
-        return "I can feel the weight of sadness in your message. Depression can make everything feel so heavy and meaningless, but please know that your feelings matter and you matter. Even sharing this with me shows incredible strength. What's one small thing that used to bring you even a tiny bit of comfort?";
-      }
-      return "I hear you're going through something really difficult right now. That feeling of emptiness or hopelessness can be so isolating. I want you to know that reaching out here shows real courage, and you don't have to carry this alone. Would you like to share what's been weighing on your heart?";
+    if (lowered.contains('sad') || lowered.contains('depressed')) {
+      return [
+        'Gentle self-care activities',
+        'Reach out to trusted friends',
+        'Small achievable goals'
+      ];
     }
     
-    // Anger/frustration with validation
-    if (_containsPattern(message, [
-      ['angry', 'mad', 'frustrated', 'furious', 'rage', 'annoyed'],
-      ['unfair', 'stupid', 'hate', 'sick', 'tired', 'done']
-    ])) {
-      return "I can really sense your frustration, and those feelings are completely understandable. Sometimes anger is our mind's way of protecting us when we feel hurt or misunderstood. What you're experiencing is valid. Would it help to talk about what's been building up this frustration?";
+    if (lowered.contains('angry') || lowered.contains('frustrated')) {
+      return [
+        'Physical movement or exercise',
+        'Journaling your feelings',
+        'Take breaks before responding'
+      ];
     }
     
-    // Loneliness detection
-    if (_containsPattern(message, [
-      ['lonely', 'alone', 'isolated', 'nobody', 'no one'],
-      ['friends', 'family', 'understand', 'care', 'listen']
-    ])) {
-      return "Loneliness can feel so profound, like you're carrying the world on your shoulders with no one to share the weight. I want you to know that I'm here with you right now, and your feelings of isolation are heard and understood. You've reached out, which shows so much courage. What's been making you feel most alone lately?";
+    if (lowered.contains('stressed') || lowered.contains('overwhelmed')) {
+      return [
+        'Break tasks into smaller steps',
+        'Prioritize self-care',
+        'Ask for help when needed'
+      ];
     }
     
-    // Crisis keywords - gentle but direct
-    if (_containsPattern(message, [
-      ['hurt', 'myself', 'end', 'die', 'kill', 'suicide', 'death'],
-      ['can\'t', 'anymore', 'over', 'done', 'enough', 'escape']
-    ])) {
-      return "I'm really concerned about you right now, and I want you to know that these feelings, while overwhelming, don't have to be permanent. You matter so much, and there are people who want to help. Please consider reaching out to a crisis helpline - they have trained counselors available 24/7. In the US, you can text 988 for the Suicide & Crisis Lifeline. You don't have to face this alone.";
+    if (lowered.contains('lonely') || lowered.contains('isolated')) {
+      return [
+        'Reach out to one person',
+        'Join a community or group',
+        'Practice self-compassion'
+      ];
     }
     
-    // Relationship issues
-    if (_containsPattern(message, [
-      ['relationship', 'partner', 'boyfriend', 'girlfriend', 'marriage', 'spouse'],
-      ['fight', 'argue', 'broke', 'up', 'cheating', 'trust', 'love']
-    ])) {
-      return "Relationship struggles can feel so consuming and emotionally draining. The pain you're experiencing around this relationship is real and significant. Whether it's conflict, trust issues, or feeling disconnected, these challenges touch the deepest parts of who we are. Would you like to share more about what's happening in your relationship?";
-    }
-    
-    // Work/school stress
-    if (_containsPattern(message, [
-      ['work', 'job', 'school', 'college', 'university', 'boss', 'teacher'],
-      ['stress', 'pressure', 'deadline', 'fail', 'fired', 'grades', 'exam']
-    ])) {
-      return "The pressure from work or school can feel absolutely overwhelming sometimes. It's like carrying a weight that keeps getting heavier, and it's completely understandable that you're feeling stressed about it. Your concerns are valid. What aspect of this situation is weighing on you most heavily right now?";
-    }
-    
-    // General support seeking
-    if (_containsPattern(message, [
-      ['help', 'support', 'need', 'talk', 'listen'],
-      ['someone', 'advice', 'don\'t', 'know', 'confused', 'lost']
-    ])) {
-      return "I'm really glad you reached out for support - that takes genuine courage and shows you're taking care of yourself. I'm here to listen without judgment and walk alongside you through whatever you're facing. What's been on your mind that brought you here today?";
-    }
-    
-    // Default empathetic response with mood integration
-    String response = "Thank you for sharing with me. I can tell that what you're going through is important and meaningful to you.";
-    
-    if (mood != null && mood.isNotEmpty) {
-      response += " I notice you're feeling $mood, and I want you to know that all of your feelings are valid and welcome here.";
-    }
-    
-    if (hasVoice) {
-      response += " I appreciate you sharing your voice with me - sometimes it helps to speak our feelings out loud.";
-    }
-    
-    if (hasImage) {
-      response += " Thank you for sharing that image - visual expression can be such a powerful way to communicate what words sometimes can't capture.";
-    }
-    
-    response += " I'm here to listen and support you. What would feel most helpful to talk about right now?";
-    
-    return response;
+    return [
+      'Take deep breaths',
+      'Stay present in the moment',
+      'You are worthy of support'
+    ];
   }
-
-  /// Helper method to detect emotional patterns
-  bool _containsPattern(String message, List<List<String>> patterns) {
-    return patterns.any((pattern) => 
-      pattern.any((keyword) => message.contains(keyword))
-    );
+  
+  /// Crisis detection
+  bool _detectCrisis(String message) {
+    final lowered = message.toLowerCase();
+    final crisisWords = [
+      'suicide', 'suicidal', 'kill myself', 'end it all', 'want to die',
+      'harm myself', 'hurt myself', 'can\'t go on', 'cannot go on',
+      'no point living', 'end my life', 'not worth living', 'better off dead',
+      'take my life', 'end everything', 'no reason to live'
+    ];
+    return crisisWords.any((word) => lowered.contains(word));
   }
-
-  /// Basic fallback
-  String _getBasicFallback(String userMessage) {
-    return "I'm here to support you through whatever you're experiencing. Your feelings are important, and I want to help. Would you like to share more about what's on your mind?";
-  }
-
-  /// Get model storage path
-  Future<String> _getModelPath() async {
-    final appDir = await getApplicationSupportDirectory();
-    final modelDir = Directory(path.join(appDir.path, 'models'));
-    return path.join(modelDir.path, modelFileName);  // Uses .litertlm extension
-  }
-
-  /// Save model info
-  Future<void> _saveModelInfo() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('bundled_litertlm_path', _modelPath!);
-      await prefs.setBool('bundled_litertlm_extracted', true);
-    } catch (e) {
-      debugPrint('📱 Failed to save .litertlm model info: $e');
-    }
-  }
-
-  /// Get comprehensive status
-  Map<String, dynamic> getStatus() {
-    final modelFile = _modelPath != null ? File(_modelPath!) : null;
-    final modelExists = modelFile?.existsSync() ?? false;
-    final modelSize = modelExists ? (modelFile!.lengthSync() / 1024 / 1024).round() : 0;
-    
+  
+  /// Get service status
+  Future<Map<String, dynamic>> getStatus() async {
     return {
       'initialized': _isInitialized,
-      'modelReady': _isModelReady,
-      'modelBundled': true,
-      'modelExtracted': modelExists,
-      'modelPath': _modelPath,
-      'modelSizeMB': modelSize,
-      'modelFormat': '.litertlm',  // UPDATED
-      'platform': Platform.operatingSystem,
-      'framework': 'bundled_gemma3n_litertlm_with_fallbacks',  // UPDATED
-      'source': 'app_bundle_asset_pack',
+      'using_gemma': _isModelDownloaded,
+      'using_enhanced_rules': !_isModelDownloaded,
+      'can_generate': true,
+      'model_loaded': _isModelDownloaded,
+      'model_downloaded': _isModelDownloaded,
+      'is_downloading': _isModelLoading,
+      'download_progress': _downloadProgress,
+      'device_ram_gb': _deviceRAM ?? 4,
+      'platform': Platform.isAndroid ? 'android' : Platform.isIOS ? 'ios' : 'mobile',
+      'available_models': _isModelDownloaded 
+          ? ['Gemma 3 Nano', 'Enhanced Rules System']
+          : ['Enhanced Rules System'],
+      'selected_model': _isModelDownloaded 
+          ? (_currentModelName ?? 'gemma-3n') 
+          : 'enhanced_rules_v1',
+      'backend': _isModelDownloaded ? 'gpu' : 'rules',
     };
   }
-
-  /// Health check
-  static Future<bool> checkHealth() async {
-    return AIEdgeService.instance._isInitialized;
-  }
-
-  /// Clear model cache
-  static Future<void> clearModelCache() async {
-    try {
-      debugPrint('📱 Clearing Gemma 3n .litertlm model cache...');
-      
-      final instance = AIEdgeService.instance;
-      
-      // Close interpreter
-      instance._interpreter?.close();
-      instance._interpreter = null;
-      instance._isModelReady = false;
-      
-      // Delete model file
-      if (instance._modelPath != null && await File(instance._modelPath!).exists()) {
-        await File(instance._modelPath!).delete();
-        debugPrint('📱 .litertlm model file deleted');
-      }
-      
-      // Clear preferences
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('bundled_litertlm_path');
-      await prefs.remove('bundled_litertlm_extracted');
-      
-      instance._modelPath = null;
-      debugPrint('📱 Gemma 3n .litertlm model cache cleared successfully');
-      
-    } catch (e) {
-      debugPrint('📱 Error clearing .litertlm model cache: $e');
-    }
-  }
-
+  
   /// Dispose resources
-  static void dispose() {
+  Future<void> dispose() async {
     try {
-      final instance = AIEdgeService.instance;
-      instance._interpreter?.close();
-      instance._interpreter = null;
-      debugPrint('📱 Bundled .litertlm mobile AI service disposed');
+      await _inferenceModel?.close();
+      _chat = null;
+      _inferenceModel = null;
+      _isInitialized = false;
+      _isInitializing = false;
+      _deviceRAM = null;
+      _isModelDownloaded = false;
+      _isModelLoading = false;
+      _downloadProgress = 0.0;
+      debugPrint('AI Edge Service disposed');
     } catch (e) {
-      debugPrint('📱 Disposal error: $e');
+      debugPrint('Dispose error: $e');
     }
   }
 }
