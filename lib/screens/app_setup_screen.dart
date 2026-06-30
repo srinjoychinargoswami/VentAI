@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../widgets/installation_progress_widget.dart';
+import '../services/gemma_service.dart';
 import '../services/ollama_manager.dart';
 import '../providers/setup_state_provider.dart';
 
@@ -27,19 +28,36 @@ class _AppSetupScreenState extends State<AppSetupScreen>
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   
-  //Setup stages reflecting auto-download installation process
-  final List<String> _setupStages = [
-    'Checking system requirements...',
-    'Checking for Ollama installation...',
-    'Downloading and installing Ollama from official source...',
-    'Starting AI service...',
-    'Downloading AI models (Gemma 3n)...',
-    'Configuring AI system...',
-    'Testing AI functionality...',
-    'Setup complete!'
-  ];
+  /// Platform-specific setup stages
+  List<String> get _setupStages {
+    if (_isMobile) {
+      return [
+        'Checking system requirements...',
+        'Initializing Gemma AI...',
+        'Loading AI model...',
+        'Configuring AI...',
+        'Testing AI functionality...',
+        'Setup complete!'
+      ];
+    } else {
+      return [
+        'Checking system requirements...',
+        'Checking for Ollama installation...',
+        'Downloading and installing Ollama...',
+        'Starting AI service...',
+        'Downloading AI models...',
+        'Configuring AI system...',
+        'Testing AI functionality...',
+        'Setup complete!'
+      ];
+    }
+  }
   
   int _currentStage = 0;
+  
+  // Platform detection
+  bool get _isMobile => Platform.isAndroid || Platform.isIOS;
+  bool get _isDesktop => Platform.isWindows || Platform.isMacOS || Platform.isLinux;
 
   @override
   void initState() {
@@ -68,7 +86,7 @@ class _AppSetupScreenState extends State<AppSetupScreen>
     super.dispose();
   }
 
-  ///Run complete setup with auto-download logic
+  /// Platform-specific complete setup
   Future<void> _runCompleteSetup() async {
     SetupStateProvider? setupProvider;
     
@@ -79,50 +97,10 @@ class _AppSetupScreenState extends State<AppSetupScreen>
       if (!mounted) return;
       await Future.delayed(const Duration(milliseconds: 500));
       
-      await _updateStage(1); // Checking for Ollama installation
-      if (!mounted) return;
-      await Future.delayed(const Duration(milliseconds: 800));
-      
-      //Check if Ollama exists before attempting download
-      bool ollamaExists = await _checkOllamaInstallation();
-      
-      if (!ollamaExists) {
-        await _updateStage(2); // Downloading and installing Ollama
-        if (!mounted) return;
-        debugPrint('⬇Ollama not found - starting auto-installation process');
+      if (_isMobile) {
+        await _runMobileSetup();
       } else {
-        await _updateStage(2); // Show installation stage briefly
-        if (!mounted) return;
-        await Future.delayed(const Duration(milliseconds: 500));
-        debugPrint('Ollama already installed - proceeding with existing installation');
-      }
-      
-      await _updateStage(3); // Starting AI service
-      if (!mounted) return;
-      await Future.delayed(const Duration(milliseconds: 500));
-      
-      await _updateStage(4); // Downloading AI models
-      if (!mounted) return;
-      
-      //Use the enhanced auto-download initialization
-      final success = await OllamaManager.initialize(forceReinstall: false);
-      
-      if (!mounted) return;
-      
-      if (success) {
-        await _updateStage(5); // Configuring AI system
-        await Future.delayed(const Duration(milliseconds: 800));
-        
-        if (!mounted) return;
-        await _updateStage(6); // Testing AI functionality
-        await _testAIResponse();
-        
-        if (!mounted) return;
-        await _updateStage(7); // Setup complete
-        await _completeSetup('ollama_gemma3n');
-        
-      } else {
-        await _handleSetupFailure('Ollama initialization failed - using intelligent offline fallback');
+        await _runDesktopSetup();
       }
       
     } catch (e) {
@@ -133,20 +111,109 @@ class _AppSetupScreenState extends State<AppSetupScreen>
     }
   }
 
-  ///Check if Ollama is installed on the system
-  Future<bool> _checkOllamaInstallation() async {
+  /// Mobile-specific setup with Gemma
+  Future<void> _runMobileSetup() async {
     try {
-      // Try to detect system Ollama installation
+      final platformPrefix = '📱';
+      
+      await _updateStage(1); // Initializing Gemma AI
+      if (!mounted) return;
+      debugPrint('$platformPrefix Initializing Gemma...');
+      
+      // Initialize Gemma
+      await GemmaService().initialize();
+      
+      if (!mounted) return;
+      await _updateStage(2); // Loading AI model
+      await Future.delayed(const Duration(milliseconds: 800));
+      
+      if (!mounted) return;
+      await _updateStage(3); // Configuring AI
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      if (!mounted) return;
+      await _updateStage(4); // Testing AI functionality
+      await _testMobileAIResponse();
+      
+      if (!mounted) return;
+      await _updateStage(5); // Setup complete
+      await _completeSetup('gemma_mobile');
+      
+    } catch (e) {
+      debugPrint('📱 Mobile setup failed: $e');
+      await _handleSetupFailure('Mobile AI setup failed: $e');
+    }
+  }
+
+  /// Desktop-specific setup with Ollama
+  Future<void> _runDesktopSetup() async {
+    try {
+      final platformPrefix = '🖥️';
+      
+      await _updateStage(1); // Checking for Ollama installation
+      if (!mounted) return;
+      await Future.delayed(const Duration(milliseconds: 800));
+      
+      bool ollamaExists = await _checkOllamaInstallation();
+      
+      if (!ollamaExists) {
+        await _updateStage(2); // Downloading and installing Ollama
+        if (!mounted) return;
+        debugPrint('$platformPrefix Ollama not found - starting auto-installation');
+      } else {
+        await _updateStage(2); // Show installation stage briefly
+        if (!mounted) return;
+        await Future.delayed(const Duration(milliseconds: 500));
+        debugPrint('$platformPrefix Ollama already installed');
+      }
+      
+      await _updateStage(3); // Starting AI service
+      if (!mounted) return;
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      await _updateStage(4); // Downloading AI models
+      if (!mounted) return;
+      
+      final success = await OllamaManager.initialize(forceReinstall: false);
+      
+      if (!mounted) return;
+      
+      if (success) {
+        await _updateStage(5); // Configuring AI system
+        await Future.delayed(const Duration(milliseconds: 800));
+        
+        if (!mounted) return;
+        await _updateStage(6); // Testing AI functionality
+        await _testDesktopAIResponse();
+        
+        if (!mounted) return;
+        await _updateStage(7); // Setup complete
+        await _completeSetup('ollama_gemma4');
+        
+      } else {
+        await _handleSetupFailure('Ollama initialization failed');
+      }
+      
+    } catch (e) {
+      debugPrint('🖥️ Desktop setup failed: $e');
+      await _handleSetupFailure('Desktop setup failed: $e');
+    }
+  }
+
+  /// Check if Ollama is installed (Desktop only)
+  Future<bool> _checkOllamaInstallation() async {
+    if (_isMobile) return false;
+    
+    try {
       final result = await Process.run('ollama', ['--version']);
       if (result.exitCode == 0) {
-        debugPrint('Found system Ollama installation');
+        debugPrint('Found system Ollama');
         return true;
       }
     } catch (e) {
-      debugPrint('System Ollama not found, checking common locations...');
+      debugPrint('System Ollama not found');
     }
     
-    // Check common installation paths
     final commonPaths = [
       r'C:\Program Files\Ollama\ollama.exe',
       r'C:\Program Files (x86)\Ollama\ollama.exe',
@@ -164,11 +231,10 @@ class _AppSetupScreenState extends State<AppSetupScreen>
       }
     }
     
-    debugPrint('Ollama not found in common locations');
     return false;
   }
 
-  /// Update current setup stage with enhanced messaging
+  /// Update stage with platform-specific messaging
   Future<void> _updateStage(int stageIndex) async {
     if (!mounted) return;
     
@@ -177,24 +243,37 @@ class _AppSetupScreenState extends State<AppSetupScreen>
         _currentStage = stageIndex;
         _statusMessage = _setupStages[stageIndex];
         
-        //Auto-download specific detail messages
-        switch (stageIndex) {
-          case 2:
-            _detailMessage = 'Downloading Ollama from official source (this may take several minutes)';
-            break;
-          case 4:
-            _detailMessage = 'Downloading Gemma AI models (this may take several minutes)';
-            break;
-          case 6:
-            _detailMessage = 'Testing AI responses with auto-downloaded models...';
-            break;
-          default:
-            _detailMessage = 'Please wait...';
-            break;
+        // Platform-specific detail messages
+        if (_isMobile) {
+          switch (stageIndex) {
+            case 2:
+              _detailMessage = 'Loading Gemma AI model...';
+              break;
+            case 4:
+              _detailMessage = 'Testing Gemma AI responses...';
+              break;
+            default:
+              _detailMessage = 'Please wait...';
+              break;
+          }
+        } else {
+          switch (stageIndex) {
+            case 2:
+              _detailMessage = 'Downloading Ollama (this may take several minutes)';
+              break;
+            case 4:
+              _detailMessage = 'Downloading Gemma AI models (this may take several minutes)';
+              break;
+            case 6:
+              _detailMessage = 'Testing AI responses with auto-downloaded models...';
+              break;
+            default:
+              _detailMessage = 'Please wait...';
+              break;
+          }
         }
       });
       
-      // Animate the update
       if (mounted && _animationController.isAnimating) {
         _animationController.forward().then((_) {
           if (mounted) {
@@ -205,11 +284,46 @@ class _AppSetupScreenState extends State<AppSetupScreen>
     }
   }
 
-  /// Test AI response with auto-downloaded components
-  Future<void> _testAIResponse() async {
+  /// Test mobile AI response using Gemma
+  Future<void> _testMobileAIResponse() async {
     try {
+      debugPrint('📱 Testing Gemma AI...');
+      
+      final response = await GemmaService().generateEmotionalResponse(
+        "Hello, this is a test"
+      );
+      
+      if (response.isNotEmpty) {
+        final displayText = response.length > 50 
+            ? '${response.substring(0, 50)}...'
+            : response;
+        debugPrint('📱 Gemma Test Response: $displayText');
+      }
+      
+      if (!mounted) return;
+      setState(() {
+        _detailMessage = response.isNotEmpty
+            ? 'Gemma AI is responding correctly!' 
+            : 'Gemma AI test completed';
+      });
+      
+    } catch (e) {
+      debugPrint('📱 Gemma test failed: $e');
+      if (!mounted) return;
+      setState(() {
+        _detailMessage = 'Gemma test completed with warnings';
+        _errorDetails = e.toString();
+      });
+    }
+  }
+
+  /// Test desktop AI response using Ollama
+  Future<void> _testDesktopAIResponse() async {
+    try {
+      debugPrint('🖥️ Testing Ollama...');
+      
       final responseData = await OllamaManager.generateEmpatheticResponse(
-        "Hello, this is a test to verify the AI is working with auto-downloaded components."
+        "Hello, this is a test to verify the AI is working."
       );
       
       final aiResponse = responseData['response'] as String? ?? '';
@@ -219,37 +333,39 @@ class _AppSetupScreenState extends State<AppSetupScreen>
         final displayText = aiResponse.length > 50 
             ? '${aiResponse.substring(0, 50)}...'
             : aiResponse;
-        debugPrint('AI Test Response: $displayText');
+        debugPrint('🖥️ Ollama Test Response: $displayText');
         debugPrint('Response source: $responseSource');
-      } else {
-        debugPrint('AI Test Response: <empty response>');
       }
       
       if (!mounted) return;
       setState(() {
         _detailMessage = aiResponse.isNotEmpty 
             ? 'AI is responding correctly with auto-downloaded models!' 
-            : 'AI test completed with basic response';
+            : 'AI test completed';
       });
       
     } catch (e) {
-      debugPrint('AI test failed: $e');
+      debugPrint('🖥️ Ollama test failed: $e');
       if (!mounted) return;
       setState(() {
-        _detailMessage = 'AI test completed with warnings';
+        _detailMessage = 'Ollama test completed with warnings';
         _errorDetails = e.toString();
       });
     }
   }
 
-  ///Handle setup completion with auto-download confirmation
+  /// Complete setup
   Future<void> _completeSetup(String aiType) async {
     if (!mounted) return;
+    
+    final platformPrefix = _isMobile ? '📱' : '🖥️';
     
     setState(() {
       _isComplete = true;
       _statusMessage = 'Vent AI is ready!';
-      _detailMessage = 'Your emotional support companion is now available with auto-downloaded AI';
+      _detailMessage = _isMobile 
+          ? 'Your mobile emotional support companion is ready'
+          : 'Your emotional support companion is ready with Ollama';
     });
     
     _animationController.stop();
@@ -258,7 +374,7 @@ class _AppSetupScreenState extends State<AppSetupScreen>
       if (mounted) {
         final setupProvider = context.read<SetupStateProvider>();
         await setupProvider.markSetupComplete(aiType);
-        debugPrint('Setup marked complete with type: $aiType');
+        debugPrint('$platformPrefix Setup complete: $aiType');
       }
     } catch (e) {
       debugPrint('Failed to mark setup complete: $e');
@@ -272,36 +388,40 @@ class _AppSetupScreenState extends State<AppSetupScreen>
     }
   }
 
-  ///Handle setup failure with specific auto-download error messaging
+  /// Handle setup failure with platform-specific messaging
   Future<void> _handleSetupFailure(String error) async {
     if (!mounted) return;
+    
+    final platformPrefix = _isMobile ? '📱' : '🖥️';
     
     setState(() {
       _hasError = true;
       _errorDetails = error;
     });
     
-    // Provide specific error messages for auto-download failures
-    if (error.contains('download')) {
-      setState(() {
-        _statusMessage = 'Download Failed';
-        _detailMessage = 'Check internet connection and try again. Using offline mode...';
-      });
-    } else if (error.contains('permission')) {
-      setState(() {
-        _statusMessage = 'Permission Issue';
-        _detailMessage = 'Installation blocked. Try running as administrator. Using offline mode...';
-      });
-    } else if (error.contains('space')) {
-      setState(() {
-        _statusMessage = 'Storage Issue';
-        _detailMessage = 'Insufficient disk space (~13GB required). Using offline mode...';
-      });
-    } else {
+    // Platform-specific error messages
+    if (_isMobile) {
       setState(() {
         _statusMessage = 'Setup Issue';
-        _detailMessage = 'Auto-installation encountered an issue. Using offline mode...';
+        _detailMessage = 'Using fallback mode...';
       });
+    } else {
+      if (error.contains('download')) {
+        setState(() {
+          _statusMessage = 'Download Failed';
+          _detailMessage = 'Check internet connection. Using offline mode...';
+        });
+      } else if (error.contains('permission')) {
+        setState(() {
+          _statusMessage = 'Permission Issue';
+          _detailMessage = 'Try running as administrator. Using offline mode...';
+        });
+      } else {
+        setState(() {
+          _statusMessage = 'Setup Issue';
+          _detailMessage = 'Using offline mode...';
+        });
+      }
     }
     
     _animationController.stop();
@@ -311,14 +431,15 @@ class _AppSetupScreenState extends State<AppSetupScreen>
     if (!mounted) return;
     setState(() {
       _statusMessage = 'Using intelligent offline mode...';
-      _detailMessage = 'Smart emotional support available without AI models';
+      _detailMessage = 'Emotional support available';
     });
     
     try {
       if (mounted) {
         final setupProvider = context.read<SetupStateProvider>();
-        await setupProvider.markSetupComplete('offline_intelligent');
-        debugPrint('Setup completed with intelligent fallback mode');
+        final fallbackType = _isMobile ? 'mobile_fallback' : 'desktop_fallback';
+        await setupProvider.markSetupComplete(fallbackType);
+        debugPrint('$platformPrefix Setup completed with fallback');
       }
     } catch (e) {
       debugPrint('Failed to mark fallback setup complete: $e');
@@ -330,7 +451,9 @@ class _AppSetupScreenState extends State<AppSetupScreen>
         _isComplete = true;
         _hasError = false;
         _statusMessage = 'Vent AI is ready!';
-        _detailMessage = 'Offline emotional support companion available';
+        _detailMessage = _isMobile 
+            ? 'Mobile emotional support ready'
+            : 'Offline emotional support ready';
       });
     }
   }
@@ -339,6 +462,9 @@ class _AppSetupScreenState extends State<AppSetupScreen>
 
   @override
   Widget build(BuildContext context) {
+    final platformEmoji = _isMobile ? '📱' : '🖥️';
+    final platformName = _isMobile ? 'Mobile' : 'Desktop';
+    
     return Scaffold(
       backgroundColor: Colors.blue.shade50,
       body: SafeArea(
@@ -348,7 +474,7 @@ class _AppSetupScreenState extends State<AppSetupScreen>
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // App icon and branding
+                // App icon
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
@@ -395,7 +521,7 @@ class _AppSetupScreenState extends State<AppSetupScreen>
                 
                 const SizedBox(height: 32),
                 
-                //Installation progress widget with auto-download feedback
+                // Installation progress
                 const InstallationProgressWidget(),
                 
                 const SizedBox(height: 24),
@@ -436,7 +562,7 @@ class _AppSetupScreenState extends State<AppSetupScreen>
                               ),
                             ),
                             Text(
-                              'Auto-Installing',
+                              _isMobile ? 'Initializing' : 'Auto-Installing',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.blue.shade600,
@@ -516,7 +642,7 @@ class _AppSetupScreenState extends State<AppSetupScreen>
                 
                 const SizedBox(height: 24),
                 
-                //Auto-download indicator
+                // Platform indicator
                 if (!_isComplete && !_hasError) ...[
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -527,14 +653,13 @@ class _AppSetupScreenState extends State<AppSetupScreen>
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
-                          Icons.download_outlined,
-                          size: 16,
-                          color: Colors.blue.shade700,
+                        Text(
+                          platformEmoji,
+                          style: const TextStyle(fontSize: 16),
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          'Auto-downloading from official sources',
+                          '$platformName AI Setup',
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.blue.shade700,
@@ -546,8 +671,8 @@ class _AppSetupScreenState extends State<AppSetupScreen>
                   ),
                 ],
                 
-                // ENHANCED: Offline AI indicator with voice capability
-                if (_currentStage >= 4) ...[
+                // Offline AI indicator
+                if (_currentStage >= (_isMobile ? 2 : 4)) ...[
                   const SizedBox(height: 16),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -566,7 +691,7 @@ class _AppSetupScreenState extends State<AppSetupScreen>
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          'Offline AI • Voice Enabled • Privacy Protected',
+                          'Offline AI • Privacy Protected',
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.green.shade700,
@@ -578,7 +703,7 @@ class _AppSetupScreenState extends State<AppSetupScreen>
                   ),
                 ],
                 
-                // Error details (for debugging)
+                // Error details
                 if (_hasError && _errorDetails != null) ...[
                   const SizedBox(height: 16),
                   Container(
@@ -598,7 +723,7 @@ class _AppSetupScreenState extends State<AppSetupScreen>
                   ),
                 ],
                 
-                // Setup provider state indicator
+                // Setup provider state
                 Consumer<SetupStateProvider>(
                   builder: (context, setupProvider, child) {
                     return Container(

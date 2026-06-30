@@ -1,7 +1,10 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:drift/drift.dart';
 import '../services/offline_storage.dart';
 import '../services/ollama_manager.dart';
+import '../services/gemma_service.dart';
+import '../services/emotional_ai_service.dart';
 import '../providers/setup_state_provider.dart';
 
 class ConversationProvider extends ChangeNotifier {
@@ -13,11 +16,15 @@ class ConversationProvider extends ChangeNotifier {
   bool _isSendingMessage = false;
   String _lastErrorMessage = '';
 
-  // Conversation context tracking for better AI responses
+  // Conversation context tracking
   final List<String> _recentMessages = [];
   final List<String> _recentResponses = [];
   final int _maxContextMessages = 3;
   String? _currentSessionId;
+
+  // Platform detection
+  bool get _isMobile => Platform.isAndroid || Platform.isIOS;
+  bool get _isDesktop => Platform.isWindows || Platform.isMacOS || Platform.isLinux;
 
   ConversationProvider({
     required AppDatabase database, 
@@ -37,34 +44,31 @@ class ConversationProvider extends ChangeNotifier {
   List<String> get recentMessages => List.unmodifiable(_recentMessages);
   List<String> get recentResponses => List.unmodifiable(_recentResponses);
 
-  /// Enhanced load conversations with correct ordering
+  /// Load conversations
   Future<void> _loadConversations() async {
     _isLoading = true;
     _lastErrorMessage = '';
     notifyListeners();
 
     try {
-      //  Use ascending order (oldest first) for natural chat flow
       final conversationsQuery = _database.select(_database.conversations)
-        ..orderBy([(t) => OrderingTerm(expression: t.timestamp, mode: OrderingMode.asc)]) //  Changed from desc to asc
+        ..orderBy([(t) => OrderingTerm(expression: t.timestamp, mode: OrderingMode.asc)])
         ..limit(100);
       _conversations = await conversationsQuery.get();
       
-      // Rebuild conversation context from recent conversations
       _rebuildContextFromConversations();
       
-      debugPrint('Loaded ${_conversations.length} conversations in correct order');
+      debugPrint('Loaded ${_conversations.length} conversations');
     } catch (e) {
       debugPrint('Failed to load conversations: $e');
       _lastErrorMessage = 'Failed to load conversations: $e';
     } finally {
       _isLoading = false;
-      // CRITICAL: Always notify listeners after data changes
       notifyListeners();
     }
   }
 
-  /// CRITICAL FIX: Enhanced addMessage with proper field mapping
+  /// Add message
   Future<void> addMessage({
     required String message,
     required bool isUser,
@@ -75,14 +79,13 @@ class ConversationProvider extends ChangeNotifier {
     try {
       final now = DateTime.now();
       
-      debugPrint('Adding ${isUser ? 'user' : 'AI'} message to database...');
+      debugPrint('Adding ${isUser ? 'user' : 'AI'} message...');
 
       if (isUser) {
-        // Add user message
         await _database.into(_database.conversations).insert(
           ConversationsCompanion(
             userMessage: Value(message),
-            aiResponse: const Value(''), // Empty for user messages
+            aiResponse: const Value(''),
             timestamp: Value(now),
             emotionalState: Value(mood),
             isOffline: const Value(true),
@@ -90,11 +93,10 @@ class ConversationProvider extends ChangeNotifier {
           )
         );
       } else {
-        // CRITICAL FIX: For AI responses, ensure proper field mapping
         await _database.into(_database.conversations).insert(
           ConversationsCompanion(
-            userMessage: const Value('[Voice input processed]'), // Placeholder for voice
-            aiResponse: Value(message), // CRITICAL: This should contain the full AI response
+            userMessage: const Value('[Message processed]'),
+            aiResponse: Value(message),
             timestamp: Value(now),
             emotionalState: Value(mood),
             isOffline: const Value(true),
@@ -103,17 +105,15 @@ class ConversationProvider extends ChangeNotifier {
         );
       }
 
-      // Add to context tracking
       if (isUser) {
         _addToContext(message, '');
       } else {
         _addToContext('', message);
       }
 
-      // CRITICAL FIX: Force refresh with enhanced notification
       await _forceRefreshAndNotify();
       
-      debugPrint('Added ${isUser ? 'user' : 'AI'} message: ${message.substring(0, message.length.clamp(0, 50))}...');
+      debugPrint('Added message');
     } catch (e) {
       debugPrint('Failed to add message: $e');
       _lastErrorMessage = 'Failed to add message: $e';
@@ -122,34 +122,27 @@ class ConversationProvider extends ChangeNotifier {
     }
   }
 
-  /// CRITICAL FIX: Force refresh with multiple notification attempts
+  /// Force refresh
   Future<void> _forceRefreshAndNotify() async {
     try {
-      // Force database reload with correct ordering
       await _loadConversations();
-      
-      // Add delay to ensure database operations complete
       await Future.delayed(const Duration(milliseconds: 100));
-      
-      // Force second refresh
       await _loadConversations();
-      
-      // Force notification again
       notifyListeners();
       
-      debugPrint('Force refresh completed with enhanced notifications');
+      debugPrint('Force refresh completed');
     } catch (e) {
       debugPrint('Force refresh failed: $e');
       notifyListeners();
     }
   }
 
-  /// Enhanced refresh method for external calls
+  /// Refresh conversations
   Future<void> refresh() async {
     await _forceRefreshAndNotify();
   }
 
-  /// Enhanced sendMessage method
+  /// Send message and get AI response
   Future<void> sendMessage(String userMessage, {String? mood}) async {
     if (userMessage.trim().isEmpty) return;
 
@@ -164,44 +157,57 @@ class ConversationProvider extends ChangeNotifier {
         final context = _getConversationContext();
         if (context.isNotEmpty) {
           enhancedMessage = '$context\n\nUser: $userMessage';
-          debugPrint('Adding conversation context for continuity');
+          debugPrint('Adding conversation context');
         }
       }
 
-      // Generate AI response
+      // Platform-specific AI routing
       Map<String, dynamic> aiResponseData;
       final setupProvider = _setupStateProvider;
       final hasAdvancedAI = setupProvider?.hasAdvancedAI ?? false;
 
-      if (hasAdvancedAI && OllamaManager.isInitialized) {
-        debugPrint('Checking Ollama service status...');
-        final serviceReady = await OllamaManager.ensureServiceRunning();
+      if (_isMobile) {
+        // MOBILE: Use Gemma via EmotionalAIService
+        debugPrint('📱 Using mobile Gemma AI');
+        aiResponseData = await _generateMobileAIResponse(enhancedMessage, mood);
         
-        if (serviceReady) {
-          debugPrint('Ollama service ready - using advanced AI');
-          aiResponseData = await OllamaManager.generateEmpatheticResponse(
-            enhancedMessage, 
-            model: null
-          );
+      } else if (_isDesktop) {
+        // DESKTOP: Use OllamaManager
+        if (hasAdvancedAI && OllamaManager.isInitialized) {
+          debugPrint('🖥️ Checking Ollama service...');
+          final serviceReady = await OllamaManager.ensureServiceRunning();
+          
+          if (serviceReady) {
+            debugPrint('Using Ollama');
+            aiResponseData = await OllamaManager.generateEmpatheticResponse(
+              enhancedMessage, 
+              model: null
+            );
+          } else {
+            debugPrint('Ollama not ready - fallback');
+            aiResponseData = await _generateFallbackResponse(userMessage, mood);
+          }
         } else {
-          debugPrint('Ollama service not ready - using intelligent fallback');
+          debugPrint('Using desktop fallback');
           aiResponseData = await _generateFallbackResponse(userMessage, mood);
         }
+        
       } else {
-        debugPrint('Using intelligent fallback response (no advanced AI)');
+        // Unknown platform - use fallback
         aiResponseData = await _generateFallbackResponse(userMessage, mood);
       }
 
-      final aiResponse = aiResponseData['response'] as String? ?? 'I\'m here to listen. Could you tell me more?';
+      final aiResponse = aiResponseData['response'] as String? ?? 
+          'I\'m here to listen. Could you tell me more?';
 
-      // Add to context tracking
+      // Add to context
       _addToContext(userMessage, aiResponse);
 
-      // CRITICAL FIX: Insert complete conversation with both messages
+      // Insert conversation
       await _database.into(_database.conversations).insert(
         ConversationsCompanion.insert(
           userMessage: userMessage.trim(),
-          aiResponse: aiResponse, // CRITICAL: Ensure AI response is properly saved
+          aiResponse: aiResponse,
           timestamp: DateTime.now(),
           emotionalState: Value(mood),
           isOffline: const Value(true),
@@ -209,7 +215,6 @@ class ConversationProvider extends ChangeNotifier {
         )
       );
 
-      // CRITICAL: Force enhanced refresh after database insert
       await _forceRefreshAndNotify();
       
       debugPrint('Message sent and response generated');
@@ -238,7 +243,7 @@ class ConversationProvider extends ChangeNotifier {
         await _forceRefreshAndNotify();
         debugPrint('Emergency response saved');
       } catch (emergencyError) {
-        debugPrint('Emergency fallback also failed: $emergencyError');
+        debugPrint('Emergency fallback failed: $emergencyError');
       }
     } finally {
       _isSendingMessage = false;
@@ -246,7 +251,30 @@ class ConversationProvider extends ChangeNotifier {
     }
   }
 
-  // Context management methods
+  /// Generate mobile AI response using EmotionalAIService
+  Future<Map<String, dynamic>> _generateMobileAIResponse(String message, String? mood) async {
+    try {
+      debugPrint('📱 Generating mobile AI response...');
+      
+      // Use EmotionalAIService (routes to GemmaService on mobile)
+      final aiService = EmotionalAIService();
+      final response = await aiService.generateEmpatheticResponse(message);
+      
+      if (response['response'] != null && (response['response'] as String).isNotEmpty) {
+        debugPrint('📱 Mobile AI response generated successfully');
+        return response;
+      } else {
+        debugPrint('📱 Mobile AI returned empty - using fallback');
+        return await _generateFallbackResponse(message, mood);
+      }
+      
+    } catch (e) {
+      debugPrint('📱 Mobile AI generation failed: $e');
+      return await _generateFallbackResponse(message, mood);
+    }
+  }
+
+  // Context management
   void _addToContext(String userMessage, String aiResponse) {
     if (userMessage.isNotEmpty) {
       _recentMessages.add(userMessage);
@@ -391,7 +419,7 @@ What would feel most helpful for you right now?''';
     _currentSessionId = DateTime.now().millisecondsSinceEpoch.toString();
     _recentMessages.clear();
     _recentResponses.clear();
-    debugPrint('Started new conversation session: $_currentSessionId');
+    debugPrint('Started new session: $_currentSessionId');
     notifyListeners();
   }
 
@@ -405,7 +433,7 @@ What would feel most helpful for you right now?''';
 
   Conversation? get mostRecentConversation {
     if (_conversations.isEmpty) return null;
-    return _conversations.last; // Last in list is now most recent due to asc ordering
+    return _conversations.last;
   }
 
   List<Conversation> searchConversations(String query) {
@@ -423,11 +451,9 @@ What would feel most helpful for you right now?''';
       return {
         'total': 0,
         'textMessages': 0,
-        'voiceMessages': 0,
         'mostCommonMood': 'none',
         'averageLength': 0,
         'crisisConversations': 0,
-        'emotionsDetected': <String>[],
       };
     }
 
@@ -435,13 +461,10 @@ What would feel most helpful for you right now?''';
     int totalUserMessageLength = 0;
     int crisisCount = 0;
     int textMessages = 0;
-    int voiceMessages = 0;
-    final emotionsDetected = <String>{};
 
     for (final conv in _conversations) {
       final mood = conv.emotionalState ?? 'neutral';
       moodCounts[mood] = (moodCounts[mood] ?? 0) + 1;
-      emotionsDetected.add(mood);
       
       totalUserMessageLength += conv.userMessage.length;
       
@@ -449,11 +472,7 @@ What would feel most helpful for you right now?''';
         crisisCount++;
       }
       
-      if (conv.userMessage.contains('[Voice input processed]')) {
-        voiceMessages++;
-      } else {
-        textMessages++;
-      }
+      textMessages++;
     }
 
     String mostCommonMood = 'neutral';
@@ -468,11 +487,9 @@ What would feel most helpful for you right now?''';
     return {
       'total': _conversations.length,
       'textMessages': textMessages,
-      'voiceMessages': voiceMessages,
       'mostCommonMood': mostCommonMood,
       'averageLength': totalUserMessageLength ~/ _conversations.length,
       'crisisConversations': crisisCount,
-      'emotionsDetected': emotionsDetected.toList(),
     };
   }
 
@@ -483,7 +500,7 @@ What would feel most helpful for you right now?''';
 
   @override
   void notifyListeners() {
-    debugPrint('ConversationProvider: Notifying listeners (${_conversations.length} conversations)');
+    debugPrint('ConversationProvider: Notifying (${_conversations.length} conversations)');
     super.notifyListeners();
   }
 

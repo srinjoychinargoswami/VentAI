@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import '../services/gemma_service.dart';
 import '../services/ollama_manager.dart';
-import '../services/ai_edge_service.dart'; // ADDED: Mobile AI service
 
 class InstallationProgressWidget extends StatefulWidget {
   const InstallationProgressWidget({super.key});
@@ -21,7 +21,7 @@ class _InstallationProgressWidgetState extends State<InstallationProgressWidget>
   bool _hasError = false;
   List<String> _availableModels = [];
   
-  // ADDED: Platform detection
+  // Platform detection
   bool get _isMobile => Platform.isAndroid || Platform.isIOS;
   bool get _isDesktop => Platform.isWindows || Platform.isMacOS || Platform.isLinux;
 
@@ -32,13 +32,13 @@ class _InstallationProgressWidgetState extends State<InstallationProgressWidget>
   }
 
   void _startProgressMonitoring() {
-    _progressTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
+    _progressTimer = Timer.periodic(const Duration(seconds: 2), (timer) async {
       await _updateProgress();
     });
     _updateProgress(); // Initial update
   }
 
-  /// UPDATED: Platform-specific progress monitoring
+  /// Platform-specific progress monitoring
   Future<void> _updateProgress() async {
     try {
       if (_isMobile) {
@@ -51,74 +51,59 @@ class _InstallationProgressWidgetState extends State<InstallationProgressWidget>
     }
   }
 
-  /// ADDED: Mobile progress monitoring
+  /// Mobile progress monitoring with Gemma
   Future<void> _updateMobileProgress() async {
     try {
       final platformPrefix = '📱';
       
-      // Get AIService status
-      final status = await AIService.instance.getStatus();
+      // Get Gemma status
+      final status = await GemmaService().getStatus();
       
-      final modelDownloaded = status['model_downloaded'] as bool? ?? false;
+      final isInitialized = status['initialized'] as bool? ?? false;
       final modelLoaded = status['model_loaded'] as bool? ?? false;
-      final isDownloading = status['is_downloading'] as bool? ?? false;
-      final downloadProgress = status['download_progress'] as double? ?? 0.0;
       final canGenerate = status['can_generate'] as bool? ?? false;
-      final usingEnhancedRules = status['using_enhanced_rules'] as bool? ?? false;
-      final availableModels = status['available_models'] as List? ?? [];
-      
+
       double progress = 0.0;
-      String statusText = 'Initializing mobile AI...';
+      String statusText = 'Initializing Gemma AI...';
       String details = '';
       bool hasError = false;
       String errorMsg = '';
       
-      if (isDownloading) {
-        // Model is downloading
-        progress = 0.3 + (downloadProgress * 0.5); // 30% - 80%
-        statusText = 'Downloading Gemma model...';
-        details = '${(downloadProgress * 100).toInt()}% complete';
-      } else if (modelLoaded) {
-        // Model loaded and ready
+      if (!isInitialized) {
+        // Still initializing
+        progress = 0.3;
+        statusText = 'Loading Gemma model...';
+        details = 'This may take a moment on first launch';
+      } else if (modelLoaded && canGenerate) {
+        // Model ready
         progress = 1.0;
-        statusText = 'Mobile AI Ready';
-        details = 'Gemma AI loaded and ready';
-      } else if (modelDownloaded) {
-        // Model downloaded but not loaded yet
-        progress = 0.8;
-        statusText = 'Loading AI model...';
-        details = 'Preparing Gemma for inference';
-      } else if (canGenerate && usingEnhancedRules) {
-        // Using enhanced rules (fallback)
-        progress = 1.0;
-        statusText = 'Mobile AI Ready';
-        details = 'Using enhanced response system';
-      } else {
-        // Initial state
-        progress = 0.1;
-        statusText = 'Initializing mobile AI...';
-        details = 'Checking AI service status';
+        statusText = 'Gemma Ready';
+        details = 'AI model loaded and ready for conversation';
+        _isConnected = true;
+      } else if (isInitialized) {
+        // Initialized but still loading
+        progress = 0.7;
+        statusText = 'Preparing AI model...';
+        details = 'Setting up Gemma for offline use';
       }
-      
+
       if (mounted) {
         setState(() {
-          _isConnected = canGenerate;
           _downloadProgress = progress;
           _currentStatus = '$platformPrefix $statusText';
           _detailStatus = details;
-          _availableModels = availableModels.map((m) => m.toString()).toList();
           _hasError = hasError;
           _errorMessage = errorMsg;
+          _availableModels = modelLoaded ? ['gemma-2b'] : [];
         });
       }
-      
     } catch (e) {
       debugPrint('📱 Mobile progress error: $e');
       _handleProgressError(e);
     }
   }
 
-  /// Desktop progress monitoring (existing logic)
+  /// Desktop progress monitoring with Ollama
   Future<void> _updateDesktopProgress() async {
     try {
       final platformPrefix = '🖥️';
@@ -192,7 +177,7 @@ class _InstallationProgressWidgetState extends State<InstallationProgressWidget>
     }
   }
 
-  /// ADDED: Unified error handling
+  /// Unified error handling
   void _handleProgressError(dynamic e) {
     String errorType = 'Connection Error';
     String errorDetails = e.toString();

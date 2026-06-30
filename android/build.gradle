@@ -1,7 +1,49 @@
+buildscript {
+    ext.kotlin_version = '2.0.0'
+    repositories {
+        google()
+        mavenCentral()
+    }
+
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.5.0'
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+        classpath "org.jetbrains.kotlin:kotlin-serialization:$kotlin_version"  // ADDED FOR KOTLIN SERIALIZATION
+    }
+}
+
 allprojects {
     repositories {
         google()
         mavenCentral()
+    }
+}
+
+// FORCE CONSISTENT TARGETS AFTER ALL PROJECTS ARE EVALUATED
+subprojects {
+    afterEvaluate { project ->
+        if (project.hasProperty('android')) {
+            project.android {
+                compileOptions {
+                    sourceCompatibility JavaVersion.VERSION_17
+                    targetCompatibility JavaVersion.VERSION_17
+                }
+                
+                tasks.withType(JavaCompile) {
+                    options.compilerArgs << "-Xlint:deprecation"
+                }
+            }
+        }
+        
+        // Force Kotlin compilation options
+        tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+            kotlinOptions {
+                jvmTarget = '17'
+                apiVersion = '2.0'
+                languageVersion = '2.0'
+                freeCompilerArgs += ['-opt-in=kotlin.ExperimentalStdlibApi']
+            }
+        }
     }
 }
 
