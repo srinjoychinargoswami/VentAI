@@ -563,43 +563,48 @@ class _AppSetupScreenState extends State<AppSetupScreen>
                 // Progress indicator
                 if (!_isComplete && !_hasError) ...[
                   SizedBox(
-                    width: 200,
-                    height: 200,
+                    width: 220,
+                    height: 220,
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
+                        // Background circle
                         CircularProgressIndicator(
                           value: 1.0,
-                          strokeWidth: 8,
-                          backgroundColor: Colors.blue.shade100,
+                          strokeWidth: 10,
+                          backgroundColor: Colors.blue.shade50,
                           valueColor: AlwaysStoppedAnimation<Color>(
                             Colors.blue.shade100,
                           ),
                         ),
+                        // Progress circle
                         CircularProgressIndicator(
                           value: _progressPercentage,
-                          strokeWidth: 8,
+                          strokeWidth: 10,
                           backgroundColor: Colors.transparent,
                           valueColor: AlwaysStoppedAnimation<Color>(
-                            Colors.blue.shade600,
+                            Colors.blue.shade700,
                           ),
                         ),
+                        // Center content
                         Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
                               '${(_progressPercentage * 100).toInt()}%',
                               style: TextStyle(
-                                fontSize: 24,
+                                fontSize: 32,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.blue.shade800,
+                                color: Colors.blue.shade900,
                               ),
                             ),
+                            const SizedBox(height: 4),
                             Text(
                               _isMobile ? 'Initializing' : 'Auto-Installing',
                               style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.blue.shade600,
+                                fontSize: 13,
+                                color: Colors.blue.shade700,
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
                           ],
@@ -609,72 +614,97 @@ class _AppSetupScreenState extends State<AppSetupScreen>
                   ),
                 ] else if (_isComplete) ...[
                   Container(
-                    width: 80,
-                    height: 80,
+                    width: 100,
+                    height: 100,
                     decoration: BoxDecoration(
                       color: Colors.green.shade100,
                       shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.green.shade200,
+                          blurRadius: 12,
+                          spreadRadius: 2,
+                        ),
+                      ],
                     ),
                     child: Icon(
-                      Icons.check,
-                      size: 40,
+                      Icons.check_circle,
+                      size: 56,
                       color: Colors.green.shade600,
                     ),
                   ),
                 ] else if (_hasError) ...[
                   Container(
-                    width: 80,
-                    height: 80,
+                    width: 100,
+                    height: 100,
                     decoration: BoxDecoration(
                       color: Colors.orange.shade100,
                       shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.orange.shade200,
+                          blurRadius: 12,
+                          spreadRadius: 2,
+                        ),
+                      ],
                     ),
                     child: Icon(
-                      Icons.info,
-                      size: 40,
+                      Icons.warning_rounded,
+                      size: 56,
                       color: Colors.orange.shade600,
                     ),
                   ),
                 ],
-                
-                const SizedBox(height: 32),
-                
-                // Status message
+
+                const SizedBox(height: 40),
+
+                // Status message (Primary message)
                 AnimatedSwitcher(
                   duration: const Duration(milliseconds: 300),
+                  transitionBuilder: (child, animation) {
+                    return FadeTransition(opacity: animation, child: child);
+                  },
                   child: Text(
                     _statusMessage,
                     key: ValueKey(_statusMessage),
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: _hasError 
-                        ? Colors.orange.shade700
-                        : _isComplete 
-                          ? Colors.green.shade700
-                          : Colors.blue.shade800,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: _hasError
+                        ? Colors.orange.shade800
+                        : _isComplete
+                          ? Colors.green.shade800
+                          : Colors.blue.shade900,
+                      letterSpacing: 0.3,
                     ),
                   ),
                 ),
-                
-                const SizedBox(height: 16),
-                
-                // Detail message
+
+                const SizedBox(height: 12),
+
+                // Detail message (Secondary message)
                 AnimatedSwitcher(
                   duration: const Duration(milliseconds: 300),
+                  transitionBuilder: (child, animation) {
+                    return FadeTransition(opacity: animation, child: child);
+                  },
                   child: Text(
                     _detailMessage,
                     key: ValueKey(_detailMessage),
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey.shade600,
+                      fontSize: 15,
+                      color: _hasError
+                        ? Colors.orange.shade600
+                        : Colors.grey.shade700,
+                      height: 1.4,
+                      fontWeight: FontWeight.w400,
                     ),
                   ),
                 ),
                 
-                const SizedBox(height: 24),
+                const SizedBox(height: 28),
 
                 // Start Download button (shown when license accepted, waiting for user action)
                 Consumer<SetupStateProvider>(
@@ -685,19 +715,40 @@ class _AppSetupScreenState extends State<AppSetupScreen>
                         setupProvider.setupMessage.contains('Ready');
 
                     if (readyToDownload) {
-                      return SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: () {
-                            debugPrint('User tapping "Start Download"...');
-                            setupProvider.startDownloading();
-                          },
-                          icon: const Icon(Icons.download),
-                          label: const Text('Start Download'),
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            backgroundColor: Colors.blue.shade600,
-                            foregroundColor: Colors.white,
+                      return Container(
+                        decoration: BoxDecoration(
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.blue.shade300,
+                              blurRadius: 12,
+                              spreadRadius: 1,
+                            ),
+                          ],
+                        ),
+                        child: SizedBox(
+                          width: double.infinity,
+                          height: 48,
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              debugPrint('User tapping "Start Download"...');
+                              setupProvider.startDownloading();
+                            },
+                            icon: const Icon(Icons.download, size: 20),
+                            label: const Text(
+                              'Start Download',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 0.2,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue.shade600,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
                           ),
                         ),
                       );
@@ -711,25 +762,26 @@ class _AppSetupScreenState extends State<AppSetupScreen>
                 // Platform indicator
                 if (!_isComplete && !_hasError) ...[
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                     decoration: BoxDecoration(
-                      color: Colors.blue.shade100,
-                      borderRadius: BorderRadius.circular(20),
+                      color: Colors.blue.shade50,
+                      border: Border.all(color: Colors.blue.shade200, width: 1.5),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
                           platformEmoji,
-                          style: const TextStyle(fontSize: 16),
+                          style: const TextStyle(fontSize: 18),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 10),
                         Text(
                           '$platformName AI Setup',
                           style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.blue.shade700,
-                            fontWeight: FontWeight.w500,
+                            fontSize: 13,
+                            color: Colors.blue.shade800,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ],
@@ -739,28 +791,35 @@ class _AppSetupScreenState extends State<AppSetupScreen>
                 
                 // Offline AI indicator
                 if (_currentStage >= (_isMobile ? 2 : 4)) ...[
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 20),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                     decoration: BoxDecoration(
                       color: Colors.green.shade50,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.green.shade200),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.green.shade300, width: 1.5),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.green.shade100,
+                          blurRadius: 6,
+                          spreadRadius: 0,
+                        ),
+                      ],
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          Icons.offline_bolt,
-                          size: 16,
+                          Icons.lock_outline,
+                          size: 18,
                           color: Colors.green.shade600,
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 10),
                         Text(
-                          'Offline AI • Privacy Protected',
+                          'Privacy Protected • Offline AI',
                           style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.green.shade700,
+                            fontSize: 13,
+                            color: Colors.green.shade800,
                             fontWeight: FontWeight.w600,
                           ),
                         ),

@@ -163,9 +163,9 @@ class _ChatScreenState extends State<ChatScreen> {
     return Consumer<ConversationProvider>(
       builder: (context, provider, child) {
         final isSending = provider.isSendingMessage;
-        
+
         return Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
           decoration: BoxDecoration(
             color: Theme.of(context).colorScheme.surface,
             border: Border(
@@ -178,11 +178,11 @@ class _ChatScreenState extends State<ChatScreen> {
           child: Column(
             children: [
               // Progress indicator while sending
-              if (isSending) 
+              if (isSending)
                 const LinearProgressIndicator(minHeight: 2),
-              
+
               if (isSending) const SizedBox(height: 8),
-              
+
               // Text input
               Row(
                 children: [
@@ -190,8 +190,8 @@ class _ChatScreenState extends State<ChatScreen> {
                     child: TextField(
                       controller: _messageController,
                       decoration: InputDecoration(
-                        hintText: isSending 
-                          ? 'Generating response...' 
+                        hintText: isSending
+                          ? 'Generating response...'
                           : 'Share what\'s on your mind...',
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(24),
@@ -210,17 +210,40 @@ class _ChatScreenState extends State<ChatScreen> {
                       onSubmitted: (_) => _sendMessage(),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  FloatingActionButton(
-                    onPressed: isSending ? null : _sendMessage,
-                    mini: true,
-                    child: isSending
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.send),
+                  const SizedBox(width: 4),
+                  // Send button
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.primary,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: isSending ? null : _sendMessage,
+                        customBorder: const CircleBorder(),
+                        child: Center(
+                          child: isSending
+                              ? SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation(
+                                      Theme.of(context).colorScheme.onPrimary,
+                                    ),
+                                  ),
+                                )
+                              : Icon(
+                                  Icons.send,
+                                  size: 18,
+                                  color: Theme.of(context).colorScheme.onPrimary,
+                                ),
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),
