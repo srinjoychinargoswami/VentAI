@@ -251,23 +251,25 @@ class ConversationProvider extends ChangeNotifier {
     }
   }
 
-  /// Generate mobile AI response using EmotionalAIService
+  /// Generate mobile AI response using GemmaService directly
   Future<Map<String, dynamic>> _generateMobileAIResponse(String message, String? mood) async {
     try {
-      debugPrint('📱 Generating mobile AI response...');
-      
-      // Use EmotionalAIService (routes to GemmaService on mobile)
-      final aiService = EmotionalAIService();
-      final response = await aiService.generateEmpatheticResponse(message);
-      
-      if (response['response'] != null && (response['response'] as String).isNotEmpty) {
+      debugPrint('📱 Generating mobile AI response with GemmaService...');
+
+      // Use GemmaService directly (singleton, already initialized in ChatScreen)
+      final response = await GemmaService().generateEmotionalResponse(message);
+
+      if (response.isNotEmpty) {
         debugPrint('📱 Mobile AI response generated successfully');
-        return response;
+        return {
+          'response': response,
+          'source': 'gemma_mobile',
+        };
       } else {
         debugPrint('📱 Mobile AI returned empty - using fallback');
         return await _generateFallbackResponse(message, mood);
       }
-      
+
     } catch (e) {
       debugPrint('📱 Mobile AI generation failed: $e');
       return await _generateFallbackResponse(message, mood);

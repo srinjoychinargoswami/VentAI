@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
 
 import 'services/offline_storage.dart';
 import 'services/gemma_service.dart';
@@ -18,18 +19,25 @@ import 'themes/app_theme.dart';
 bool get _isMobile => Platform.isAndroid || Platform.isIOS;
 bool get _isDesktop => Platform.isWindows || Platform.isMacOS || Platform.isLinux;
 
-/// Bootstrap flutter_gemma for mobile
+/// Bootstrap Gemma with MediaPipe engine (flutter_gemma 1.1.2)
+/// MediaPipeEngine: For .task models (universal compatibility)
 Future<void> _bootstrapGemma() async {
   if (!_isMobile) return;
-  
+
   try {
-    debugPrint('📱 Bootstrapping Flutter Gemma...');
-    // Initialize Flutter Gemma (Modern API - no .instance)
-    FlutterGemma.initialize();
-    debugPrint('✅ Flutter Gemma initialized');
+    debugPrint('📱 Bootstrapping Gemma MediaPipe engine...');
+    debugPrint('📥 Model will download when user accepts license (~2.4GB)...');
+
+    // Initialize flutter_gemma with MediaPipeEngine for .task models
+    await FlutterGemma.initialize(
+      inferenceEngines: const [
+        MediaPipeEngine(),
+      ],
+    );
+    debugPrint('✅ Gemma initialized (MediaPipe engine for .task format)');
   } catch (e) {
-    debugPrint('⚠️ Flutter Gemma bootstrap error: $e');
-    // Non-fatal — will use fallback
+    debugPrint('⚠️ Gemma bootstrap error: $e');
+    // Non-fatal — will use fallback responses
   }
 }
 

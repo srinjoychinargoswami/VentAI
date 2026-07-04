@@ -1,8 +1,15 @@
+# Environment variables (secure)
+.env
+.env.local
+
+
 # Miscellaneous
 *.class
 *.log
 *.pyc
 *.swp
+*.bat
+*.metadata
 .DS_Store
 .atom/
 .buildlog/

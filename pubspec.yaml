@@ -14,7 +14,6 @@ dependencies:
 
   # UI Dependencies
   cupertino_icons: ^1.0.8
-  google_fonts: ^5.1.0
   flutter_svg: ^2.1.0
 
   # Core Dependencies
@@ -22,10 +21,13 @@ dependencies:
   provider: ^6.0.5
   shared_preferences: ^2.2.0
   dio: ^5.4.0
+  url_launcher: ^6.1.0
 
   # AI & ML Dependencies — ANDROID ONLY
-  device_info_plus: ^9.1.0
+  # Modular engines ONLY (no base flutter_gemma = no large_file_handler v1 embedding!)
   flutter_gemma: ^1.1.2
+  flutter_gemma_litertlm: ^1.0.2
+  flutter_gemma_mediapipe: ^1.0.3
 
   # Database Dependencies
   drift: ^2.12.1

@@ -3,55 +3,49 @@ import 'package:flutter_gemma/flutter_gemma.dart';
 
 class GemmaService {
   static final GemmaService _instance = GemmaService._internal();
-  
+  static dynamic _model; // Model reference for lifecycle management
+
+  // Factory constructor - returns SAME instance every time
   factory GemmaService() {
     return _instance;
   }
-  
-  GemmaService._internal();
-  
-  bool _isInitialized = false;
-  bool _isInitializing = false;
 
-  /// Initialize Gemma model
+  GemmaService._internal();
+
+  /// Initialize Gemma model once (flutter_gemma official API)
+  /// Subsequent calls reuse the same model - NEVER closes
   Future<void> initialize() async {
-    if (_isInitialized) return;
-    if (_isInitializing) {
-      int attempts = 0;
-      while (_isInitializing && attempts < 60) {
-        await Future.delayed(const Duration(milliseconds: 100));
-        attempts++;
-      }
+    // If model already loaded, reuse it
+    if (_model != null) {
+      debugPrint('✅ Model already initialized, reusing singleton');
       return;
     }
 
-    _isInitializing = true;
     try {
-      debugPrint('📱 Initializing Gemma model...');
-      _isInitialized = true;
-      debugPrint('✅ Gemma model initialized successfully');
+      debugPrint('📱 Loading Gemma model...');
+      _model = await FlutterGemma.getActiveModel(maxTokens: 2048);
+      debugPrint('✅ Model loaded and stored as singleton (will NOT close)');
     } catch (e) {
-      debugPrint('❌ Gemma initialization failed: $e');
-      _isInitialized = false;
+      debugPrint('⚠️ Failed to load model: $e');
       rethrow;
-    } finally {
-      _isInitializing = false;
     }
   }
 
-  /// Generate empathetic response to user message
+  /// Generate empathetic response using persistent singleton model
+  /// Model stays alive throughout entire app lifecycle
   Future<String> generateEmotionalResponse(String userMessage) async {
-    if (!_isInitialized) {
-      throw Exception('Gemma service not initialized. Call initialize() first.');
+    debugPrint('🔵 generateEmotionalResponse called');
+
+    if (_model == null) {
+      throw StateError('Model not initialized. Call initialize() first');
     }
 
-    try {
-      final messagePreview = userMessage.length > 50 
-        ? userMessage.substring(0, 50) 
-        : userMessage;
-      debugPrint('📱 Generating response for: "$messagePreview..."');
-      
-      final prompt = '''You are Vent AI, a compassionate emotional support companion. 
+    final messagePreview = userMessage.length > 50
+      ? userMessage.substring(0, 50)
+      : userMessage;
+    debugPrint('📱 Generating response for: "$messagePreview..."');
+
+    final prompt = '''You are Vent AI, a compassionate emotional support companion.
 Your role is to listen with empathy and provide supportive responses.
 
 Guidelines:
@@ -66,57 +60,66 @@ User message: "$userMessage"
 
 Respond with empathy and support:''';
 
-      // Modern API: Get active model and create chat
-      final model = await FlutterGemma.getActiveModel(maxTokens: 2048);
-      final chat = await model.createChat();
-      
-      // Add message
-      await chat.addQueryChunk(Message.text(text: prompt, isUser: true));
-      
-      // Stream response and collect text
-      StringBuffer responseBuffer = StringBuffer();
-      await chat.generateChatResponseAsync().forEach((response) {
-        if (response is TextResponse) {
-          responseBuffer.write(response.token);
-        }
-      });
-      
-      await model.close();
-      
-      String text = responseBuffer.toString().trim();
-      if (text.isEmpty) {
-        text = 'I hear you. I\'m here to listen.';
+    try {
+      debugPrint('📝 Creating inference session...');
+      final session = await _model!.createSession();
+      debugPrint('✅ Session created');
+
+      debugPrint('📝 Adding query to session...');
+      await session.addQueryChunk(Message.text(text: prompt, isUser: true));
+      debugPrint('✅ Query added');
+
+      debugPrint('📝 Requesting response from Gemma...');
+      final response = await session.getResponse();
+      debugPrint('📊 Response received: ${response.length} chars');
+
+      debugPrint('📝 Closing session...');
+      await session.close();
+      debugPrint('✅ Session closed (model stays alive)');
+
+      if (response.isEmpty) {
+        debugPrint('⚠️ Empty response from model');
+        return 'I hear you. I\'m here to listen.';
       }
-      
-      final responsePreview = text.length > 50 
-        ? text.substring(0, 50) 
-        : text;
-      debugPrint('📱 Response generated: "$responsePreview..."');
-      return text;
-      
-    } catch (e) {
+
+      final responsePreview = response.length > 50
+        ? response.substring(0, 50)
+        : response;
+      debugPrint('✅ Response generated: "$responsePreview..."');
+      return response;
+
+    } catch (e, stackTrace) {
       debugPrint('❌ Response generation failed: $e');
+      debugPrint('❌ Stack trace: $stackTrace');
       return 'I hear you. I\'m here to support you. Could you tell me more?';
     }
+    // NOTE: Session closes, but model STAYS ALIVE for next inference
   }
 
-  /// Get service status for setup verification
+  /// Get service status for diagnostics
   Future<Map<String, dynamic>> getStatus() async {
     return {
-      'initialized': _isInitialized,
-      'initializing': _isInitializing,
-      'model_loaded': _isInitialized,
-      'can_generate': _isInitialized,
-      'model_name': 'gemma',
+      'model_loaded': _model != null,
+      'can_generate': _model != null,
+      'model_name': 'Gemma 3 270M',
     };
   }
 
   /// Check if model is ready for inference
-  bool get isReady => _isInitialized;
+  bool get isReady => _model != null;
 
-  /// Dispose resources
-  void dispose() {
-    _isInitialized = false;
-    debugPrint('📱 Gemma service disposed');
+  /// Dispose resources (called on app shutdown only)
+  /// Closes the persistent model instance
+  Future<void> dispose() async {
+    if (_model != null) {
+      try {
+        await _model!.close();
+        debugPrint('📱 Model closed on app shutdown');
+      } catch (e) {
+        debugPrint('⚠️ Error closing model: $e');
+      }
+      _model = null;
+    }
+    debugPrint('📱 GemmaService disposed');
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/offline_storage.dart';
+import '../services/gemma_service.dart';
 import '../widgets/empathy_chat_widget.dart';
 import '../widgets/mood_selector.dart';
 import '../providers/conversation_provider.dart';
@@ -21,11 +22,24 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
-    
+
+    // Initialize GemmaService for chat
+    _initializeAI();
+
     // Load conversations when screen opens
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ConversationProvider>().refresh();
     });
+  }
+
+  /// Ensure GemmaService is initialized for inference
+  Future<void> _initializeAI() async {
+    try {
+      await GemmaService().initialize();
+      debugPrint('✅ GemmaService ready for chat');
+    } catch (e) {
+      debugPrint('❌ Failed to initialize GemmaService: $e');
+    }
   }
 
   @override

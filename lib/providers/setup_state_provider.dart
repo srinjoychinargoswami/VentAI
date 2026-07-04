@@ -1,14 +1,16 @@
-import 'dart:io'; 
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/app_paths.dart';
 import '../services/gemma_service.dart';
+import '../services/gemma_bootstrap.dart';
 import '../services/ollama_manager.dart';
 
 enum SetupStage {
   notStarted,
   checkingSystem,
+  acceptingLicense,
   extractingAIModel,
   downloadingModels,
   configuringAI,
@@ -22,6 +24,7 @@ class SetupStateProvider extends ChangeNotifier {
   static const String _aiTypeKey = 'ai_type';
   static const String _setupVersionKey = 'setup_version';
   static const String _lastSetupDateKey = 'last_setup_date';
+  static const String _gemmadaLicenseAcceptedKey = 'gemma_license_accepted';
 
   bool _needsSetup = true;
   bool _isSetupComplete = false;
@@ -46,6 +49,12 @@ class SetupStateProvider extends ChangeNotifier {
   double get setupProgress => _setupProgress;
   String? get errorMessage => _errorMessage;
 
+  /// Check if Gemma license has been accepted
+  Future<bool> isGemmaLicenseAccepted() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_gemmadaLicenseAcceptedKey) ?? false;
+  }
+
   /// Initialize and check setup status (called on app startup)
   Future<void> initialize() async {
     final platformPrefix = isMobile ? '📱' : '🖥️';
@@ -62,7 +71,148 @@ class SetupStateProvider extends ChangeNotifier {
     }
   }
 
-  /// Start the complete setup process with platform-specific logic
+  /// Accept Gemma license (saves preference, does NOT start download)
+  Future<void> acceptLicense() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_gemmadaLicenseAcceptedKey, true);
+      debugPrint('📱 Gemma license accepted - ready for download');
+
+      // Show "ready to download" message
+      await _updateSetupStage(
+        SetupStage.acceptingLicense,
+        'License accepted! Ready to download Gemma model.\nTap "Start Download" to begin.',
+        0.15,
+      );
+      notifyListeners();
+    } catch (e) {
+      debugPrint('❌ Failed to save license acceptance: $e');
+      _errorMessage = 'Failed to save license acceptance: $e';
+      notifyListeners();
+    }
+  }
+
+  /// Start model download (called AFTER license accepted and user explicitly taps download)
+  Future<void> startDownloading() async {
+    _isInitializing = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final platformPrefix = isMobile ? '📱' : '🖥️';
+      debugPrint('$platformPrefix User starting download...');
+
+      if (isMobile) {
+        await _downloadAndSetupMobileModel();
+      } else {
+        await _downloadAndSetupDesktopModel();
+      }
+    } catch (e) {
+      debugPrint('Download failed: $e');
+      await _handleInstallationFailure('Download error: $e');
+    } finally {
+      _isInitializing = false;
+      notifyListeners();
+    }
+  }
+
+  /// Download and setup mobile model (called AFTER license + user explicit action)
+  Future<void> _downloadAndSetupMobileModel() async {
+    try {
+      await _updateSetupStage(
+        SetupStage.downloadingModels,
+        'Downloading Gemma 4 E2B model...\n~2.4GB, may take several minutes',
+        0.3,
+      );
+
+      // Bootstrap Gemma with model download
+      final success = await bootstrapGemma(
+        onProgress: (progress) async {
+          await _updateSetupStage(
+            SetupStage.downloadingModels,
+            'Downloading Gemma 4 E2B model... $progress%',
+            0.3 + (progress / 100.0 * 0.4), // Progress from 30% to 70%
+          );
+        },
+      );
+
+      if (success) {
+        // Initialize GemmaService singleton model after download completes
+        debugPrint('📱 Initializing GemmaService singleton model...');
+        try {
+          await GemmaService().initialize();
+          debugPrint('✅ GemmaService model initialized - ready for inference');
+        } catch (e) {
+          debugPrint('⚠️ GemmaService initialization: $e');
+        }
+
+        await _updateSetupStage(
+          SetupStage.configuringAI,
+          'Configuring AI for optimal performance...',
+          0.8,
+        );
+
+        await _updateSetupStage(
+          SetupStage.testing,
+          'Testing AI functionality...',
+          0.9,
+        );
+
+        // Wait for model to fully load before testing
+        debugPrint('📥 Waiting for model to fully load into memory...');
+        await Future.delayed(const Duration(milliseconds: 500));
+
+        await _verifyMobileAI();
+
+        await markSetupComplete('gemma_mobile');
+        debugPrint('📱 DOWNLOAD COMPLETE - Gemma AI ready');
+      } else {
+        await _handleMobileSetupFailure('AI model download failed');
+      }
+    } catch (e) {
+      debugPrint('📱 Download failed: $e');
+      await _handleMobileSetupFailure('Download error: $e');
+    }
+  }
+
+  /// Download and setup desktop model (called AFTER user explicit action)
+  Future<void> _downloadAndSetupDesktopModel() async {
+    try {
+      await _updateSetupStage(
+        SetupStage.downloadingModels,
+        'Downloading Ollama and AI models...',
+        0.4,
+      );
+
+      final success = await OllamaManager.initialize(forceReinstall: false);
+
+      if (success) {
+        await _updateSetupStage(
+          SetupStage.configuringAI,
+          'Configuring AI system...',
+          0.8,
+        );
+
+        await _updateSetupStage(
+          SetupStage.testing,
+          'Testing AI functionality...',
+          0.9,
+        );
+
+        await _verifyAIIsFullyWorking();
+
+        await markSetupComplete('ollama_gemma4');
+        debugPrint('🖥️ DOWNLOAD COMPLETE');
+      } else {
+        await _handleInstallationFailure('Download failed');
+      }
+    } catch (e) {
+      debugPrint('🖥️ Download failed: $e');
+      await _handleInstallationFailure('Download error: $e');
+    }
+  }
+
+  /// Start the complete setup process (checks license, doesn't start download)
   Future<void> startCompleteSetup() async {
     _isInitializing = true;
     _needsSetup = true;
@@ -71,133 +221,49 @@ class SetupStateProvider extends ChangeNotifier {
 
     try {
       final platformPrefix = isMobile ? '📱' : '🖥️';
-      debugPrint('$platformPrefix Starting complete setup...');
-      
+      debugPrint('$platformPrefix Starting setup...');
+
       await _updateSetupStage(SetupStage.checkingSystem, 'Checking system requirements...', 0.1);
-      
+
       if (isMobile) {
-        await _setupMobilePlatform();
+        // Check license acceptance on mobile
+        final prefs = await SharedPreferences.getInstance();
+        final licenseAccepted = prefs.getBool(_gemmadaLicenseAcceptedKey) ?? false;
+
+        if (!licenseAccepted) {
+          debugPrint('📱 License not accepted - showing license screen');
+          await _updateSetupStage(
+            SetupStage.acceptingLicense,
+            'Please accept Gemma model license to continue',
+            0.15,
+          );
+          return; // Stop here, app will show license screen
+        }
+
+        debugPrint('📱 License already accepted - ready for download');
+        await _updateSetupStage(
+          SetupStage.acceptingLicense,
+          'License accepted! Ready to download Gemma model.\nTap "Start Download" to begin.',
+          0.15,
+        );
       } else {
-        await _setupDesktopPlatform();
+        // Desktop: show download ready message
+        await _updateSetupStage(
+          SetupStage.downloadingModels,
+          'Ready to download Ollama and AI models.\nTap "Start Download" to begin.',
+          0.2,
+        );
       }
-      
+
     } catch (e) {
-      debugPrint('Setup failed: $e');
+      debugPrint('Setup check failed: $e');
       await _handleInstallationFailure('Setup error: $e');
     } finally {
       _isInitializing = false;
-      await _updateSetupStage(SetupStage.complete, 'Setup complete - Your AI companion is ready!', 1.0);
       notifyListeners();
     }
   }
 
-  /// Setup process for mobile platforms (Android/iOS)
-  Future<void> _setupMobilePlatform() async {
-    debugPrint('📱 Setting up mobile platform...');
-    
-    await _updateSetupStage(
-      SetupStage.extractingAIModel, 
-      'Initializing Gemma AI for mobile...', 
-      0.2
-    );
-
-    try {
-      // Initialize Gemma
-      await GemmaService().initialize();
-      
-      await _updateSetupStage(
-        SetupStage.downloadingModels, 
-        'Setting up AI model...\nThis may take a moment on first run.', 
-        0.4
-      );
-
-      // Get Gemma status
-      final gemmaStatus = await GemmaService().getStatus();
-      final modelLoaded = gemmaStatus['model_loaded'] as bool? ?? false;
-      final canGenerate = gemmaStatus['can_generate'] as bool? ?? false;
-      
-      // Simulate progress for UI
-      for (int i = 40; i <= 70; i += 10) {
-        await _updateSetupStage(
-          SetupStage.downloadingModels,
-          'Setting up model... ${i}%',
-          i / 100.0,
-        );
-        await Future.delayed(const Duration(milliseconds: 500));
-      }
-
-      if (modelLoaded || canGenerate) {
-        await _updateSetupStage(
-          SetupStage.configuringAI, 
-          'Configuring AI for optimal performance...', 
-          0.8
-        );
-
-        await _updateSetupStage(
-          SetupStage.testing, 
-          'Testing AI functionality...', 
-          0.9
-        );
-
-        await _verifyMobileAI();
-        
-        await markSetupComplete('gemma_mobile');
-        debugPrint('📱 MOBILE SETUP COMPLETE - Gemma AI ready');
-      } else {
-        await _handleMobileSetupFailure('AI model setup failed');
-      }
-      
-    } catch (e) {
-      debugPrint('📱 Mobile setup failed: $e');
-      await _handleMobileSetupFailure('Mobile AI setup error: $e');
-    }
-  }
-
-  /// Setup process for desktop platforms (Windows/macOS/Linux)
-  Future<void> _setupDesktopPlatform() async {
-    debugPrint('🖥️ Setting up desktop platform with Ollama...');
-    
-    await _updateSetupStage(SetupStage.extractingAIModel, 'Checking for Ollama...', 0.2);
-    
-    bool ollamaExists = await _checkOllamaInstallation();
-    
-    if (!ollamaExists) {
-      await _updateSetupStage(
-        SetupStage.extractingAIModel, 
-        'Installing Ollama...\nThis may take several minutes.', 
-        0.3
-      );
-      debugPrint('Ollama not found - starting installation');
-    } else {
-      await _updateSetupStage(
-        SetupStage.extractingAIModel, 
-        'Ollama found - using existing installation...', 
-        0.4
-      );
-    }
-
-    final success = await OllamaManager.initialize(forceReinstall: false);
-    
-    if (success) {
-      await _updateSetupStage(
-        SetupStage.downloadingModels, 
-        'Ensuring AI models are ready...', 
-        0.6
-      );
-      
-      await _ensureModelsAvailableWithProgress();
-      
-      await _updateSetupStage(SetupStage.configuringAI, 'Configuring AI...', 0.8);
-      await _updateSetupStage(SetupStage.testing, 'Testing AI...', 0.9);
-      
-      await _verifyAIIsFullyWorking();
-      
-      await markSetupComplete('ollama_gemma4');
-      debugPrint('🖥️ DESKTOP SETUP COMPLETE');
-    } else {
-      await _handleInstallationFailure('Ollama initialization failed');
-    }
-  }
 
   /// Verify mobile AI (Gemma) functionality
   Future<void> _verifyMobileAI() async {

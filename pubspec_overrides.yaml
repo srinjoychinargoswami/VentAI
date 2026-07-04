@@ -1,0 +1,9 @@
+# pubspec_overrides.yaml
+# Run `flutter pub get` after modifying this file.
+# This file allows you to override the version of one or more dependencies.
+# To temporarily override a dependency, uncomment and set the override below.
+# Once you've resolved the issue, remove the override to return to normal.
+
+# dependency_overrides:
+#   some_package:
+#     path: some/local/path

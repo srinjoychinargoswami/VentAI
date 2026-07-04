@@ -5,6 +5,7 @@ import '../widgets/installation_progress_widget.dart';
 import '../services/gemma_service.dart';
 import '../services/ollama_manager.dart';
 import '../providers/setup_state_provider.dart';
+import 'model_license_screen.dart';
 
 class AppSetupScreen extends StatefulWidget {
   final String message;
@@ -74,10 +75,17 @@ class _AppSetupScreenState extends State<AppSetupScreen>
       parent: _animationController,
       curve: Curves.easeInOut,
     );
-    
+
     _animationController.repeat(reverse: true);
-    
-    _runCompleteSetup();
+
+    // CRITICAL: Start setup through provider (not screen's _runCompleteSetup)
+    // Provider will pause at license screen, requiring explicit user action
+    Future.microtask(() async {
+      if (mounted) {
+        final setupProvider = context.read<SetupStateProvider>();
+        await setupProvider.startCompleteSetup();
+      }
+    });
   }
 
   @override
@@ -462,9 +470,35 @@ class _AppSetupScreenState extends State<AppSetupScreen>
 
   @override
   Widget build(BuildContext context) {
+    return Consumer<SetupStateProvider>(
+      builder: (context, setupState, child) {
+        // Show license screen ONLY if accepting license AND not yet accepted
+        // (Message will say "Please accept" if not accepted, "Ready to download" if accepted)
+        if (setupState.currentStage == SetupStage.acceptingLicense &&
+            setupState.setupMessage.contains('Please accept')) {
+          return ModelLicenseScreen(
+            onAccept: () {
+              // CRITICAL: Just save acceptance, do NOT auto-start download
+              // The UI will show "Start Download" button for explicit user action
+              setupState.acceptLicense();
+            },
+            onDecline: () {
+              Navigator.of(context).pop();
+            },
+          );
+        }
+
+        // Otherwise show setup progress screen
+        return _buildSetupProgressScreen(context);
+      },
+    );
+  }
+
+  /// Build the setup progress screen
+  Widget _buildSetupProgressScreen(BuildContext context) {
     final platformEmoji = _isMobile ? '📱' : '🖥️';
     final platformName = _isMobile ? 'Mobile' : 'Desktop';
-    
+
     return Scaffold(
       backgroundColor: Colors.blue.shade50,
       body: SafeArea(
@@ -641,7 +675,39 @@ class _AppSetupScreenState extends State<AppSetupScreen>
                 ),
                 
                 const SizedBox(height: 24),
-                
+
+                // Start Download button (shown when license accepted, waiting for user action)
+                Consumer<SetupStateProvider>(
+                  builder: (context, setupProvider, child) {
+                    final readyToDownload = setupProvider.currentStage == SetupStage.acceptingLicense &&
+                        !_isComplete &&
+                        !_hasError &&
+                        setupProvider.setupMessage.contains('Ready');
+
+                    if (readyToDownload) {
+                      return SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            debugPrint('User tapping "Start Download"...');
+                            setupProvider.startDownloading();
+                          },
+                          icon: const Icon(Icons.download),
+                          label: const Text('Start Download'),
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            backgroundColor: Colors.blue.shade600,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+
+                const SizedBox(height: 24),
+
                 // Platform indicator
                 if (!_isComplete && !_hasError) ...[
                   Container(
