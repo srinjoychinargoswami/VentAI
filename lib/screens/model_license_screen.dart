@@ -48,7 +48,7 @@ class _ModelLicenseScreenState extends State<ModelLicenseScreen> {
             children: [
               // License header
               Text(
-                'Gemma 4 E2B Model License',
+                'Gemma 3 M270 Model License',
                 style: Theme.of(context).textTheme.headlineSmall,
               ),
               const SizedBox(height: 16),
@@ -65,12 +65,12 @@ class _ModelLicenseScreenState extends State<ModelLicenseScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'GEMMA 4 E2B MODEL LICENSE',
+                      'GEMMA 3 M270 MODEL LICENSE',
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 12),
                     const Text(
-                      'This application uses Google\'s Gemma 4 E2B model for offline '
+                      'This application uses Google\'s Gemma 3 M270 model for offline '
                       'emotional support and conversation.\n\n'
                       'Model: gemma-4-E2B-it\n'
                       'Provider: Google via HuggingFace\n\n'

@@ -44,7 +44,7 @@ Future<bool> bootstrapGemma({
     // Smaller, faster model (~200MB) for testing and development
     // .task format works on both x86_64 emulator and ARM64 phones
     debugPrint('📥 Starting model download with foreground service (3-5 minutes)...');
-    debugPrint('📦 Model: Gemma 3 270M (~200MB)');
+    debugPrint('📦 Model: Gemma 3 270M (~500MB)');
 
     await FlutterGemma.installModel(
       modelType: ModelType.gemmaIt,

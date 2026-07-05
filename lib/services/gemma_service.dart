@@ -101,7 +101,7 @@ Respond with empathy and support:''';
     return {
       'model_loaded': _model != null,
       'can_generate': _model != null,
-      'model_name': 'Gemma 3 270M',
+      'model_name': 'Gemma 3 1B',
     };
   }
 

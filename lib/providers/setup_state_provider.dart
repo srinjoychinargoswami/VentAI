@@ -121,7 +121,7 @@ class SetupStateProvider extends ChangeNotifier {
     try {
       await _updateSetupStage(
         SetupStage.downloadingModels,
-        'Downloading Gemma 4 E2B model...\n~2.4GB, may take several minutes',
+        'Downloading Gemma 3 1B model...\n~500MB, may take several minutes',
         0.3,
       );
 
@@ -130,7 +130,7 @@ class SetupStateProvider extends ChangeNotifier {
         onProgress: (progress) async {
           await _updateSetupStage(
             SetupStage.downloadingModels,
-            'Downloading Gemma 4 E2B model... $progress%',
+            'Downloading Gemma 3 1B model... $progress%',
             0.3 + (progress / 100.0 * 0.4), // Progress from 30% to 70%
           );
         },
