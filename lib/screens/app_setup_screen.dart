@@ -555,67 +555,16 @@ class _AppSetupScreenState extends State<AppSetupScreen>
                 
                 const SizedBox(height: 32),
                 
-                // Installation progress
+                // Installation progress (single unified display)
                 const InstallationProgressWidget(),
-                
-                const SizedBox(height: 24),
-                
-                // Progress indicator
-                if (!_isComplete && !_hasError) ...[
-                  SizedBox(
-                    width: 220,
-                    height: 220,
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        // Background circle
-                        CircularProgressIndicator(
-                          value: 1.0,
-                          strokeWidth: 10,
-                          backgroundColor: Colors.blue.shade50,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            Colors.blue.shade100,
-                          ),
-                        ),
-                        // Progress circle
-                        CircularProgressIndicator(
-                          value: _progressPercentage,
-                          strokeWidth: 10,
-                          backgroundColor: Colors.transparent,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            Colors.blue.shade700,
-                          ),
-                        ),
-                        // Center content
-                        Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              '${(_progressPercentage * 100).toInt()}%',
-                              style: TextStyle(
-                                fontSize: 32,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.blue.shade900,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              _isMobile ? 'Initializing' : 'Auto-Installing',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Colors.blue.shade700,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ] else if (_isComplete) ...[
+
+                const SizedBox(height: 40),
+
+                // Success/Error icon
+                if (_isComplete) ...[
                   Container(
-                    width: 100,
-                    height: 100,
+                    width: 60,
+                    height: 60,
                     decoration: BoxDecoration(
                       color: Colors.green.shade100,
                       shape: BoxShape.circle,
@@ -629,14 +578,15 @@ class _AppSetupScreenState extends State<AppSetupScreen>
                     ),
                     child: Icon(
                       Icons.check_circle,
-                      size: 56,
+                      size: 40,
                       color: Colors.green.shade600,
                     ),
                   ),
+                  const SizedBox(height: 20),
                 ] else if (_hasError) ...[
                   Container(
-                    width: 100,
-                    height: 100,
+                    width: 60,
+                    height: 60,
                     decoration: BoxDecoration(
                       color: Colors.orange.shade100,
                       shape: BoxShape.circle,
@@ -650,13 +600,12 @@ class _AppSetupScreenState extends State<AppSetupScreen>
                     ),
                     child: Icon(
                       Icons.warning_rounded,
-                      size: 56,
+                      size: 40,
                       color: Colors.orange.shade600,
                     ),
                   ),
+                  const SizedBox(height: 20),
                 ],
-
-                const SizedBox(height: 40),
 
                 // Status message (Primary message)
                 AnimatedSwitcher(

@@ -226,6 +226,16 @@ class SetupStateProvider extends ChangeNotifier {
       await _updateSetupStage(SetupStage.checkingSystem, 'Checking system requirements...', 0.1);
 
       if (isMobile) {
+        // Check if model is already downloaded
+        final status = await GemmaService().getStatus();
+        final modelLoaded = status['model_loaded'] as bool? ?? false;
+
+        if (modelLoaded) {
+          debugPrint('📱 Gemma model already loaded - skipping setup');
+          await markSetupComplete('gemma_mobile');
+          return; // Model exists, skip to chat
+        }
+
         // Check license acceptance on mobile
         final prefs = await SharedPreferences.getInstance();
         final licenseAccepted = prefs.getBool(_gemmadaLicenseAcceptedKey) ?? false;
@@ -247,6 +257,14 @@ class SetupStateProvider extends ChangeNotifier {
           0.15,
         );
       } else {
+        // Desktop: Check if Ollama is set up
+        final success = await OllamaManager.initialize(forceReinstall: false);
+        if (success) {
+          debugPrint('🖥️ Ollama already configured - skipping setup');
+          await markSetupComplete('ollama_gemma4');
+          return;
+        }
+
         // Desktop: show download ready message
         await _updateSetupStage(
           SetupStage.downloadingModels,

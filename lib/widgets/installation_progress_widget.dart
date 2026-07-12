@@ -94,7 +94,7 @@ class _InstallationProgressWidgetState extends State<InstallationProgressWidget>
           _detailStatus = details;
           _hasError = hasError;
           _errorMessage = errorMsg;
-          _availableModels = modelLoaded ? ['gemma-2b'] : [];
+          _availableModels = modelLoaded ? ['Gemma 3 1B'] : [];
         });
       }
     } catch (e) {

@@ -40,17 +40,17 @@ Future<bool> bootstrapGemma({
       debugPrint('✅ Using HuggingFace token: ${hfToken.substring(0, 10)}...');
     }
 
-    // Download and install Gemma 3 270M .task model (MediaPipe format)
-    // Smaller, faster model (~200MB) for testing and development
+    // Download and install Gemma 3 1B .task model (MediaPipe format)
+    // Lightweight model (~500MB) for fast downloads and mobile inference
     // .task format works on both x86_64 emulator and ARM64 phones
     debugPrint('📥 Starting model download with foreground service (3-5 minutes)...');
-    debugPrint('📦 Model: Gemma 3 270M (~500MB)');
+    debugPrint('📦 Model: Gemma 3 1B (~500MB)');
 
     await FlutterGemma.installModel(
       modelType: ModelType.gemmaIt,
       fileType: ModelFileType.task, // ← CRITICAL: .task format
     ).fromNetwork(
-      'https://huggingface.co/RavenAllen/gemma3-270m-it-q8.task/resolve/main/gemma3-270m-it-q8.task',
+      'https://huggingface.co/AfiOne/gemma3-1b-it-int4.task/resolve/main/gemma3-1b-it-int4.task',
       token: hfToken.isNotEmpty ? hfToken : null,
       foreground: true, // ← Use foreground service for reliable downloads
     ).install();

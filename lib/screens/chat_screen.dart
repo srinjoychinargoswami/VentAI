@@ -84,76 +84,78 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          // Mood selector
-          Container(
-            padding: const EdgeInsets.all(16),
-            child: MoodSelector(
-              selectedMood: _selectedMood,
-              onMoodSelected: (mood) => setState(() => _selectedMood = mood),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Mood selector
+            Container(
+              padding: const EdgeInsets.all(16),
+              child: MoodSelector(
+                selectedMood: _selectedMood,
+                onMoodSelected: (mood) => setState(() => _selectedMood = mood),
+              ),
             ),
-          ),
-          
-          // Chat messages
-          Expanded(
-            child: Consumer<ConversationProvider>(
-              builder: (context, provider, child) {
-                // Handle empty state and errors
-                if (provider.isLoading) {
-                  return const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        CircularProgressIndicator(),
-                        SizedBox(height: 16),
-                        Text('Loading conversations...'),
-                      ],
-                    ),
+
+            // Chat messages
+            Expanded(
+              child: Consumer<ConversationProvider>(
+                builder: (context, provider, child) {
+                  // Handle empty state and errors
+                  if (provider.isLoading) {
+                    return const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          CircularProgressIndicator(),
+                          SizedBox(height: 16),
+                          Text('Loading conversations...'),
+                        ],
+                      ),
+                    );
+                  }
+
+                  if (provider.lastErrorMessage.isNotEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.error_outline,
+                            size: 48,
+                            color: Colors.red.shade300,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Error: ${provider.lastErrorMessage}',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Colors.red.shade700),
+                          ),
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: () {
+                              provider.clearError();
+                              provider.refresh();
+                            },
+                            child: const Text('Retry'),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  return EmpathyChatWidget(
+                    conversations: provider.conversations,
+                    isLoading: provider.isSendingMessage,
+                    scrollController: _scrollController,
                   );
-                }
-                
-                if (provider.lastErrorMessage.isNotEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.error_outline,
-                          size: 48,
-                          color: Colors.red.shade300,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Error: ${provider.lastErrorMessage}',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.red.shade700),
-                        ),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: () {
-                            provider.clearError();
-                            provider.refresh();
-                          },
-                          child: const Text('Retry'),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-                
-                return EmpathyChatWidget(
-                  conversations: provider.conversations,
-                  isLoading: provider.isSendingMessage,
-                  scrollController: _scrollController,
-                );
-              },
+                },
+              ),
             ),
-          ),
-          
-          // Message input (text only)
-          _buildMessageInput(),
-        ],
+
+            // Message input (text only)
+            _buildMessageInput(),
+          ],
+        ),
       ),
     );
   }
@@ -350,19 +352,31 @@ class _ChatScreenState extends State<ChatScreen> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Row(
+          insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+          title: Row(
             children: [
-              Icon(Icons.warning_amber_rounded, color: Colors.orange),
-              SizedBox(width: 8),
-              Text('Clear All Conversations'),
+              Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 24),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text('Clear All Conversations'),
+              ),
             ],
           ),
-          content: const Text(
-            'This will permanently delete all your conversations including:\n\n'
-            '• All text messages and AI responses\n'
-            '• Mood selections and conversation history\n\n'
-            'This action cannot be undone.\n\n'
-            'Are you sure you want to continue?'
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'This will permanently delete all your conversations including:\n\n'
+                  '• All text messages and AI responses\n'
+                  '• Mood selections and conversation history\n\n'
+                  'This action cannot be undone.\n\n'
+                  'Are you sure you want to continue?',
+                  style: TextStyle(color: Colors.grey.shade800),
+                ),
+              ],
+            ),
           ),
           actions: [
             TextButton(

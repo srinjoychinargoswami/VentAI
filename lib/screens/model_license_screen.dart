@@ -59,17 +59,17 @@ class _ModelLicenseScreenState extends State<ModelLicenseScreen> {
                 decoration: BoxDecoration(
                   border: Border.all(color: Colors.grey[300]!),
                   borderRadius: BorderRadius.circular(8),
-                  color: Colors.grey[50],
+                  color: Colors.white,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'GEMMA 3 M270 MODEL LICENSE',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+                      style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey[900]),
                     ),
                     const SizedBox(height: 12),
-                    const Text(
+                    Text(
                       'This application uses Google\'s Gemma 3 M270 model for offline '
                       'emotional support and conversation.\n\n'
                       'Model: gemma-4-E2B-it\n'
@@ -82,7 +82,7 @@ class _ModelLicenseScreenState extends State<ModelLicenseScreen> {
                       '• Accept responsibility for model outputs\n\n'
                       'For full license details, visit:\n'
                       'https://huggingface.co/google/gemma-4-E2B-it',
-                      style: TextStyle(fontSize: 14, height: 1.6),
+                      style: TextStyle(fontSize: 14, height: 1.6, color: Colors.grey[800]),
                     ),
                   ],
                 ),
