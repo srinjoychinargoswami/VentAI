@@ -123,7 +123,7 @@ class SetupStateProvider extends ChangeNotifier {
 
       await _updateSetupStage(
         SetupStage.downloadingModels,
-        'Downloading Gemma 3 1B model (500MB)...\nInitializing...',
+        'Downloading Gemma 4 E2B model (500MB)...\nInitializing...',
         0.1,
       );
 

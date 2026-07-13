@@ -2,17 +2,10 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
-import 'package:flutter_gemma_mediapipe/flutter_gemma_mediapipe.dart';
 import '../utils/app_paths.dart';
 
-/// Inference engine for VentAI
-/// MediaPipeEngine: For .task models (universal compatibility on x86_64 and ARM64)
-const kVentAIInferenceEngines = [
-  MediaPipeEngine(),
-];
-
 /// Bootstrap Gemma model: initialize and download on first launch
-/// Uses Gemma 3n E2B .task format (MediaPipe backend)
+/// Uses Gemma 4 E2B .litertlm format (LiteRT-LM backend)
 ///
 /// Progress tracking:
 /// 0% - Download starting
@@ -23,12 +16,7 @@ Future<bool> bootstrapGemma({
 }) async {
   try {
     debugPrint('📱 Starting Gemma model bootstrap...');
-
-    // Initialize with MediaPipe engine for .task models
-    await FlutterGemma.initialize(
-      inferenceEngines: kVentAIInferenceEngines,
-    );
-    debugPrint('✅ FlutterGemma initialized (MediaPipe engine)');
+    debugPrint('📝 Engine already initialized by main.dart');
 
     // Check if model already installed
     try {
@@ -48,11 +36,11 @@ Future<bool> bootstrapGemma({
       debugPrint('✅ Using HuggingFace token: ${hfToken.substring(0, 10)}...');
     }
 
-    // Download and install Gemma 3 1B .task model (MediaPipe format)
-    // Lightweight model (~500MB) for fast downloads and mobile inference
-    // .task format works on both x86_64 emulator and ARM64 phones
+    // Download and install Gemma 4 E2B .litertlm model (LiteRT-LM format)
+    // Lightweight model (~500MB) for fast downloads and ARM64 mobile inference
+    // .litertlm format optimized for ARM64 architecture (NOT compatible with x86_64 emulator)
     debugPrint('📥 Starting model download with foreground service (3-5 minutes)...');
-    debugPrint('📦 Model: Gemma 3 1B (~500MB)');
+    debugPrint('📦 Model: Gemma 4 E2B (~500MB) - ARM64 optimized');
 
     // Report download starting
     onProgress(0);
@@ -63,9 +51,9 @@ Future<bool> bootstrapGemma({
     try {
       await FlutterGemma.installModel(
         modelType: ModelType.gemmaIt,
-        fileType: ModelFileType.task, // ← CRITICAL: .task format
+        fileType: ModelFileType.litertlm, // ← CRITICAL: .litertlm format for LiteRT-LM
       ).fromNetwork(
-        'https://huggingface.co/AfiOne/gemma3-1b-it-int4.task/resolve/main/gemma3-1b-it-int4.task',
+        'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm',
         token: hfToken.isNotEmpty ? hfToken : null,
         foreground: true, // ← Use foreground service for reliable downloads
       ).install();
@@ -103,9 +91,9 @@ Timer _startFileExistenceChecker(Function(int) onProgress) {
         return;
       }
 
-      // Check if any .task files exist
+      // Check if any .litertlm files exist (Gemma 4 E2B format)
       await for (final entity in modelDir.list(recursive: true)) {
-        if (entity is File && entity.path.endsWith('.task')) {
+        if (entity is File && entity.path.endsWith('.litertlm')) {
           if (!fileDetected) {
             fileDetected = true;
             debugPrint('📥 Download complete - model file detected');

@@ -27,7 +27,6 @@ dependencies:
   # Modular engines ONLY (no base flutter_gemma = no large_file_handler v1 embedding!)
   flutter_gemma: ^1.1.2
   flutter_gemma_litertlm: ^1.0.2
-  flutter_gemma_mediapipe: ^1.0.3
 
   # Database Dependencies
   drift: ^2.12.1

@@ -48,7 +48,7 @@ class _ModelLicenseScreenState extends State<ModelLicenseScreen> {
             children: [
               // License header
               Text(
-                'Gemma 3 M270 Model License',
+                'Gemma 4 E2B Model License',
                 style: Theme.of(context).textTheme.headlineSmall,
               ),
               const SizedBox(height: 16),
@@ -65,23 +65,23 @@ class _ModelLicenseScreenState extends State<ModelLicenseScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'GEMMA 3 M270 MODEL LICENSE',
+                      'GEMMA 4 E2B MODEL LICENSE',
                       style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey[900]),
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'This application uses Google\'s Gemma 3 M270 model for offline '
+                      'This application uses Google\'s Gemma 4 E2B model for offline '
                       'emotional support and conversation.\n\n'
-                      'Model: gemma-4-E2B-it\n'
+                      'Model: gemma-4-E2B-it (LiteRT-LM format)\n'
                       'Provider: Google via HuggingFace\n\n'
-                      'The model will be downloaded to your device (~2.4GB) on first '
+                      'The model will be downloaded to your device (~500MB) on first '
                       'launch and cached locally. No data is sent to external servers.\n\n'
                       'By accepting this license, you agree to:\n'
                       '• Use the model only for personal, non-commercial purposes\n'
                       '• Comply with the Gemma model license terms\n'
                       '• Accept responsibility for model outputs\n\n'
                       'For full license details, visit:\n'
-                      'https://huggingface.co/google/gemma-4-E2B-it',
+                      'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm',
                       style: TextStyle(fontSize: 14, height: 1.6, color: Colors.grey[800]),
                     ),
                   ],

@@ -142,7 +142,7 @@ class _AppSetupScreenState extends State<AppSetupScreen>
 
             setState(() {
               _downloadProgress = progress / 100.0;
-              _statusMessage = 'Downloading Gemma 3 1B model...';
+              _statusMessage = 'Downloading Gemma 4 E2B model...';
               _detailMessage = message;
               _currentStage = 1;
             });
@@ -622,7 +622,7 @@ class _AppSetupScreenState extends State<AppSetupScreen>
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          'Downloading Gemma 3 1B model (500MB)\nThis may take 5-10 minutes on first launch',
+                          'Downloading Gemma 4 E2B model (500MB)\nThis may take 5-10 minutes on first launch',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 12,
