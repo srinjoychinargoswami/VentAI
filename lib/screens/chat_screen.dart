@@ -353,12 +353,19 @@ class _ChatScreenState extends State<ChatScreen> {
       builder: (BuildContext context) {
         return AlertDialog(
           insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+          backgroundColor: Colors.grey.shade900,
           title: Row(
             children: [
               Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 24),
               const SizedBox(width: 12),
               const Expanded(
-                child: Text('Clear All Conversations'),
+                child: Text(
+                  'Clear All Conversations',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ],
           ),
@@ -367,13 +374,17 @@ class _ChatScreenState extends State<ChatScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
+                const Text(
                   'This will permanently delete all your conversations including:\n\n'
                   '• All text messages and AI responses\n'
                   '• Mood selections and conversation history\n\n'
                   'This action cannot be undone.\n\n'
                   'Are you sure you want to continue?',
-                  style: TextStyle(color: Colors.grey.shade800),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    height: 1.5,
+                  ),
                 ),
               ],
             ),
@@ -381,14 +392,17 @@ class _ChatScreenState extends State<ChatScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(color: Colors.white70),
+              ),
             ),
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop();
                 _clearAllConversations();
               },
-              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              style: TextButton.styleFrom(foregroundColor: Colors.red.shade300),
               child: const Text('Clear All'),
             ),
           ],

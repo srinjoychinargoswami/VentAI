@@ -55,41 +55,36 @@ class _InstallationProgressWidgetState extends State<InstallationProgressWidget>
   Future<void> _updateMobileProgress() async {
     try {
       final platformPrefix = '📱';
-      
+
       // Get Gemma status
       final status = await GemmaService().getStatus();
-      
+
       final isInitialized = status['initialized'] as bool? ?? false;
       final modelLoaded = status['model_loaded'] as bool? ?? false;
       final canGenerate = status['can_generate'] as bool? ?? false;
 
-      double progress = 0.0;
       String statusText = 'Initializing Gemma AI...';
       String details = '';
       bool hasError = false;
       String errorMsg = '';
-      
+
       if (!isInitialized) {
         // Still initializing
-        progress = 0.3;
         statusText = 'Loading Gemma model...';
         details = 'This may take a moment on first launch';
       } else if (modelLoaded && canGenerate) {
         // Model ready
-        progress = 1.0;
         statusText = 'Gemma Ready';
         details = 'AI model loaded and ready for conversation';
         _isConnected = true;
       } else if (isInitialized) {
         // Initialized but still loading
-        progress = 0.7;
         statusText = 'Preparing AI model...';
         details = 'Setting up Gemma for offline use';
       }
 
       if (mounted) {
         setState(() {
-          _downloadProgress = progress;
           _currentStatus = '$platformPrefix $statusText';
           _detailStatus = details;
           _hasError = hasError;
@@ -107,15 +102,14 @@ class _InstallationProgressWidgetState extends State<InstallationProgressWidget>
   Future<void> _updateDesktopProgress() async {
     try {
       final platformPrefix = '🖥️';
-      
+
       // Check Ollama service status
       final serviceRunning = await OllamaManager.ensureServiceRunning();
-      
+
       // Get model status and cache information
       final models = await OllamaManager.getAvailableModels();
       final cacheInfo = await OllamaManager.getModelCacheInfo();
-      
-      double progress = 0.0;
+
       String status = 'Connecting...';
       String details = '';
       bool hasError = false;
@@ -123,23 +117,20 @@ class _InstallationProgressWidgetState extends State<InstallationProgressWidget>
 
       if (!serviceRunning) {
         if (await _checkIfOllamaInstalled()) {
-          progress = 0.3;
           status = 'Starting Ollama service...';
           details = 'Service initialization in progress';
         } else {
-          progress = 0.1;
           status = 'Installing Ollama...';
           details = 'Downloading and installing from official source';
         }
       } else {
         final allModelsAvailable = cacheInfo['allRequiredAvailable'] as bool? ?? false;
         final downloadStatus = cacheInfo['downloadStatus'] as Map<String, dynamic>? ?? {};
-        
+
         if (!allModelsAvailable && models.isEmpty) {
-          progress = 0.6;
           status = 'Downloading AI models...';
           details = 'Downloading Gemma models (this may take several minutes)';
-          
+
           if (downloadStatus.isNotEmpty) {
             final downloadingModels = downloadStatus.entries
                 .where((e) => e.value == false)
@@ -150,11 +141,9 @@ class _InstallationProgressWidgetState extends State<InstallationProgressWidget>
             }
           }
         } else if (models.isNotEmpty) {
-          progress = 1.0;
           status = 'Desktop AI Ready';
           details = 'Models cached and ready: ${models.length} available';
         } else {
-          progress = 0.5;
           status = 'AI Service Connected';
           details = 'Service running, preparing models...';
         }
@@ -163,7 +152,6 @@ class _InstallationProgressWidgetState extends State<InstallationProgressWidget>
       if (mounted) {
         setState(() {
           _isConnected = serviceRunning && models.isNotEmpty;
-          _downloadProgress = progress;
           _currentStatus = '$platformPrefix $status';
           _detailStatus = details;
           _availableModels = models;
@@ -207,7 +195,6 @@ class _InstallationProgressWidgetState extends State<InstallationProgressWidget>
         _errorMessage = e.toString();
         _hasError = true;
         _isConnected = false;
-        _downloadProgress = 0.0;
       });
     }
   }
@@ -291,7 +278,7 @@ class _InstallationProgressWidgetState extends State<InstallationProgressWidget>
             ),
             
             const SizedBox(height: 12),
-            
+
             // Detailed Status
             Text(
               _detailStatus,
@@ -301,7 +288,20 @@ class _InstallationProgressWidgetState extends State<InstallationProgressWidget>
                 height: 1.3,
               ),
             ),
-            
+
+            const SizedBox(height: 12),
+
+            // Time estimate
+            Text(
+              'This can take up to 5-10 minutes on first launch',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.blue.shade600,
+                fontStyle: FontStyle.italic,
+                height: 1.3,
+              ),
+            ),
+
             // Error message
             if (_hasError && _errorMessage.isNotEmpty) ...[
               const SizedBox(height: 8),

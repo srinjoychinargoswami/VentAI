@@ -119,19 +119,37 @@ class SetupStateProvider extends ChangeNotifier {
   /// Download and setup mobile model (called AFTER license + user explicit action)
   Future<void> _downloadAndSetupMobileModel() async {
     try {
+      final startTime = DateTime.now();
+
       await _updateSetupStage(
         SetupStage.downloadingModels,
-        'Downloading Gemma 3 1B model...\n~500MB, may take several minutes',
-        0.3,
+        'Downloading Gemma 3 1B model (500MB)...\nInitializing...',
+        0.1,
       );
 
-      // Bootstrap Gemma with model download
+      // Track download with progress callback
+      bool downloadStarted = false;
       final success = await bootstrapGemma(
         onProgress: (progress) async {
+          downloadStarted = true;
+          final elapsed = DateTime.now().difference(startTime).inSeconds;
+          final estimate = elapsed > 0 ? (elapsed * 100) ~/ (progress > 0 ? progress : 1) : 0;
+          final remainingSeconds = progress > 0 ? estimate - elapsed : 0;
+          final remainingMinutes = (remainingSeconds ~/ 60).clamp(0, 999);
+
+          final displayProgress = 0.15 + (progress / 100.0 * 0.65); // 15%-80% range
+
+          final speedMbps = elapsed > 0 ? ((500 * progress) / elapsed / 100).toStringAsFixed(1) : '0';
+          final message = progress >= 100
+              ? 'Download complete, installing...'
+              : 'Downloading... $progress% • ${speedMbps}MB/s • ~${remainingMinutes}m remaining';
+
+          debugPrint('📥 Download: $progress% (${speedMbps}MB/s, ${remainingMinutes}m remaining)');
+
           await _updateSetupStage(
             SetupStage.downloadingModels,
-            'Downloading Gemma 3 1B model... $progress%',
-            0.3 + (progress / 100.0 * 0.4), // Progress from 30% to 70%
+            message,
+            displayProgress,
           );
         },
       );
@@ -149,13 +167,13 @@ class SetupStateProvider extends ChangeNotifier {
         await _updateSetupStage(
           SetupStage.configuringAI,
           'Configuring AI for optimal performance...',
-          0.8,
+          0.85,
         );
 
         await _updateSetupStage(
           SetupStage.testing,
           'Testing AI functionality...',
-          0.9,
+          0.95,
         );
 
         // Wait for model to fully load before testing

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../widgets/installation_progress_widget.dart';
 import '../services/gemma_service.dart';
+import '../services/gemma_bootstrap.dart';
 import '../services/ollama_manager.dart';
 import '../providers/setup_state_provider.dart';
 import 'model_license_screen.dart';
@@ -28,6 +29,7 @@ class _AppSetupScreenState extends State<AppSetupScreen>
   String? _errorDetails;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
+  double _downloadProgress = 0.0;
   
   /// Platform-specific setup stages
   List<String> get _setupStages {
@@ -123,30 +125,58 @@ class _AppSetupScreenState extends State<AppSetupScreen>
   Future<void> _runMobileSetup() async {
     try {
       final platformPrefix = '📱';
-      
+
       await _updateStage(1); // Initializing Gemma AI
       if (!mounted) return;
       debugPrint('$platformPrefix Initializing Gemma...');
-      
-      // Initialize Gemma
+
+      // Download and setup model with real progress tracking
+      final success = await bootstrapGemma(
+        onProgress: (progress) {
+          if (mounted) {
+            final message = progress == 0
+                ? 'Starting download...'
+                : progress == 50
+                    ? 'Download complete, installing...'
+                    : 'Installation complete';
+
+            setState(() {
+              _downloadProgress = progress / 100.0;
+              _statusMessage = 'Downloading Gemma 3 1B model...';
+              _detailMessage = message;
+              _currentStage = 1;
+            });
+            debugPrint('📱 Progress: $progress% - $message');
+          }
+        },
+      );
+
+      if (!success) {
+        await _handleSetupFailure('Model download failed');
+        return;
+      }
+
+      if (!mounted) return;
+
+      // Initialize GemmaService after download
       await GemmaService().initialize();
-      
+
       if (!mounted) return;
       await _updateStage(2); // Loading AI model
       await Future.delayed(const Duration(milliseconds: 800));
-      
+
       if (!mounted) return;
       await _updateStage(3); // Configuring AI
       await Future.delayed(const Duration(milliseconds: 500));
-      
+
       if (!mounted) return;
       await _updateStage(4); // Testing AI functionality
       await _testMobileAIResponse();
-      
+
       if (!mounted) return;
       await _updateStage(5); // Setup complete
       await _completeSetup('gemma_mobile');
-      
+
     } catch (e) {
       debugPrint('📱 Mobile setup failed: $e');
       await _handleSetupFailure('Mobile AI setup failed: $e');
@@ -555,6 +585,57 @@ class _AppSetupScreenState extends State<AppSetupScreen>
                 
                 const SizedBox(height: 32),
                 
+                // Real-time download progress bar
+                if (_downloadProgress > 0 && _downloadProgress < 1.0 && !_isComplete && !_hasError) ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Column(
+                      children: [
+                        LinearProgressIndicator(
+                          value: _downloadProgress,
+                          minHeight: 8,
+                          backgroundColor: Colors.blue.shade50,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.blue.shade600,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              '${(_downloadProgress * 100).toInt()}%',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.blue.shade700,
+                              ),
+                            ),
+                            Text(
+                              'Downloading...',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.blue.shade600,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Downloading Gemma 3 1B model (500MB)\nThis may take 5-10 minutes on first launch',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.blue.shade700,
+                            height: 1.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                ],
+
                 // Installation progress (single unified display)
                 const InstallationProgressWidget(),
 
