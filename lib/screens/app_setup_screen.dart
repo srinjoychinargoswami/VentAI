@@ -585,49 +585,57 @@ class _AppSetupScreenState extends State<AppSetupScreen>
                 
                 const SizedBox(height: 32),
                 
-                // Real-time download progress bar
+                // Download progress bar - simple and clean
                 if (_downloadProgress > 0 && _downloadProgress < 1.0 && !_isComplete && !_hasError) ...[
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                     child: Column(
                       children: [
+                        Text(
+                          'Downloading Gemma 4 E2B model...',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.blue.shade700,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
                         LinearProgressIndicator(
                           value: _downloadProgress,
-                          minHeight: 8,
+                          minHeight: 6,
                           backgroundColor: Colors.blue.shade50,
                           valueColor: AlwaysStoppedAnimation<Color>(
                             Colors.blue.shade600,
                           ),
                         ),
-                        const SizedBox(height: 12),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              '${(_downloadProgress * 100).toInt()}%',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.blue.shade700,
-                              ),
-                            ),
-                            Text(
-                              'Downloading...',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.blue.shade600,
-                              ),
-                            ),
-                          ],
-                        ),
                         const SizedBox(height: 16),
-                        Text(
-                          'Downloading Gemma 4 E2B model (500MB)\nThis may take 5-10 minutes on first launch',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.blue.shade700,
-                            height: 1.5,
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.orange.shade200),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.warning_amber_rounded,
+                                size: 20,
+                                color: Colors.orange.shade700,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  'Keep the app open during download.\nDo not close or minimize.',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.orange.shade900,
+                                    fontWeight: FontWeight.w500,
+                                    height: 1.4,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],

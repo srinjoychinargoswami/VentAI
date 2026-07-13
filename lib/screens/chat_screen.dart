@@ -76,6 +76,12 @@ class _ChatScreenState extends State<ChatScreen> {
         elevation: 0,
         backgroundColor: Theme.of(context).colorScheme.surface,
         actions: [
+          // Crisis Resources button
+          IconButton(
+            icon: const Icon(Icons.emergency),
+            onPressed: () => _showCrisisResourcesDialog(),
+            tooltip: 'Crisis Resources & Help',
+          ),
           // Clear conversations button
           IconButton(
             icon: const Icon(Icons.delete_outline),
@@ -344,6 +350,111 @@ class _ChatScreenState extends State<ChatScreen> {
         }
       }
     });
+  }
+
+  /// Show crisis resources dialog
+  void _showCrisisResourcesDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+          backgroundColor: Colors.grey.shade900,
+          title: Row(
+            children: [
+              Icon(Icons.emergency, color: Colors.red.shade300, size: 24),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Crisis Resources & Help',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'IF YOU\'RE IN CRISIS:',
+                  style: TextStyle(
+                    color: Colors.red.shade300,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  '🇺🇸 USA:\n'
+                  '• Call 988 (Suicide & Crisis Lifeline)\n'
+                  '• Text HOME to 741741 (Crisis Text Line)\n'
+                  '• Call 911 for emergencies',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    height: 1.6,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'FIND HELP IN YOUR COUNTRY:',
+                  style: TextStyle(
+                    color: Colors.green.shade300,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Type in chat: "emergency services [country name]"\n\n'
+                  'Examples:\n'
+                  '• "emergency services Canada"\n'
+                  '• "emergency services UK"\n'
+                  '• "emergency services Australia"',
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13,
+                    height: 1.6,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade900.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.blue.shade300),
+                  ),
+                  child: const Text(
+                    'I can help you find crisis hotlines and mental health resources for any country.\n\n'
+                    'You are not alone. Help is available right now.',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      height: 1.6,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'Close',
+                style: TextStyle(color: Colors.white70),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   /// Show dialog to clear all conversations

@@ -89,6 +89,56 @@ class _ModelLicenseScreenState extends State<ModelLicenseScreen> {
               ),
               const SizedBox(height: 24),
 
+              // Crisis Resources Disclaimer
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange.shade200),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.warning_amber_rounded,
+                          size: 18,
+                          color: Colors.orange.shade700,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Important Disclaimer',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.orange.shade900,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'VentAI is an AI companion for emotional support. It is NOT a replacement for professional mental health treatment.\n\n'
+                      'If you are experiencing a mental health crisis:\n'
+                      '• Call your local emergency services\n'
+                      '• Contact a mental health crisis line in your country\n'
+                      '• Call your country\'s emergency number\n\n'
+                      'Always consult a licensed mental health professional for professional care.\n\n'
+                      'Tap "Crisis Resources" in the chat screen to find help specific to your country.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.orange.shade900,
+                        height: 1.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
               // HuggingFace link button
               SizedBox(
                 width: double.infinity,

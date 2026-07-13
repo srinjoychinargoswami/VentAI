@@ -235,7 +235,7 @@ class _InstallationProgressWidgetState extends State<InstallationProgressWidget>
                         ? Colors.red
                         : (_isConnected
                             ? Colors.green
-                            : (_downloadProgress > 0 ? Colors.orange : Colors.grey)),
+                            : Colors.orange),
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -250,17 +250,6 @@ class _InstallationProgressWidgetState extends State<InstallationProgressWidget>
                     ),
                   ),
                 ),
-                // Progress percentage
-                if (_downloadProgress > 0 && !_hasError && !_isConnected) ...[
-                  Text(
-                    '${(_downloadProgress * 100).toInt()}%',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blue.shade600,
-                    ),
-                  ),
-                ],
               ],
             ),
             
@@ -291,14 +280,34 @@ class _InstallationProgressWidgetState extends State<InstallationProgressWidget>
 
             const SizedBox(height: 12),
 
-            // Time estimate
-            Text(
-              'This can take up to 5-10 minutes on first launch',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.blue.shade600,
-                fontStyle: FontStyle.italic,
-                height: 1.3,
+            // Keep App Open Warning
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: Colors.orange.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.warning_amber_rounded,
+                    size: 18,
+                    color: Colors.orange.shade700,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Keep the app open during download.\nDo not close or minimize.',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.orange.shade900,
+                        fontWeight: FontWeight.w500,
+                        height: 1.3,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
 
@@ -351,37 +360,6 @@ class _InstallationProgressWidgetState extends State<InstallationProgressWidget>
                         fontSize: 11,
                         color: Colors.green.shade600,
                         fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-            
-            // Platform indicator
-            if (_downloadProgress > 0 && _downloadProgress < 1.0 && !_hasError) ...[
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.blue.shade200),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      platformEmoji,
-                      style: const TextStyle(fontSize: 14),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      '$platformName Setup • Offline AI',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.blue.shade600,
-                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],

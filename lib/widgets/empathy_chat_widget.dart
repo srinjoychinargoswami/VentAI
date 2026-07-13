@@ -72,10 +72,17 @@ class EmpathyChatWidget extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                'I\'m here to listen and support you.\nShare what\'s on your mind, and I\'ll respond with empathy and understanding.',
+                'I\'m your AI emotional support companion. Share what\'s on your mind, and I\'ll respond with empathy and understanding.\n\n'
+                'Remember: I\'m not a substitute for professional mental health care.\n\n'
+                'If you\'re in crisis, you can:\n'
+                '• Tap the 🆘 Crisis Resources button above\n'
+                '• Type "emergency services [your country]" in chat\n\n'
+                'Example: Type "emergency services Canada" or "emergency services UK"\n\n'
+                'Please contact local emergency services or mental health professionals immediately if in danger.',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontSize: 13,
                 ),
               ),
               const SizedBox(height: 24),
