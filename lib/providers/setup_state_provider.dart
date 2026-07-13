@@ -128,23 +128,15 @@ class SetupStateProvider extends ChangeNotifier {
       );
 
       // Track download with progress callback
-      bool downloadStarted = false;
       final success = await bootstrapGemma(
         onProgress: (progress) async {
-          downloadStarted = true;
-          final elapsed = DateTime.now().difference(startTime).inSeconds;
-          final estimate = elapsed > 0 ? (elapsed * 100) ~/ (progress > 0 ? progress : 1) : 0;
-          final remainingSeconds = progress > 0 ? estimate - elapsed : 0;
-          final remainingMinutes = (remainingSeconds ~/ 60).clamp(0, 999);
-
           final displayProgress = 0.15 + (progress / 100.0 * 0.65); // 15%-80% range
 
-          final speedMbps = elapsed > 0 ? ((500 * progress) / elapsed / 100).toStringAsFixed(1) : '0';
           final message = progress >= 100
               ? 'Download complete, installing...'
-              : 'Downloading... $progress% • ${speedMbps}MB/s • ~${remainingMinutes}m remaining';
+              : 'Downloading Gemma 4 E2B model...';
 
-          debugPrint('📥 Download: $progress% (${speedMbps}MB/s, ${remainingMinutes}m remaining)');
+          debugPrint('📥 Download: $progress%');
 
           await _updateSetupStage(
             SetupStage.downloadingModels,
