@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.vent_ai"
+    namespace = "com.ventai.app"
     compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
@@ -32,6 +32,9 @@ android {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+            isMinifyEnabled = false
+            isShrinkResources = false
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
 }

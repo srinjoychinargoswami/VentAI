@@ -74,7 +74,7 @@ class _ModelLicenseScreenState extends State<ModelLicenseScreen> {
                       'emotional support and conversation.\n\n'
                       'Model: gemma-4-E2B-it (LiteRT-LM format)\n'
                       'Provider: Google via HuggingFace\n\n'
-                      'The model will be downloaded to your device (~500MB) on first '
+                      'The model will be downloaded to your device (2.59 GB) on first '
                       'launch and cached locally. No data is sent to external servers.\n\n'
                       'By accepting this license, you agree to:\n'
                       '• Use the model only for personal, non-commercial purposes\n'
