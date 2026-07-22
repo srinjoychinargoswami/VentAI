@@ -1,14 +1,31 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:drift/drift.dart';
-import '../services/offline_storage.dart';
+import '../services/hive_database.dart';
 import '../services/ollama_manager.dart';
 import '../services/gemma_service.dart';
-import '../services/emotional_ai_service.dart';
 import '../providers/setup_state_provider.dart';
 
+class Conversation {
+  final String userMessage;
+  final String aiResponse;
+  final DateTime timestamp;
+  final String? mood;
+  final String? sessionId;
+  final bool? isOffline;
+  final double? sentimentScore;
+
+  Conversation({
+    required this.userMessage,
+    required this.aiResponse,
+    required this.timestamp,
+    this.mood,
+    this.sessionId,
+    this.isOffline,
+    this.sentimentScore,
+  });
+}
+
 class ConversationProvider extends ChangeNotifier {
-  final AppDatabase _database;
   final SetupStateProvider? _setupStateProvider;
 
   List<Conversation> _conversations = [];
@@ -27,9 +44,8 @@ class ConversationProvider extends ChangeNotifier {
   bool get _isDesktop => Platform.isWindows || Platform.isMacOS || Platform.isLinux;
 
   ConversationProvider({
-    required AppDatabase database, 
     SetupStateProvider? setupStateProvider
-  }) : _database = database, _setupStateProvider = setupStateProvider {
+  }) : _setupStateProvider = setupStateProvider {
     _currentSessionId = DateTime.now().millisecondsSinceEpoch.toString();
     _loadConversations();
   }
@@ -51,13 +67,11 @@ class ConversationProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final conversationsQuery = _database.select(_database.conversations)
-        ..orderBy([(t) => OrderingTerm(expression: t.timestamp, mode: OrderingMode.asc)])
-        ..limit(100);
-      _conversations = await conversationsQuery.get();
-      
+      final convMaps = await HiveDatabase.getRecentConversations(limit: 100);
+      _conversations = convMaps.map((map) => _mapToConversation(map)).toList();
+
       _rebuildContextFromConversations();
-      
+
       debugPrint('Loaded ${_conversations.length} conversations');
     } catch (e) {
       debugPrint('Failed to load conversations: $e');
@@ -66,6 +80,18 @@ class ConversationProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  Conversation _mapToConversation(Map<String, dynamic> map) {
+    return Conversation(
+      userMessage: map['userMessage'] as String? ?? '',
+      aiResponse: map['aiResponse'] as String? ?? '',
+      timestamp: DateTime.tryParse(map['timestamp'] as String? ?? '') ?? DateTime.now(),
+      mood: map['mood'] as String?,
+      sessionId: map['sessionId'] as String?,
+      isOffline: map['isOffline'] as bool? ?? true,
+      sentimentScore: map['sentimentScore'] as double?,
+    );
   }
 
   /// Add message
@@ -77,31 +103,23 @@ class ConversationProvider extends ChangeNotifier {
     Map<String, dynamic>? metadata,
   }) async {
     try {
-      final now = DateTime.now();
-      
       debugPrint('Adding ${isUser ? 'user' : 'AI'} message...');
 
       if (isUser) {
-        await _database.into(_database.conversations).insert(
-          ConversationsCompanion(
-            userMessage: Value(message),
-            aiResponse: const Value(''),
-            timestamp: Value(now),
-            emotionalState: Value(mood),
-            isOffline: const Value(true),
-            sessionId: Value(_currentSessionId),
-          )
+        await HiveDatabase.saveConversation(
+          userMessage: message,
+          aiResponse: '',
+          mood: mood,
+          sessionId: _currentSessionId,
+          isOffline: true,
         );
       } else {
-        await _database.into(_database.conversations).insert(
-          ConversationsCompanion(
-            userMessage: const Value('[Message processed]'),
-            aiResponse: Value(message),
-            timestamp: Value(now),
-            emotionalState: Value(mood),
-            isOffline: const Value(true),
-            sessionId: Value(_currentSessionId),
-          )
+        await HiveDatabase.saveConversation(
+          userMessage: '[Message processed]',
+          aiResponse: message,
+          mood: mood,
+          sessionId: _currentSessionId,
+          isOffline: true,
         );
       }
 
@@ -112,7 +130,7 @@ class ConversationProvider extends ChangeNotifier {
       }
 
       await _forceRefreshAndNotify();
-      
+
       debugPrint('Added message');
     } catch (e) {
       debugPrint('Failed to add message: $e');
@@ -203,16 +221,13 @@ class ConversationProvider extends ChangeNotifier {
       // Add to context
       _addToContext(userMessage, aiResponse);
 
-      // Insert conversation
-      await _database.into(_database.conversations).insert(
-        ConversationsCompanion.insert(
-          userMessage: userMessage.trim(),
-          aiResponse: aiResponse,
-          timestamp: DateTime.now(),
-          emotionalState: Value(mood),
-          isOffline: const Value(true),
-          sessionId: Value(_currentSessionId),
-        )
+      // Insert conversation via Hive
+      await HiveDatabase.saveConversation(
+        userMessage: userMessage.trim(),
+        aiResponse: aiResponse,
+        mood: mood,
+        sessionId: _currentSessionId,
+        isOffline: true,
       );
 
       await _forceRefreshAndNotify();
@@ -226,20 +241,17 @@ class ConversationProvider extends ChangeNotifier {
       // Emergency fallback
       try {
         const fallbackResponse = 'I\'m experiencing technical difficulties right now, but I want you to know that your feelings are valid and important. Please try again in a moment.';
-        
+
         _addToContext(userMessage, fallbackResponse);
-        
-        await _database.into(_database.conversations).insert(
-          ConversationsCompanion.insert(
-            userMessage: userMessage.trim(),
-            aiResponse: fallbackResponse,
-            timestamp: DateTime.now(),
-            emotionalState: Value(mood),
-            isOffline: const Value(true),
-            sessionId: Value(_currentSessionId),
-          )
+
+        await HiveDatabase.saveConversation(
+          userMessage: userMessage.trim(),
+          aiResponse: fallbackResponse,
+          mood: mood,
+          sessionId: _currentSessionId,
+          isOffline: true,
         );
-        
+
         await _forceRefreshAndNotify();
         debugPrint('Emergency response saved');
       } catch (emergencyError) {
@@ -391,8 +403,7 @@ What would feel most helpful for you right now?''';
   // Utility methods
   Future<void> deleteConversation(int conversationId) async {
     try {
-      await (_database.delete(_database.conversations)
-        ..where((c) => c.id.equals(conversationId))).go();
+      await HiveDatabase.deleteConversationById(conversationId);
       await _forceRefreshAndNotify();
       debugPrint('Deleted conversation: $conversationId');
     } catch (e) {
@@ -404,7 +415,7 @@ What would feel most helpful for you right now?''';
 
   Future<void> clearAllConversations() async {
     try {
-      await _database.delete(_database.conversations).go();
+      await HiveDatabase.deleteAllConversations();
       _conversations.clear();
       _recentMessages.clear();
       _recentResponses.clear();
@@ -427,7 +438,10 @@ What would feel most helpful for you right now?''';
 
   Conversation? getConversationById(int conversationId) {
     try {
-      return _conversations.firstWhere((conv) => conv.id == conversationId);
+      if (conversationId >= 0 && conversationId < _conversations.length) {
+        return _conversations[conversationId];
+      }
+      return null;
     } catch (e) {
       return null;
     }
@@ -465,7 +479,7 @@ What would feel most helpful for you right now?''';
     int textMessages = 0;
 
     for (final conv in _conversations) {
-      final mood = conv.emotionalState ?? 'neutral';
+      final mood = conv.mood ?? 'neutral';
       moodCounts[mood] = (moodCounts[mood] ?? 0) + 1;
       
       totalUserMessageLength += conv.userMessage.length;
@@ -504,10 +518,5 @@ What would feel most helpful for you right now?''';
   void notifyListeners() {
     debugPrint('ConversationProvider: Notifying (${_conversations.length} conversations)');
     super.notifyListeners();
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
   }
 }

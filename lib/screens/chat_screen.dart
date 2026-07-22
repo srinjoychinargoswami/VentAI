@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../services/offline_storage.dart';
 import '../services/gemma_service.dart';
 import '../widgets/empathy_chat_widget.dart';
 import '../widgets/mood_selector.dart';

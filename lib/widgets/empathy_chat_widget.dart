@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../services/offline_storage.dart';
+import '../providers/conversation_provider.dart';
 
 class EmpathyChatWidget extends StatelessWidget {
   final List<Conversation> conversations;
@@ -20,16 +20,19 @@ class EmpathyChatWidget extends StatelessWidget {
       return _buildEmptyState(context);
     }
 
+    // Reverse conversations so oldest messages appear at top, newest at bottom
+    final reversedConversations = conversations.reversed.toList();
+
     return ListView.builder(
       controller: scrollController,
       padding: const EdgeInsets.all(16),
-      itemCount: conversations.length + (isLoading ? 1 : 0),
+      itemCount: reversedConversations.length + (isLoading ? 1 : 0),
       itemBuilder: (context, index) {
-        if (index == conversations.length) {
+        if (index == reversedConversations.length) {
           return _buildLoadingIndicator(context);
         }
 
-        final conversation = conversations[index];
+        final conversation = reversedConversations[index];
         return Column(
           children: [
             _buildUserMessage(context, conversation),
@@ -133,27 +136,27 @@ class EmpathyChatWidget extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             // FIXED: Added mood indicator
-            if (conversation.emotionalState != null && conversation.emotionalState!.isNotEmpty) ...[
+            if (conversation.mood != null && conversation.mood!.isNotEmpty) ...[
               Container(
                 margin: const EdgeInsets.only(bottom: 4),
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
-                  color: _getMoodColor(conversation.emotionalState!).withOpacity(0.2),
+                  color: _getMoodColor(conversation.mood!).withOpacity(0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      _getMoodEmoji(conversation.emotionalState!),
+                      _getMoodEmoji(conversation.mood!),
                       style: const TextStyle(fontSize: 12),
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      conversation.emotionalState!,
+                      conversation.mood!,
                       style: TextStyle(
                         fontSize: 10,
-                        color: _getMoodColor(conversation.emotionalState!),
+                        color: _getMoodColor(conversation.mood!),
                         fontWeight: FontWeight.w600,
                       ),
                     ),

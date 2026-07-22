@@ -7,7 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
 import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 
-import 'services/offline_storage.dart';
+import 'services/hive_database.dart';
 import 'services/gemma_service.dart';
 import 'providers/conversation_provider.dart';
 import 'providers/setup_state_provider.dart';
@@ -16,8 +16,9 @@ import 'screens/chat_screen.dart';
 import 'themes/app_theme.dart';
 
 // Platform detection
-bool get _isMobile => Platform.isAndroid || Platform.isIOS;
-bool get _isDesktop => Platform.isWindows || Platform.isMacOS || Platform.isLinux;
+bool get _isMobile => !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+bool get _isDesktop => !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
+bool get _isWeb => kIsWeb;
 
 /// Bootstrap Gemma with LiteRT-LM engine (flutter_gemma 1.1.2)
 /// LiteRtLmEngine: For .litertlm models (ARM64 optimized)
@@ -58,37 +59,37 @@ Future<void> _initMobileAI() async {
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Bootstrap flutter_gemma first (mobile only)
+  // Initialize Hive FIRST - before everything else
+  try {
+    debugPrint('🗄️ Initializing Hive...');
+    await HiveDatabase.initialize();
+    debugPrint('✅ Hive initialized');
+  } catch (e) {
+    debugPrint('❌ Hive init failed: $e');
+    // Don't crash - app can work without database
+  }
+
+  // Then initialize Gemma (mobile only)
   if (_isMobile) {
     debugPrint('📱 Running on mobile platform');
     await _bootstrapGemma();
     await _initMobileAI();
-  } else {
+  } else if (_isDesktop) {
     debugPrint('🖥️ Running on desktop platform (Ollama)');
+  } else if (_isWeb) {
+    debugPrint('🌐 Running on web platform');
   }
 
-  // Initialize database
-  late final AppDatabase database;
-  try {
-    database = AppDatabase();
-    debugPrint('✅ Database initialized');
-  } catch (e) {
-    debugPrint('❌ Database initialization failed: $e');
-    rethrow;
-  }
-
+  // Then run app with providers
   runApp(
     MultiProvider(
       providers: [
-        Provider<AppDatabase>.value(value: database),
-        
         ChangeNotifierProvider<SetupStateProvider>(
           create: (_) => SetupStateProvider(),
         ),
-        
+
         ChangeNotifierProvider<ConversationProvider>(
           create: (context) => ConversationProvider(
-            database: context.read<AppDatabase>(),
             setupStateProvider: context.read<SetupStateProvider>(),
           ),
         ),

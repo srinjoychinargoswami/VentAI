@@ -1,4 +1,4 @@
-package com.example.vent_ai
+package com.ventai.app
 
 import io.flutter.embedding.android.FlutterActivity
 
