@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../services/gemma_service.dart';
 import '../widgets/empathy_chat_widget.dart';
 import '../widgets/mood_selector.dart';
+import '../widgets/chat_message_widget.dart';
 import '../providers/conversation_provider.dart';
 import '../providers/setup_state_provider.dart';
 
@@ -17,6 +18,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   String? _selectedMood;
+  bool _isWaitingForResponse = false;
   
   @override
   void initState() {
@@ -43,22 +45,40 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    debugPrint('📱 Building ChatScreen');
+    final screenSize = MediaQuery.of(context).size;
+    debugPrint('Screen size: ${screenSize.width} x ${screenSize.height}');
+
+    final provider = context.read<ConversationProvider>();
+    debugPrint('📊 ChatScreen Provider state:');
+    debugPrint('  - conversationSessions: ${provider.conversationSessions.length}');
+    debugPrint('  - conversations (old): ${provider.conversations.length}');
+    debugPrint('  - activeConversationId: ${provider.activeConversationId}');
+
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         title: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text('Vent AI'),
+            Consumer<ConversationProvider>(
+              builder: (context, provider, _) {
+                final title = provider.activeConversation?.title ?? 'VentAI';
+                return Text(
+                  title,
+                  style: const TextStyle(fontSize: 16),
+                );
+              },
+            ),
             Consumer2<ConversationProvider, SetupStateProvider>(
               builder: (context, conversationProvider, setupProvider, child) {
                 // Status display
                 final isAdvancedAI = setupProvider.hasAdvancedAI;
-                final statusText = isAdvancedAI 
-                  ? 'AI Ready • Privacy Protected' 
+                final statusText = isAdvancedAI
+                  ? 'AI Ready • Privacy Protected'
                   : 'Offline Mode • Data Stays Local';
                 final statusColor = isAdvancedAI ? Colors.green : Colors.blue;
-                
+
                 return Text(
                   statusText,
                   style: TextStyle(
@@ -74,6 +94,44 @@ class _ChatScreenState extends State<ChatScreen> {
         centerTitle: true,
         elevation: 0,
         backgroundColor: Theme.of(context).colorScheme.surface,
+        leading: Consumer<ConversationProvider>(
+          builder: (context, provider, _) {
+            return IconButton(
+              icon: Stack(
+                children: [
+                  const Icon(Icons.menu),
+                  if (provider.conversationSessions.length > 1)
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 16,
+                          minHeight: 16,
+                        ),
+                        child: Text(
+                          '${provider.conversationSessions.length}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              onPressed: () => _showConversationDrawer(),
+              tooltip: 'View conversations',
+            );
+          },
+        ),
         actions: [
           // Crisis Resources button
           IconButton(
@@ -101,10 +159,13 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
             ),
 
-            // Chat messages
+            // Chat messages - Display active conversation's messages
             Expanded(
               child: Consumer<ConversationProvider>(
                 builder: (context, provider, child) {
+                  debugPrint('📨 Active conversation: ${provider.activeConversation?.title}');
+                  debugPrint('📊 Messages count: ${provider.activeConversation?.messages.length ?? 0}');
+
                   // Handle empty state and errors
                   if (provider.isLoading) {
                     return const Center(
@@ -148,10 +209,79 @@ class _ChatScreenState extends State<ChatScreen> {
                     );
                   }
 
-                  return EmpathyChatWidget(
-                    conversations: provider.conversations,
-                    isLoading: provider.isSendingMessage,
-                    scrollController: _scrollController,
+                  // Show active conversation's messages
+                  final messages = provider.activeConversation?.messages ?? [];
+                  debugPrint('🎯 Rendering ${messages.length} messages from active conversation');
+
+                  if (messages.isEmpty && !provider.isSendingMessage) {
+                    return Center(
+                      child: Text(
+                        'Start a conversation...',
+                        style: TextStyle(color: Theme.of(context).colorScheme.outline),
+                      ),
+                    );
+                  }
+
+                  return ListView.builder(
+                    controller: _scrollController,
+                    reverse: true,
+                    itemCount: messages.length + (_isWaitingForResponse ? 1 : 0),
+                    itemBuilder: (context, index) {
+                      // Show thinking bubble at the top (first item when reversed)
+                      if (_isWaitingForResponse && index == 0) {
+                        return Align(
+                          alignment: Alignment.centerLeft,
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.surfaceVariant,
+                              borderRadius: const BorderRadius.only(
+                                topLeft: Radius.circular(4),
+                                topRight: Radius.circular(20),
+                                bottomLeft: Radius.circular(20),
+                                bottomRight: Radius.circular(20),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation(
+                                      Theme.of(context).colorScheme.primary,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Thinking...',
+                                  style: TextStyle(
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }
+
+                      final message = messages[messages.length - 1 - (_isWaitingForResponse ? index - 1 : index)];
+                      return ChatMessageWidget(
+                        content: message.content,
+                        isUserMessage: message.role == 'user',
+                        onRegenerate: () {
+                          // TODO: Regenerate last AI message
+                        },
+                        onDelete: () {
+                          provider.deleteMessageFromSession(message.id);
+                        },
+                      );
+                    },
                   );
                 },
               ),
@@ -267,31 +397,61 @@ class _ChatScreenState extends State<ChatScreen> {
     if (message.isEmpty) return;
 
     final provider = context.read<ConversationProvider>();
-    
+
+    // Ensure active conversation exists
+    if (provider.activeConversationId == null) {
+      debugPrint('❌ No active conversation - creating new one');
+      provider.createNewConversation();
+    }
+
     // Prevent multiple simultaneous operations
-    if (provider.isSendingMessage) return;
+    if (_isWaitingForResponse) return;
 
     try {
+      debugPrint('📤 Sending message to active conversation: ${provider.activeConversation?.title}');
+
       // Clear input immediately for better UX
       _messageController.clear();
-      
-      // Send message with enhanced error handling
-      await provider.sendMessage(message, mood: _selectedMood);
-      
-      // Clear mood selection after successful send
+
+      // Add user message to active conversation
+      provider.addMessageToSession('user', message);
+      debugPrint('✅ User message added');
+
+      // Set loading state to show thinking bubble
       setState(() {
+        _isWaitingForResponse = true;
         _selectedMood = null;
+      });
+
+      debugPrint('⏳ Showing thinking bubble - waiting for AI response...');
+
+      // Generate AI response - this waits for the COMPLETE response
+      final response = await GemmaService().generateEmotionalResponse(message);
+      debugPrint('✅ AI response received: ${response.length} chars');
+
+      // Add AI response to active conversation
+      provider.addMessageToSession('assistant', response);
+      debugPrint('✅ AI message added to conversation');
+
+      // Hide thinking bubble and update UI
+      setState(() {
+        _isWaitingForResponse = false;
       });
 
       // Scroll to bottom
       _scrollToBottom();
 
     } catch (e) {
-      debugPrint('Error sending message: $e');
-      
+      debugPrint('❌ Error sending message: $e');
+
       // Restore message if there was an error
       _messageController.text = message;
-      
+
+      // Hide loading state
+      setState(() {
+        _isWaitingForResponse = false;
+      });
+
       // Enhanced error feedback
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -306,7 +466,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  e.toString().length > 60 
+                  e.toString().length > 60
                     ? "${e.toString().substring(0, 60)}..."
                     : e.toString(),
                   style: const TextStyle(fontSize: 12),
@@ -573,6 +733,183 @@ class _ChatScreenState extends State<ChatScreen> {
         );
       }
     }
+  }
+
+  /// Show conversation list drawer
+  void _showConversationDrawer() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (BuildContext context) {
+        return Consumer<ConversationProvider>(
+          builder: (context, provider, _) {
+            debugPrint('🗂️ Showing conversations: ${provider.conversationSessions.length}');
+            debugPrint('📌 Current active: ${provider.activeConversationId}');
+
+            return Container(
+              padding: const EdgeInsets.all(16),
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.8,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Conversations',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          SizedBox(
+                            height: 36,
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                provider.createNewConversation();
+                                setState(() {});
+                                Navigator.pop(context);
+                                debugPrint('✨ New conversation created');
+                              },
+                              icon: const Icon(Icons.add, size: 16),
+                              label: const Text(
+                                'New',
+                                style: TextStyle(fontSize: 12),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          SizedBox(
+                            height: 36,
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                // Show confirmation before deleting all
+                                showDialog(
+                                  context: context,
+                                  builder: (dialogContext) => AlertDialog(
+                                    title: const Text('Delete All Conversations?'),
+                                    content: const Text(
+                                      'This will permanently delete all conversations and messages. This cannot be undone.',
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(dialogContext),
+                                        child: const Text('Cancel'),
+                                      ),
+                                      TextButton(
+                                        onPressed: () {
+                                          Navigator.pop(dialogContext);
+                                          provider.deleteAllConversationSessions();
+                                          Navigator.pop(context);
+                                          debugPrint('🗑️ All conversations deleted');
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              content: const Row(
+                                                children: [
+                                                  Icon(Icons.check_circle, color: Colors.white),
+                                                  SizedBox(width: 8),
+                                                  Text('All conversations cleared'),
+                                                ],
+                                              ),
+                                              backgroundColor: Colors.green.shade600,
+                                              duration: const Duration(seconds: 2),
+                                            ),
+                                          );
+                                        },
+                                        style: TextButton.styleFrom(
+                                          foregroundColor: Colors.red,
+                                        ),
+                                        child: const Text('Delete All'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.delete_sweep, size: 16),
+                              label: const Text(
+                                'Clear All',
+                                style: TextStyle(fontSize: 12),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red.shade600,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: provider.conversationSessions.isEmpty
+                      ? const Center(
+                          child: Text('No conversations yet'),
+                        )
+                      : ListView.builder(
+                          itemCount: provider.conversationSessions.length,
+                          itemBuilder: (context, index) {
+                            final conv = provider.conversationSessions[index];
+                            final isActive = conv.id == provider.activeConversationId;
+
+                            return ListTile(
+                              selected: isActive,
+                              selectedTileColor: Colors.blue.shade200.withOpacity(0.3),
+                              title: Text(
+                                conv.title,
+                                style: TextStyle(
+                                  fontWeight: isActive
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                                  fontSize: isActive ? 16 : 14,
+                                ),
+                              ),
+                              subtitle: Text(
+                                '${conv.messages.length} messages • ${conv.createdAt.toString().split('.')[0]}',
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                              leading: isActive
+                                ? const Icon(Icons.check_circle, color: Colors.blue)
+                                : const Icon(Icons.chat_bubble_outline),
+                              onTap: () {
+                                debugPrint('🔄 Switching to: ${conv.id}');
+                                provider.switchConversation(conv.id);
+                                setState(() {}); // Force UI update
+                                Navigator.pop(context);
+                                debugPrint('✅ Switched to: ${conv.title} (${conv.messages.length} messages)');
+                              },
+                              trailing: IconButton(
+                                icon: const Icon(Icons.delete, color: Colors.red),
+                                onPressed: () {
+                                  debugPrint('🗑️ Deleting: ${conv.title}');
+                                  provider.deleteConversationSession(conv.id);
+                                  Navigator.pop(context);
+                                  debugPrint('✅ Deleted: ${conv.title}');
+                                  // Reopen drawer to show updated list
+                                  Future.delayed(const Duration(milliseconds: 500), () {
+                                    if (mounted) _showConversationDrawer();
+                                  });
+                                },
+                              ),
+                            );
+                          },
+                        ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   @override

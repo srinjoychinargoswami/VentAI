@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:vent_ai/models/conversation_model.dart';
 import '../providers/conversation_provider.dart';
 
 class EmpathyChatWidget extends StatelessWidget {
@@ -125,6 +126,13 @@ class EmpathyChatWidget extends StatelessWidget {
   }
 
   Widget _buildUserMessage(BuildContext context, Conversation conversation) {
+    final userMessages = conversation.messages
+      .where((m) => m.role == 'user')
+      .toList();
+    final lastUserMsg = userMessages.isNotEmpty
+      ? userMessages.last.content
+      : 'No user message';
+
     return Align(
       alignment: Alignment.centerRight,
       child: Container(
@@ -135,39 +143,9 @@ class EmpathyChatWidget extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            // FIXED: Added mood indicator
-            if (conversation.mood != null && conversation.mood!.isNotEmpty) ...[
-              Container(
-                margin: const EdgeInsets.only(bottom: 4),
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: _getMoodColor(conversation.mood!).withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      _getMoodEmoji(conversation.mood!),
-                      style: const TextStyle(fontSize: 12),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      conversation.mood!,
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: _getMoodColor(conversation.mood!),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-            
             // User message bubble
             GestureDetector(
-              onLongPress: () => _showMessageOptions(context, conversation.userMessage, true),
+              onLongPress: () => _showMessageOptions(context, lastUserMsg, true),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
@@ -192,7 +170,7 @@ class EmpathyChatWidget extends StatelessWidget {
                   ],
                 ),
                 child: Text(
-                  conversation.userMessage,
+                  lastUserMsg,
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.onPrimary,
                     fontSize: 16,
@@ -200,12 +178,12 @@ class EmpathyChatWidget extends StatelessWidget {
                 ),
               ),
             ),
-            
+
             // Timestamp
             Padding(
               padding: const EdgeInsets.only(top: 4, right: 4),
               child: Text(
-                _formatTimestamp(conversation.timestamp),
+                _formatTimestamp(conversation.createdAt),
                 style: TextStyle(
                   fontSize: 10,
                   color: Theme.of(context).colorScheme.outline,
@@ -219,9 +197,25 @@ class EmpathyChatWidget extends StatelessWidget {
   }
 
   Widget _buildAiResponse(BuildContext context, Conversation conversation) {
-    //Detect crisis from message content instead of assuming field exists
-    final containsCrisisKeywords = _detectCrisisKeywords(conversation.userMessage);
-    
+    // Get last user message
+    final userMessages = conversation.messages
+      .where((m) => m.role == 'user')
+      .toList();
+    final lastUserMsg = userMessages.isNotEmpty
+      ? userMessages.last.content
+      : '';
+
+    // Get last AI message
+    final aiMessages = conversation.messages
+      .where((m) => m.role == 'assistant')
+      .toList();
+    final lastAiMsg = aiMessages.isNotEmpty
+      ? aiMessages.last.content
+      : 'No response';
+
+    // Detect crisis from message content
+    final containsCrisisKeywords = _detectCrisisKeywords(lastUserMsg);
+
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
@@ -234,7 +228,7 @@ class EmpathyChatWidget extends StatelessWidget {
           children: [
             // AI response bubble
             GestureDetector(
-              onLongPress: () => _showMessageOptions(context, conversation.aiResponse, false),
+              onLongPress: () => _showMessageOptions(context, lastAiMsg, false),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
@@ -253,7 +247,7 @@ class EmpathyChatWidget extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // FIXED: Crisis warning indicator
+                    // Crisis warning indicator
                     if (containsCrisisKeywords) ...[
                       Container(
                         margin: const EdgeInsets.only(bottom: 8),
@@ -284,9 +278,9 @@ class EmpathyChatWidget extends StatelessWidget {
                         ),
                       ),
                     ],
-                    
+
                     Text(
-                      conversation.aiResponse,
+                      lastAiMsg,
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                         fontSize: 16,
@@ -297,22 +291,22 @@ class EmpathyChatWidget extends StatelessWidget {
                 ),
               ),
             ),
-            
+
             // Response metadata
             Padding(
               padding: const EdgeInsets.only(top: 4, left: 4),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // FIXED: Better offline indicator based on response content
+                  // Response icon based on content
                   Icon(
-                    _getResponseIcon(conversation.aiResponse),
+                    _getResponseIcon(lastAiMsg),
                     size: 12,
                     color: Theme.of(context).colorScheme.outline,
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    _getResponseSourceText(conversation.aiResponse),
+                    _getResponseSourceText(lastAiMsg),
                     style: TextStyle(
                       fontSize: 10,
                       color: Theme.of(context).colorScheme.outline,
@@ -320,7 +314,7 @@ class EmpathyChatWidget extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    _formatTimestamp(conversation.timestamp),
+                    _formatTimestamp(conversation.createdAt),
                     style: TextStyle(
                       fontSize: 10,
                       color: Theme.of(context).colorScheme.outline,
@@ -386,66 +380,6 @@ class EmpathyChatWidget extends StatelessWidget {
   }
 
   //Helper methods for enhanced functionality
-
-  /// Get mood color based on emotional state
-  Color _getMoodColor(String mood) {
-    switch (mood.toLowerCase()) {
-      case 'happy':
-      case 'joyful':
-      case 'excited':
-        return Colors.green;
-      case 'sad':
-      case 'depressed':
-      case 'down':
-        return Colors.blue;
-      case 'angry':
-      case 'frustrated':
-      case 'annoyed':
-        return Colors.red;
-      case 'anxious':
-      case 'worried':
-      case 'nervous':
-        return Colors.orange;
-      case 'calm':
-      case 'peaceful':
-      case 'relaxed':
-        return Colors.teal;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  /// Get mood emoji based on emotional state
-  String _getMoodEmoji(String mood) {
-    switch (mood.toLowerCase()) {
-      case 'happy':
-      case 'joyful':
-      case 'excited':
-        return '😊';
-      case 'sad':
-      case 'depressed':
-      case 'down':
-        return '😢';
-      case 'angry':
-      case 'frustrated':
-      case 'annoyed':
-        return '😠';
-      case 'anxious':
-      case 'worried':
-      case 'nervous':
-        return '😰';
-      case 'calm':
-      case 'peaceful':
-      case 'relaxed':
-        return '😌';
-      case 'lonely':
-        return '😔';
-      case 'stressed':
-        return '😫';
-      default:
-        return '💭';
-    }
-  }
 
   /// Format timestamp for display
   String _formatTimestamp(DateTime timestamp) {

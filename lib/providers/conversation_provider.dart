@@ -4,26 +4,7 @@ import '../services/hive_database.dart';
 import '../services/ollama_manager.dart';
 import '../services/gemma_service.dart';
 import '../providers/setup_state_provider.dart';
-
-class Conversation {
-  final String userMessage;
-  final String aiResponse;
-  final DateTime timestamp;
-  final String? mood;
-  final String? sessionId;
-  final bool? isOffline;
-  final double? sentimentScore;
-
-  Conversation({
-    required this.userMessage,
-    required this.aiResponse,
-    required this.timestamp,
-    this.mood,
-    this.sessionId,
-    this.isOffline,
-    this.sentimentScore,
-  });
-}
+import '../models/conversation_model.dart';
 
 class ConversationProvider extends ChangeNotifier {
   final SetupStateProvider? _setupStateProvider;
@@ -32,6 +13,10 @@ class ConversationProvider extends ChangeNotifier {
   bool _isLoading = false;
   bool _isSendingMessage = false;
   String _lastErrorMessage = '';
+
+  // Multi-conversation management
+  List<Conversation> _conversationSessions = [];
+  String? _activeConversationId;
 
   // Conversation context tracking
   final List<String> _recentMessages = [];
@@ -60,6 +45,18 @@ class ConversationProvider extends ChangeNotifier {
   List<String> get recentMessages => List.unmodifiable(_recentMessages);
   List<String> get recentResponses => List.unmodifiable(_recentResponses);
 
+  // Multi-conversation getters
+  List<Conversation> get conversationSessions => _conversationSessions;
+  String? get activeConversationId => _activeConversationId;
+
+  Conversation? get activeConversation =>
+    _activeConversationId != null
+      ? _conversationSessions.firstWhere(
+          (c) => c.id == _activeConversationId,
+          orElse: () => _conversationSessions.first,
+        )
+      : null;
+
   /// Load conversations
   Future<void> _loadConversations() async {
     _isLoading = true;
@@ -83,14 +80,33 @@ class ConversationProvider extends ChangeNotifier {
   }
 
   Conversation _mapToConversation(Map<String, dynamic> map) {
+    final messages = <ChatMessage>[];
+
+    final userMsg = map['userMessage'] as String? ?? '';
+    final aiMsg = map['aiResponse'] as String? ?? '';
+    final timestamp = DateTime.tryParse(map['timestamp'] as String? ?? '') ?? DateTime.now();
+
+    if (userMsg.isNotEmpty && userMsg != '[Message processed]') {
+      messages.add(ChatMessage(
+        role: 'user',
+        content: userMsg,
+        timestamp: timestamp,
+      ));
+    }
+
+    if (aiMsg.isNotEmpty) {
+      messages.add(ChatMessage(
+        role: 'assistant',
+        content: aiMsg,
+        timestamp: timestamp.add(const Duration(milliseconds: 100)),
+      ));
+    }
+
     return Conversation(
-      userMessage: map['userMessage'] as String? ?? '',
-      aiResponse: map['aiResponse'] as String? ?? '',
-      timestamp: DateTime.tryParse(map['timestamp'] as String? ?? '') ?? DateTime.now(),
-      mood: map['mood'] as String?,
-      sessionId: map['sessionId'] as String?,
-      isOffline: map['isOffline'] as bool? ?? true,
-      sentimentScore: map['sentimentScore'] as double?,
+      title: 'Chat',
+      messages: messages,
+      createdAt: timestamp,
+      lastModifiedAt: timestamp,
     );
   }
 
@@ -332,11 +348,24 @@ class ConversationProvider extends ChangeNotifier {
   void _rebuildContextFromConversations() {
     _recentMessages.clear();
     _recentResponses.clear();
-    
+
     final recentConversations = _conversations.take(_maxContextMessages).toList();
     for (final conversation in recentConversations.reversed) {
-      _recentMessages.add(conversation.userMessage);
-      _recentResponses.add(conversation.aiResponse);
+      // Get last user message
+      final userMessages = conversation.messages
+        .where((m) => m.role == 'user')
+        .toList();
+      if (userMessages.isNotEmpty) {
+        _recentMessages.add(userMessages.last.content);
+      }
+
+      // Get last AI message
+      final aiMessages = conversation.messages
+        .where((m) => m.role == 'assistant')
+        .toList();
+      if (aiMessages.isNotEmpty) {
+        _recentResponses.add(aiMessages.last.content);
+      }
     }
   }
 
@@ -454,12 +483,15 @@ What would feel most helpful for you right now?''';
 
   List<Conversation> searchConversations(String query) {
     if (query.trim().isEmpty) return _conversations;
-    
+
     final lowercaseQuery = query.toLowerCase();
-    return _conversations.where((conv) => 
-      conv.userMessage.toLowerCase().contains(lowercaseQuery) ||
-      conv.aiResponse.toLowerCase().contains(lowercaseQuery)
-    ).toList();
+    return _conversations.where((conversation) {
+      final conversationText = conversation.messages
+        .map((m) => m.content)
+        .join(' ')
+        .toLowerCase();
+      return conversationText.contains(lowercaseQuery);
+    }).toList();
   }
 
   Map<String, dynamic> getConversationStats() {
@@ -478,16 +510,26 @@ What would feel most helpful for you right now?''';
     int crisisCount = 0;
     int textMessages = 0;
 
-    for (final conv in _conversations) {
-      final mood = conv.mood ?? 'neutral';
-      moodCounts[mood] = (moodCounts[mood] ?? 0) + 1;
-      
-      totalUserMessageLength += conv.userMessage.length;
-      
-      if (_detectCrisis(conv.userMessage)) {
-        crisisCount++;
+    for (final conversation in _conversations) {
+      moodCounts['neutral'] = (moodCounts['neutral'] ?? 0) + 1;
+
+      final userMsgs = conversation.messages
+        .where((m) => m.role == 'user')
+        .map((m) => m.content.length)
+        .fold<int>(0, (a, b) => a + b);
+      totalUserMessageLength += userMsgs;
+
+      final userMessages = conversation.messages
+        .where((m) => m.role == 'user')
+        .map((m) => m.content)
+        .toList();
+
+      for (final msg in userMessages) {
+        if (_detectCrisis(msg)) {
+          crisisCount++;
+        }
       }
-      
+
       textMessages++;
     }
 
@@ -514,9 +556,121 @@ What would feel most helpful for you right now?''';
     notifyListeners();
   }
 
+  // ===== Multi-Conversation Management =====
+
+  /// Create new conversation session
+  void createNewConversation() {
+    final newConversation = Conversation(
+      title: 'New Chat',
+    );
+    _conversationSessions.insert(0, newConversation);
+    _activeConversationId = newConversation.id;
+    notifyListeners();
+    debugPrint('✅ New conversation created: ${newConversation.id}');
+  }
+
+  /// Switch to conversation
+  void switchConversation(String conversationId) {
+    if (_conversationSessions.any((c) => c.id == conversationId)) {
+      _activeConversationId = conversationId;
+      notifyListeners();
+      debugPrint('🔄 Switched to conversation: $conversationId');
+    }
+  }
+
+  /// Add message to active conversation session
+  void addMessageToSession(String role, String content) {
+    if (_activeConversationId == null) {
+      createNewConversation();
+    }
+
+    final messageIndex = _conversationSessions.indexWhere(
+      (c) => c.id == _activeConversationId,
+    );
+
+    if (messageIndex >= 0) {
+      final conversation = _conversationSessions[messageIndex];
+      final newMessage = ChatMessage(
+        role: role,
+        content: content,
+      );
+
+      final updatedConversation = conversation.copyWith(
+        messages: [...conversation.messages, newMessage],
+        lastModifiedAt: DateTime.now(),
+      );
+
+      _conversationSessions[messageIndex] = updatedConversation;
+      notifyListeners();
+      debugPrint('💬 Message added to ${conversation.id}');
+    }
+  }
+
+  /// Delete message from active conversation
+  void deleteMessageFromSession(String messageId) {
+    if (_activeConversationId == null) return;
+
+    final messageIndex = _conversationSessions.indexWhere(
+      (c) => c.id == _activeConversationId,
+    );
+
+    if (messageIndex >= 0) {
+      final conversation = _conversationSessions[messageIndex];
+      final updatedMessages = conversation.messages
+        .where((m) => m.id != messageId)
+        .toList();
+
+      final updatedConversation = conversation.copyWith(
+        messages: updatedMessages,
+        lastModifiedAt: DateTime.now(),
+      );
+
+      _conversationSessions[messageIndex] = updatedConversation;
+      notifyListeners();
+      debugPrint('🗑️ Message deleted: $messageId');
+    }
+  }
+
+  /// Delete single conversation session
+  void deleteConversationSession(String conversationId) {
+    _conversationSessions.removeWhere((c) => c.id == conversationId);
+
+    if (_activeConversationId == conversationId) {
+      _activeConversationId = _conversationSessions.isNotEmpty
+        ? _conversationSessions.first.id
+        : null;
+
+      if (_conversationSessions.isEmpty) {
+        createNewConversation();
+      }
+    }
+
+    notifyListeners();
+    debugPrint('🗑️ Conversation deleted: $conversationId');
+  }
+
+  /// Delete ALL conversation sessions
+  void deleteAllConversationSessions() {
+    _conversationSessions.clear();
+    _activeConversationId = null;
+    createNewConversation(); // Start fresh
+    notifyListeners();
+    debugPrint('🗑️ All conversations deleted');
+  }
+
+  /// Rename conversation session
+  void renameConversationSession(String conversationId, String newTitle) {
+    final index = _conversationSessions.indexWhere((c) => c.id == conversationId);
+    if (index >= 0) {
+      _conversationSessions[index] = _conversationSessions[index].copyWith(title: newTitle);
+      notifyListeners();
+      debugPrint('✏️ Conversation renamed: $newTitle');
+    }
+  }
+
   @override
   void notifyListeners() {
-    debugPrint('ConversationProvider: Notifying (${_conversations.length} conversations)');
+    debugPrint('ConversationProvider: Notifying (${_conversations.length} conversations, ${_conversationSessions.length} sessions)');
     super.notifyListeners();
   }
 }

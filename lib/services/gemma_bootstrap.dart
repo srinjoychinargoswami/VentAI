@@ -49,22 +49,46 @@ Future<bool> bootstrapGemma({
     final fileChecker = _startFileExistenceChecker(onProgress);
 
     try {
-      await FlutterGemma.installModel(
-        modelType: ModelType.gemmaIt,
-        fileType: ModelFileType.litertlm, // ← CRITICAL: .litertlm format for LiteRT-LM
-      ).fromNetwork(
+      debugPrint('📥 [DOWNLOAD STEP 1] Creating installModel builder...');
+      final builder = FlutterGemma.installModel(
+        modelType: ModelType.gemma4,
+        fileType: ModelFileType.litertlm,
+      );
+      debugPrint('✅ [DOWNLOAD STEP 1] Builder created');
+
+      debugPrint('📥 [DOWNLOAD STEP 2] Configuring network source...');
+      final networkBuilder = builder.fromNetwork(
         'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm',
         token: hfToken.isNotEmpty ? hfToken : null,
-        foreground: true, // ← Use foreground service for reliable downloads
-      ).install();
+        foreground: true,
+      );
+      debugPrint('✅ [DOWNLOAD STEP 2] Network source configured');
 
-      debugPrint('✅ Model installed successfully');
+      debugPrint('📥 [DOWNLOAD STEP 3] Starting actual download & install...');
+      await networkBuilder.install();
+      debugPrint('✅ [DOWNLOAD STEP 3] Model installed successfully');
+
+      debugPrint('📥 [DOWNLOAD STEP 4] Skipping setActiveModel (auto-set by install)');
+      // FlutterGemma automatically sets model as active during installModel()
+      // No separate setActiveModel() call needed in v1.3.2
+      debugPrint('✅ [DOWNLOAD STEP 4] Model auto-set as active during install');
+
+      // Verify installation
+      debugPrint('📥 [DOWNLOAD STEP 5] Verifying model is active...');
+      try {
+        final activeModel = await FlutterGemma.getActiveModel(maxTokens: 250);
+        debugPrint('✅ [DOWNLOAD STEP 5] Verified - Active model ready');
+      } catch (e) {
+        debugPrint('⚠️ [DOWNLOAD STEP 5] Could not verify: $e');
+      }
 
       // Stop file checker and report completion
       fileChecker.cancel();
       onProgress(100);
       return true;
     } catch (e) {
+      debugPrint('❌ [DOWNLOAD ERROR] Failed at step: $e');
+      debugPrint('Stack trace: ${StackTrace.current}');
       fileChecker.cancel();
       rethrow;
     }
@@ -81,13 +105,18 @@ Future<bool> bootstrapGemma({
 /// 100% → install complete (reported separately)
 Timer _startFileExistenceChecker(Function(int) onProgress) {
   bool fileDetected = false;
+  int checkCount = 0;
 
   return Timer.periodic(const Duration(milliseconds: 1000), (timer) async {
     try {
+      checkCount++;
       final modelsPath = await AppPaths.getModelsDirectory();
       final modelDir = Directory(modelsPath);
 
       if (!await modelDir.exists()) {
+        if (checkCount % 5 == 0) {
+          debugPrint('📁 [FILE CHECK #$checkCount] Models dir does not exist yet: $modelsPath');
+        }
         return;
       }
 
@@ -96,14 +125,20 @@ Timer _startFileExistenceChecker(Function(int) onProgress) {
         if (entity is File && entity.path.endsWith('.litertlm')) {
           if (!fileDetected) {
             fileDetected = true;
-            debugPrint('📥 Download complete - model file detected');
+            debugPrint('✅ [FILE CHECK #$checkCount] 📥 Download complete - model file detected');
+            debugPrint('📦 Model file: ${entity.path}');
+            debugPrint('📊 File size: ${await entity.length()} bytes');
             onProgress(50);
           }
           return;
         }
       }
+
+      if (checkCount % 10 == 0) {
+        debugPrint('📁 [FILE CHECK #$checkCount] Checking models dir for .litertlm files...');
+      }
     } catch (e) {
-      debugPrint('⚠️ File checker error: $e');
+      debugPrint('⚠️ File checker error (check #$checkCount): $e');
     }
   });
 }

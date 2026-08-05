@@ -50,7 +50,7 @@ class _AppSetupScreenState extends State<AppSetupScreen>
         'Starting AI service...',
         'Downloading AI models...',
         'Configuring AI system...',
-        'Testing AI functionality...',
+        'Testing the AI functionality...',
         'Setup complete!'
       ];
     }
