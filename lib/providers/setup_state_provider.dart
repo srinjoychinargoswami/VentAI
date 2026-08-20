@@ -5,7 +5,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/app_paths.dart';
 import '../services/gemma_service.dart';
 import '../services/gemma_bootstrap.dart';
-import '../services/ollama_manager.dart';
 
 enum SetupStage {
   notStarted,
@@ -185,40 +184,72 @@ class SetupStateProvider extends ChangeNotifier {
     }
   }
 
-  /// Download and setup desktop model (called AFTER user explicit action)
+  /// Download and setup desktop model (same as mobile - using Gemma)
   Future<void> _downloadAndSetupDesktopModel() async {
     try {
+      final startTime = DateTime.now();
+
       await _updateSetupStage(
         SetupStage.downloadingModels,
-        'Downloading Ollama and AI models...',
-        0.4,
+        'Downloading Gemma 4 E2B model (500MB)...\nInitializing...',
+        0.1,
       );
 
-      final success = await OllamaManager.initialize(forceReinstall: false);
+      // Track download with progress callback (same as mobile)
+      final success = await bootstrapGemma(
+        onProgress: (progress) async {
+          final displayProgress = 0.15 + (progress / 100.0 * 0.65); // 15%-80% range
+
+          final message = progress >= 100
+              ? 'Download complete, installing...'
+              : 'Downloading Gemma 4 E2B model...';
+
+          debugPrint('📥 Download: $progress%');
+
+          await _updateSetupStage(
+            SetupStage.downloadingModels,
+            message,
+            displayProgress,
+          );
+        },
+      );
 
       if (success) {
+        // Initialize GemmaService singleton model after download completes
+        debugPrint('🖥️ Initializing GemmaService singleton model...');
+        try {
+          await GemmaService().initialize();
+          debugPrint('✅ GemmaService model initialized - ready for inference');
+        } catch (e) {
+          debugPrint('⚠️ GemmaService initialization: $e');
+        }
+
         await _updateSetupStage(
           SetupStage.configuringAI,
-          'Configuring AI system...',
-          0.8,
+          'Configuring AI for optimal performance...',
+          0.85,
         );
 
         await _updateSetupStage(
           SetupStage.testing,
           'Testing AI functionality...',
-          0.9,
+          0.95,
         );
 
-        await _verifyAIIsFullyWorking();
+        // Wait for model to fully load before testing
+        debugPrint('📥 Waiting for model to fully load into memory...');
+        await Future.delayed(const Duration(milliseconds: 500));
 
-        await markSetupComplete('ollama_gemma4');
-        debugPrint('🖥️ DOWNLOAD COMPLETE');
+        await _verifyDesktopAI();
+
+        await markSetupComplete('gemma_desktop');
+        debugPrint('🖥️ DOWNLOAD COMPLETE - Gemma AI ready');
       } else {
-        await _handleInstallationFailure('Download failed');
+        await _handleDesktopSetupFailure('AI model download failed');
       }
     } catch (e) {
       debugPrint('🖥️ Download failed: $e');
-      await _handleInstallationFailure('Download error: $e');
+      await _handleDesktopSetupFailure('Download error: $e');
     }
   }
 
@@ -267,19 +298,21 @@ class SetupStateProvider extends ChangeNotifier {
           0.15,
         );
       } else {
-        // Desktop: Check if Ollama is set up
-        final success = await OllamaManager.initialize(forceReinstall: false);
-        if (success) {
-          debugPrint('🖥️ Ollama already configured - skipping setup');
-          await markSetupComplete('ollama_gemma4');
+        // Desktop: Check if Gemma model is already downloaded
+        final status = await GemmaService().getStatus();
+        final modelLoaded = status['model_loaded'] as bool? ?? false;
+
+        if (modelLoaded) {
+          debugPrint('🖥️ Gemma model already loaded - skipping setup');
+          await markSetupComplete('gemma_desktop');
           return;
         }
 
-        // Desktop: show download ready message
+        // Desktop: show download ready message (same as mobile)
         await _updateSetupStage(
-          SetupStage.downloadingModels,
-          'Ready to download Ollama and AI models.\nTap "Start Download" to begin.',
-          0.2,
+          SetupStage.acceptingLicense,
+          'License accepted! Ready to download Gemma model.\nTap "Start Download" to begin.',
+          0.15,
         );
       }
 
@@ -334,133 +367,72 @@ class SetupStateProvider extends ChangeNotifier {
   /// Handle mobile setup failures
   Future<void> _handleMobileSetupFailure(String error) async {
     debugPrint('📱 Mobile setup failure: $error');
-    
+
     _errorMessage = error;
-    
+
     await _updateSetupStage(
-      SetupStage.error, 
-      'Setup issue: $error\nUsing fallback mode...', 
+      SetupStage.error,
+      'Setup issue: $error\nUsing fallback mode...',
       0.5
     );
-    
+
     await Future.delayed(const Duration(seconds: 3));
-    
+
     await markSetupComplete('mobile_fallback');
     debugPrint('📱 Mobile setup completed with fallback');
   }
 
-  /// Check if Ollama is installed (Desktop only)
-  Future<bool> _checkOllamaInstallation() async {
-    if (isMobile) return false;
-    
-    try {
-      debugPrint('Checking for Ollama...');
-      
-      try {
-        final result = await Process.run('ollama', ['--version']);
-        if (result.exitCode == 0) {
-          debugPrint('Found system Ollama');
-          return true;
-        }
-      } catch (e) {
-        debugPrint('System Ollama not found');
-      }
-      
-      final commonPaths = [
-        r'C:\Program Files\Ollama\ollama.exe',
-        r'C:\Program Files (x86)\Ollama\ollama.exe',
-      ];
-      
-      final userProfile = Platform.environment['USERPROFILE'];
-      if (userProfile != null) {
-        commonPaths.add('$userProfile\\AppData\\Local\\Programs\\Ollama\\ollama.exe');
-      }
-      
-      for (String checkPath in commonPaths) {
-        if (await File(checkPath).exists()) {
-          debugPrint('Found Ollama at: $checkPath');
-          return true;
-        }
-      }
-      
-      return false;
-    } catch (e) {
-      debugPrint('Error checking Ollama: $e');
-      return false;
-    }
+  /// Handle desktop setup failures
+  Future<void> _handleDesktopSetupFailure(String error) async {
+    debugPrint('🖥️ Desktop setup failure: $error');
+
+    _errorMessage = error;
+
+    await _updateSetupStage(
+      SetupStage.error,
+      'Setup issue: $error\nUsing fallback mode...',
+      0.5
+    );
+
+    await Future.delayed(const Duration(seconds: 3));
+
+    await markSetupComplete('desktop_fallback');
+    debugPrint('🖥️ Desktop setup completed with fallback');
   }
 
-  /// Ensure models are available (Desktop only)
-  Future<void> _ensureModelsAvailableWithProgress() async { 
-    if (isMobile) return;
-    
+  /// Verify desktop AI (Gemma)
+  Future<void> _verifyDesktopAI() async {
     try {
-      debugPrint('Checking Ollama models...');
-      
-      await OllamaManager.ensureModelsAvailable();
-      
-      final cacheInfo = await OllamaManager.getModelCacheInfo();
-      final availableModels = cacheInfo['availableModels'] as List<String>? ?? [];
-      final allRequired = cacheInfo['allRequiredAvailable'] as bool? ?? false;
-      
-      if (allRequired) {
-        debugPrint('All models ready: $availableModels');
-        await _updateSetupStage(
-          SetupStage.downloadingModels, 
-          'All models ready (${availableModels.length} models)', 
-          0.7
-        );
-      } else {
-        await _updateSetupStage(
-          SetupStage.downloadingModels, 
-          'Caching models...', 
-          0.65
-        );
-      }
-    } catch (e) {
-      debugPrint('Error ensuring models: $e');
-    }
-  }
+      debugPrint('🖥️ Verifying Gemma AI...');
 
-  /// Verify desktop AI (Desktop only)
-  Future<void> _verifyAIIsFullyWorking() async {
-    if (isMobile) return;
-    
-    try {
-      debugPrint('Verifying Ollama...');
-      
-      final cacheInfo = await OllamaManager.getModelCacheInfo();
-      debugPrint('Cache status: ${cacheInfo['cacheStatus']}');
-      
-      final response = await OllamaManager.generateEmpatheticResponse(
+      final response = await GemmaService().generateEmotionalResponse(
         "Test message"
       );
-      
-      final aiResponse = response['response'] as String? ?? '';
-      final responseSource = response['source'] as String? ?? 'unknown';
-      
-      if (aiResponse.isNotEmpty) {
-        debugPrint('✅ AI verification successful: $responseSource');
-        
-        if (responseSource.contains('ollama')) {
-          await _updateSetupStage(
-            SetupStage.testing, 
-            'AI verification successful!', 
-            0.95
-          );
-        }
-      } else {
+
+      if (response.isNotEmpty) {
+        debugPrint('✅ Gemma verification successful');
         await _updateSetupStage(
-          SetupStage.testing, 
-          'AI test completed', 
+          SetupStage.testing,
+          'Gemma AI verification successful!',
+          0.95
+        );
+      } else {
+        debugPrint('⚠️ Gemma verification returned empty');
+        await _updateSetupStage(
+          SetupStage.testing,
+          'Gemma AI test completed with warnings',
           0.95
         );
       }
+
+      final gemmaStatus = await GemmaService().getStatus();
+      debugPrint('Gemma status: $gemmaStatus');
+
     } catch (e) {
-      debugPrint('❌ AI verification failed: $e');
+      debugPrint('❌ Gemma verification failed: $e');
       await _updateSetupStage(
-        SetupStage.testing, 
-        'AI verification encountered issues', 
+        SetupStage.testing,
+        'Gemma verification encountered issues',
         0.95
       );
     }
@@ -539,42 +511,16 @@ class SetupStateProvider extends ChangeNotifier {
     try {
       switch (aiType) {
         case 'gemma_mobile':
-          if (isMobile) {
-            final status = await GemmaService().getStatus();
-            final canGenerate = status['can_generate'] as bool? ?? false;
-            debugPrint('Gemma verification: canGenerate=$canGenerate');
-            return canGenerate;
-          }
-          return false;
-          
-        case 'ollama_gemma4':
-        case 'ollama_gemma3n':
-          if (isDesktop) {
-            if (!OllamaManager.isInitialized) {
-              return false;
-            }
-            
-            final cacheInfo = await OllamaManager.getModelCacheInfo();
-            final allModelsAvailable = cacheInfo['allRequiredAvailable'] as bool? ?? false;
-            
-            if (!allModelsAvailable) {
-              return false;
-            }
-            
-            final response = await OllamaManager.generateEmpatheticResponse(
-              "Verification test", 
-              model: null
-            );
-            
-            final isOllamaResponse = response['source']?.toString().contains('ollama') ?? false;
-            return isOllamaResponse;
-          }
-          return false;
-          
+        case 'gemma_desktop':
+          final status = await GemmaService().getStatus();
+          final canGenerate = status['can_generate'] as bool? ?? false;
+          debugPrint('Gemma verification: canGenerate=$canGenerate');
+          return canGenerate;
+
         case 'mobile_fallback':
         case 'desktop_fallback':
           return true;
-          
+
         default:
           return false;
       }
@@ -628,11 +574,7 @@ class SetupStateProvider extends ChangeNotifier {
   Future<void> resetSetup() async {
     try {
       await _resetSetupState();
-      
-      if (isDesktop) {
-        await OllamaManager.cleanupAllData();
-      }
-      
+
       final platformPrefix = isMobile ? '📱' : '🖥️';
       debugPrint('$platformPrefix Setup reset');
       notifyListeners();
@@ -684,23 +626,13 @@ class SetupStateProvider extends ChangeNotifier {
   /// Get cache information
   Future<Map<String, dynamic>> getCacheInformation() async {
     try {
-      if (isMobile) {
-        final gemmaStatus = await GemmaService().getStatus();
-        return {
-          'platform': 'mobile',
-          'setupInfo': getSetupInfo(),
-          'gemmaStatus': gemmaStatus,
-          'timestamp': DateTime.now().toIso8601String(),
-        };
-      } else {
-        final cacheInfo = await OllamaManager.getModelCacheInfo();
-        return {
-          'platform': 'desktop',
-          'setupInfo': getSetupInfo(),
-          'cacheInfo': cacheInfo,
-          'timestamp': DateTime.now().toIso8601String(),
-        };
-      }
+      final gemmaStatus = await GemmaService().getStatus();
+      return {
+        'platform': isMobile ? 'mobile' : 'desktop',
+        'setupInfo': getSetupInfo(),
+        'gemmaStatus': gemmaStatus,
+        'timestamp': DateTime.now().toIso8601String(),
+      };
     } catch (e) {
       return {
         'platform': isMobile ? 'mobile' : 'desktop',
@@ -715,10 +647,8 @@ class SetupStateProvider extends ChangeNotifier {
   String getAIDescription() {
     switch (_currentAIType) {
       case 'gemma_mobile':
+      case 'gemma_desktop':
         return 'Gemma AI - Offline support';
-      case 'ollama_gemma4':
-      case 'ollama_gemma3n':
-        return 'Gemma AI via Ollama';
       case 'mobile_fallback':
         return 'Mobile fallback mode';
       case 'desktop_fallback':
@@ -729,14 +659,13 @@ class SetupStateProvider extends ChangeNotifier {
   }
 
   /// Feature checks
-  bool get hasAdvancedAI => _currentAIType.contains('gemma') || _currentAIType.contains('ollama');
+  bool get hasAdvancedAI => _currentAIType.contains('gemma');
   bool get hasIntelligentAI => !_currentAIType.contains('fallback');
 
   /// Status text
   String get statusText {
     if (_isInitializing) return _setupMessage.isNotEmpty ? _setupMessage : 'Initializing...';
-    if (_currentAIType.contains('gemma_mobile')) return 'Gemma AI Ready';
-    if (_currentAIType.contains('ollama')) return 'Desktop AI Ready';
+    if (_currentAIType.contains('gemma')) return 'Gemma AI Ready';
     if (_currentAIType.contains('fallback')) return 'Fallback Mode';
     return 'Basic Support';
   }
@@ -745,7 +674,7 @@ class SetupStateProvider extends ChangeNotifier {
   Color get statusColor {
     if (_errorMessage != null) return Colors.red;
     if (_isInitializing) return Colors.orange;
-    if (_currentAIType.contains('gemma') || _currentAIType.contains('ollama')) return Colors.green;
+    if (_currentAIType.contains('gemma')) return Colors.green;
     if (_currentAIType.contains('fallback')) return Colors.blue;
     return Colors.grey;
   }

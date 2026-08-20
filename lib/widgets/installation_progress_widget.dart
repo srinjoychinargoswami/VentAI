@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import '../services/gemma_service.dart';
-import '../services/ollama_manager.dart';
 
 class InstallationProgressWidget extends StatefulWidget {
   const InstallationProgressWidget({super.key});
@@ -98,65 +97,45 @@ class _InstallationProgressWidgetState extends State<InstallationProgressWidget>
     }
   }
 
-  /// Desktop progress monitoring with Ollama
+  /// Desktop progress monitoring (same as mobile - using Gemma)
   Future<void> _updateDesktopProgress() async {
     try {
       final platformPrefix = '🖥️';
 
-      // Check Ollama service status
-      final serviceRunning = await OllamaManager.ensureServiceRunning();
+      // Get Gemma status (same as mobile)
+      final status = await GemmaService().getStatus();
 
-      // Get model status and cache information
-      final models = await OllamaManager.getAvailableModels();
-      final cacheInfo = await OllamaManager.getModelCacheInfo();
+      final isInitialized = status['initialized'] as bool? ?? false;
+      final modelLoaded = status['model_loaded'] as bool? ?? false;
+      final canGenerate = status['can_generate'] as bool? ?? false;
 
-      String status = 'Connecting...';
+      String statusText = 'Initializing Gemma AI...';
       String details = '';
       bool hasError = false;
       String errorMsg = '';
 
-      if (!serviceRunning) {
-        if (await _checkIfOllamaInstalled()) {
-          status = 'Starting Ollama service...';
-          details = 'Service initialization in progress';
-        } else {
-          status = 'Installing Ollama...';
-          details = 'Downloading and installing from official source';
-        }
-      } else {
-        final allModelsAvailable = cacheInfo['allRequiredAvailable'] as bool? ?? false;
-        final downloadStatus = cacheInfo['downloadStatus'] as Map<String, dynamic>? ?? {};
-
-        if (!allModelsAvailable && models.isEmpty) {
-          status = 'Downloading AI models...';
-          details = 'Downloading Gemma models (this may take several minutes)';
-
-          if (downloadStatus.isNotEmpty) {
-            final downloadingModels = downloadStatus.entries
-                .where((e) => e.value == false)
-                .map((e) => e.key)
-                .toList();
-            if (downloadingModels.isNotEmpty) {
-              details += '\nCurrently downloading: ${downloadingModels.join(", ")}';
-            }
-          }
-        } else if (models.isNotEmpty) {
-          status = 'Desktop AI Ready';
-          details = 'Models cached and ready: ${models.length} available';
-        } else {
-          status = 'AI Service Connected';
-          details = 'Service running, preparing models...';
-        }
+      if (!isInitialized) {
+        // Still initializing
+        statusText = 'Loading Gemma model...';
+        details = 'This may take a moment on first launch';
+      } else if (modelLoaded && canGenerate) {
+        // Model ready
+        statusText = 'Gemma Ready';
+        details = 'AI model loaded and ready for conversation';
+        _isConnected = true;
+      } else if (isInitialized) {
+        // Initialized but still loading
+        statusText = 'Preparing AI model...';
+        details = 'Setting up Gemma for offline use';
       }
 
       if (mounted) {
         setState(() {
-          _isConnected = serviceRunning && models.isNotEmpty;
-          _currentStatus = '$platformPrefix $status';
+          _currentStatus = '$platformPrefix $statusText';
           _detailStatus = details;
-          _availableModels = models;
           _hasError = hasError;
           _errorMessage = errorMsg;
+          _availableModels = modelLoaded ? ['Gemma 4 E2B'] : [];
         });
       }
     } catch (e) {
@@ -199,17 +178,6 @@ class _InstallationProgressWidgetState extends State<InstallationProgressWidget>
     }
   }
 
-  /// Check if Ollama is installed (Desktop only)
-  Future<bool> _checkIfOllamaInstalled() async {
-    if (_isMobile) return false;
-    
-    try {
-      final models = await OllamaManager.getAvailableModels();
-      return models.isNotEmpty;
-    } catch (e) {
-      return false;
-    }
-  }
 
   @override
   Widget build(BuildContext context) {

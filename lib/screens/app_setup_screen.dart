@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../widgets/installation_progress_widget.dart';
 import '../services/gemma_service.dart';
 import '../services/gemma_bootstrap.dart';
-import '../services/ollama_manager.dart';
 import '../providers/setup_state_provider.dart';
 import 'model_license_screen.dart';
 
@@ -31,29 +30,16 @@ class _AppSetupScreenState extends State<AppSetupScreen>
   late Animation<double> _fadeAnimation;
   double _downloadProgress = 0.0;
   
-  /// Platform-specific setup stages
+  /// Platform-specific setup stages (same for both platforms now)
   List<String> get _setupStages {
-    if (_isMobile) {
-      return [
-        'Checking system requirements...',
-        'Initializing Gemma AI...',
-        'Loading AI model...',
-        'Configuring AI...',
-        'Testing AI functionality...',
-        'Setup complete!'
-      ];
-    } else {
-      return [
-        'Checking system requirements...',
-        'Checking for Ollama installation...',
-        'Downloading and installing Ollama...',
-        'Starting AI service...',
-        'Downloading AI models...',
-        'Configuring AI system...',
-        'Testing the AI functionality...',
-        'Setup complete!'
-      ];
-    }
+    return [
+      'Checking system requirements...',
+      'Initializing Gemma AI...',
+      'Loading AI model...',
+      'Configuring AI...',
+      'Testing AI functionality...',
+      'Setup complete!'
+    ];
   }
   
   int _currentStage = 0;
@@ -183,93 +169,66 @@ class _AppSetupScreenState extends State<AppSetupScreen>
     }
   }
 
-  /// Desktop-specific setup with Ollama
+  /// Desktop-specific setup (now same as mobile - using Gemma)
   Future<void> _runDesktopSetup() async {
     try {
       final platformPrefix = '🖥️';
-      
-      await _updateStage(1); // Checking for Ollama installation
+
+      await _updateStage(1); // Initializing Gemma AI
       if (!mounted) return;
+      debugPrint('$platformPrefix Initializing Gemma...');
+
+      // Download and setup model with real progress tracking (same as mobile)
+      final success = await bootstrapGemma(
+        onProgress: (progress) {
+          if (mounted) {
+            final message = progress == 0
+                ? 'Starting download...'
+                : progress == 50
+                    ? 'Download complete, installing...'
+                    : 'Installation complete';
+
+            setState(() {
+              _downloadProgress = progress / 100.0;
+              _statusMessage = 'Downloading Gemma 4 E2B model...';
+              _detailMessage = message;
+              _currentStage = 1;
+            });
+            debugPrint('🖥️ Progress: $progress% - $message');
+          }
+        },
+      );
+
+      if (!success) {
+        await _handleSetupFailure('Model download failed');
+        return;
+      }
+
+      if (!mounted) return;
+
+      // Initialize GemmaService after download
+      await GemmaService().initialize();
+
+      if (!mounted) return;
+      await _updateStage(2); // Loading AI model
       await Future.delayed(const Duration(milliseconds: 800));
-      
-      bool ollamaExists = await _checkOllamaInstallation();
-      
-      if (!ollamaExists) {
-        await _updateStage(2); // Downloading and installing Ollama
-        if (!mounted) return;
-        debugPrint('$platformPrefix Ollama not found - starting auto-installation');
-      } else {
-        await _updateStage(2); // Show installation stage briefly
-        if (!mounted) return;
-        await Future.delayed(const Duration(milliseconds: 500));
-        debugPrint('$platformPrefix Ollama already installed');
-      }
-      
-      await _updateStage(3); // Starting AI service
+
       if (!mounted) return;
+      await _updateStage(3); // Configuring AI
       await Future.delayed(const Duration(milliseconds: 500));
-      
-      await _updateStage(4); // Downloading AI models
+
       if (!mounted) return;
-      
-      final success = await OllamaManager.initialize(forceReinstall: false);
-      
+      await _updateStage(4); // Testing AI functionality
+      await _testDesktopAIResponse();
+
       if (!mounted) return;
-      
-      if (success) {
-        await _updateStage(5); // Configuring AI system
-        await Future.delayed(const Duration(milliseconds: 800));
-        
-        if (!mounted) return;
-        await _updateStage(6); // Testing AI functionality
-        await _testDesktopAIResponse();
-        
-        if (!mounted) return;
-        await _updateStage(7); // Setup complete
-        await _completeSetup('ollama_gemma4');
-        
-      } else {
-        await _handleSetupFailure('Ollama initialization failed');
-      }
-      
+      await _updateStage(5); // Setup complete
+      await _completeSetup('gemma_desktop');
+
     } catch (e) {
       debugPrint('🖥️ Desktop setup failed: $e');
       await _handleSetupFailure('Desktop setup failed: $e');
     }
-  }
-
-  /// Check if Ollama is installed (Desktop only)
-  Future<bool> _checkOllamaInstallation() async {
-    if (_isMobile) return false;
-    
-    try {
-      final result = await Process.run('ollama', ['--version']);
-      if (result.exitCode == 0) {
-        debugPrint('Found system Ollama');
-        return true;
-      }
-    } catch (e) {
-      debugPrint('System Ollama not found');
-    }
-    
-    final commonPaths = [
-      r'C:\Program Files\Ollama\ollama.exe',
-      r'C:\Program Files (x86)\Ollama\ollama.exe',
-    ];
-    
-    final userProfile = Platform.environment['USERPROFILE'];
-    if (userProfile != null) {
-      commonPaths.add('$userProfile\\AppData\\Local\\Programs\\Ollama\\ollama.exe');
-    }
-    
-    for (String checkPath in commonPaths) {
-      if (await File(checkPath).exists()) {
-        debugPrint('Found Ollama at: $checkPath');
-        return true;
-      }
-    }
-    
-    return false;
   }
 
   /// Update stage with platform-specific messaging
@@ -281,34 +240,17 @@ class _AppSetupScreenState extends State<AppSetupScreen>
         _currentStage = stageIndex;
         _statusMessage = _setupStages[stageIndex];
         
-        // Platform-specific detail messages
-        if (_isMobile) {
-          switch (stageIndex) {
-            case 2:
-              _detailMessage = 'Loading Gemma AI model...';
-              break;
-            case 4:
-              _detailMessage = 'Testing Gemma AI responses...';
-              break;
-            default:
-              _detailMessage = 'Please wait...';
-              break;
-          }
-        } else {
-          switch (stageIndex) {
-            case 2:
-              _detailMessage = 'Downloading Ollama (this may take several minutes)';
-              break;
-            case 4:
-              _detailMessage = 'Downloading Gemma AI models (this may take several minutes)';
-              break;
-            case 6:
-              _detailMessage = 'Testing AI responses with auto-downloaded models...';
-              break;
-            default:
-              _detailMessage = 'Please wait...';
-              break;
-          }
+        // Platform-agnostic detail messages (same for both)
+        switch (stageIndex) {
+          case 2:
+            _detailMessage = 'Loading Gemma AI model...';
+            break;
+          case 4:
+            _detailMessage = 'Testing Gemma AI responses...';
+            break;
+          default:
+            _detailMessage = 'Please wait...';
+            break;
         }
       });
       
@@ -355,38 +297,34 @@ class _AppSetupScreenState extends State<AppSetupScreen>
     }
   }
 
-  /// Test desktop AI response using Ollama
+  /// Test desktop AI response using Gemma
   Future<void> _testDesktopAIResponse() async {
     try {
-      debugPrint('🖥️ Testing Ollama...');
-      
-      final responseData = await OllamaManager.generateEmpatheticResponse(
-        "Hello, this is a test to verify the AI is working."
+      debugPrint('🖥️ Testing Gemma AI...');
+
+      final response = await GemmaService().generateEmotionalResponse(
+        "Hello, this is a test"
       );
-      
-      final aiResponse = responseData['response'] as String? ?? '';
-      final responseSource = responseData['source'] as String? ?? 'unknown';
-      
-      if (aiResponse.isNotEmpty) {
-        final displayText = aiResponse.length > 50 
-            ? '${aiResponse.substring(0, 50)}...'
-            : aiResponse;
-        debugPrint('🖥️ Ollama Test Response: $displayText');
-        debugPrint('Response source: $responseSource');
+
+      if (response.isNotEmpty) {
+        final displayText = response.length > 50
+            ? '${response.substring(0, 50)}...'
+            : response;
+        debugPrint('🖥️ Gemma Test Response: $displayText');
       }
-      
+
       if (!mounted) return;
       setState(() {
-        _detailMessage = aiResponse.isNotEmpty 
-            ? 'AI is responding correctly with auto-downloaded models!' 
-            : 'AI test completed';
+        _detailMessage = response.isNotEmpty
+            ? 'Gemma AI is responding correctly!'
+            : 'Gemma AI test completed';
       });
-      
+
     } catch (e) {
-      debugPrint('🖥️ Ollama test failed: $e');
+      debugPrint('🖥️ Gemma test failed: $e');
       if (!mounted) return;
       setState(() {
-        _detailMessage = 'Ollama test completed with warnings';
+        _detailMessage = 'Gemma test completed with warnings';
         _errorDetails = e.toString();
       });
     }
@@ -401,9 +339,7 @@ class _AppSetupScreenState extends State<AppSetupScreen>
     setState(() {
       _isComplete = true;
       _statusMessage = 'Vent AI is ready!';
-      _detailMessage = _isMobile 
-          ? 'Your mobile emotional support companion is ready'
-          : 'Your emotional support companion is ready with Ollama';
+      _detailMessage = 'Your emotional support companion is ready';
     });
     
     _animationController.stop();
@@ -506,16 +442,7 @@ class _AppSetupScreenState extends State<AppSetupScreen>
         // (Message will say "Please accept" if not accepted, "Ready to download" if accepted)
         if (setupState.currentStage == SetupStage.acceptingLicense &&
             setupState.setupMessage.contains('Please accept')) {
-          return ModelLicenseScreen(
-            onAccept: () {
-              // CRITICAL: Just save acceptance, do NOT auto-start download
-              // The UI will show "Start Download" button for explicit user action
-              setupState.acceptLicense();
-            },
-            onDecline: () {
-              Navigator.of(context).pop();
-            },
-          );
+          return const ModelLicenseScreen();
         }
 
         // Otherwise show setup progress screen

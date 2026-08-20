@@ -1,11 +1,10 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../services/gemma_service.dart';
-import '../services/ollama_manager.dart';
 
 class EmotionalAIService {
   static final EmotionalAIService _instance = EmotionalAIService._internal();
-  
+
   factory EmotionalAIService() => _instance;
   EmotionalAIService._internal();
 
@@ -15,21 +14,16 @@ class EmotionalAIService {
   bool get _isMobile => Platform.isAndroid || Platform.isIOS;
   bool get _isDesktop => Platform.isWindows || Platform.isMacOS || Platform.isLinux;
 
-  /// Initialize the appropriate AI service for this platform
+  /// Initialize Gemma AI for both mobile and desktop
   Future<void> initialize() async {
     if (_initialized) return;
 
     try {
-      if (_isMobile) {
-        debugPrint('📱 Initializing mobile AI (Gemma)...');
-        _gemmaService = GemmaService();
-        await _gemmaService.initialize();
-        debugPrint('✅ Mobile AI initialized');
-      } else if (_isDesktop) {
-        debugPrint('🖥️ Initializing desktop AI (Ollama)...');
-        // OllamaManager initializes separately via setup flow
-        debugPrint('✅ Desktop AI ready (Ollama)');
-      }
+      final platformPrefix = _isMobile ? '📱' : '🖥️';
+      debugPrint('$platformPrefix Initializing Gemma AI...');
+      _gemmaService = GemmaService();
+      await _gemmaService.initialize();
+      debugPrint('✅ Gemma AI initialized');
 
       _initialized = true;
     } catch (e) {
@@ -39,30 +33,16 @@ class EmotionalAIService {
     }
   }
 
-  /// Generate empathetic response (platform-agnostic)
+  /// Generate empathetic response using Gemma (both platforms)
   Future<Map<String, dynamic>> generateEmpatheticResponse(String message) async {
     if (!_initialized) {
       throw Exception('AI service not initialized');
     }
 
     try {
-      String response;
-      String source;
-
-      if (_isMobile) {
-        // Use Gemma on mobile
-        response = await _gemmaService.generateEmotionalResponse(message);
-        source = 'gemma_mobile';
-      } else if (_isDesktop) {
-        // Use Ollama on desktop
-        final result = await OllamaManager.generateEmpatheticResponse(message);
-        response = result['response'] as String? ?? 'I hear you.';
-        source = result['source'] as String? ?? 'ollama_desktop';
-      } else {
-        // Fallback
-        response = _generateFallbackResponse(message);
-        source = 'fallback';
-      }
+      // Use Gemma on both mobile and desktop
+      final response = await _gemmaService.generateEmotionalResponse(message);
+      final source = _isMobile ? 'gemma_mobile' : 'gemma_desktop';
 
       return {
         'response': response,
@@ -129,18 +109,7 @@ What would feel most helpful right now?''';
 
   /// Get current AI service status
   Future<Map<String, dynamic>> getStatus() async {
-    if (_isMobile) {
-      return await _gemmaService.getStatus();
-    } else if (_isDesktop) {
-      final cacheInfo = await OllamaManager.getModelCacheInfo();
-      return {
-        'initialized': true,
-        'platform': 'desktop',
-        'model_loaded': cacheInfo['allRequiredAvailable'] ?? false,
-        'can_generate': cacheInfo['allRequiredAvailable'] ?? false,
-      };
-    }
-    return {'initialized': false};
+    return await _gemmaService.getStatus();
   }
 
   /// Verify AI is working with a test message

@@ -23,10 +23,10 @@ dependencies:
   dio: ^5.4.0
   url_launcher: ^6.1.0
 
-  # AI & ML Dependencies — ANDROID ONLY
+  # AI & ML Dependencies — ANDROID & DESKTOP
   # Modular engines ONLY (no base flutter_gemma = no large_file_handler v1 embedding!)
-  flutter_gemma: ^1.1.2
-  flutter_gemma_litertlm: ^1.0.2
+  flutter_gemma: ^1.5.9
+  flutter_gemma_litertlm: ^1.4.2
 
   # Database Dependencies
   hive: ^2.2.3
@@ -55,5 +55,4 @@ flutter:
   uses-material-design: true
 
   # Asset Declarations
-  assets:
-    - assets/runtime/
+ 

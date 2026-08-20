@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../services/hive_database.dart';
-import '../services/ollama_manager.dart';
 import '../services/gemma_service.dart';
 import '../providers/setup_state_provider.dart';
 import '../models/conversation_model.dart';
@@ -195,39 +194,15 @@ class ConversationProvider extends ChangeNotifier {
         }
       }
 
-      // Platform-specific AI routing
+      // Use Gemma AI for both mobile and desktop
       Map<String, dynamic> aiResponseData;
-      final setupProvider = _setupStateProvider;
-      final hasAdvancedAI = setupProvider?.hasAdvancedAI ?? false;
 
-      if (_isMobile) {
-        // MOBILE: Use Gemma via EmotionalAIService
-        debugPrint('📱 Using mobile Gemma AI');
-        aiResponseData = await _generateMobileAIResponse(enhancedMessage, mood);
-        
-      } else if (_isDesktop) {
-        // DESKTOP: Use OllamaManager
-        if (hasAdvancedAI && OllamaManager.isInitialized) {
-          debugPrint('🖥️ Checking Ollama service...');
-          final serviceReady = await OllamaManager.ensureServiceRunning();
-          
-          if (serviceReady) {
-            debugPrint('Using Ollama');
-            aiResponseData = await OllamaManager.generateEmpatheticResponse(
-              enhancedMessage, 
-              model: null
-            );
-          } else {
-            debugPrint('Ollama not ready - fallback');
-            aiResponseData = await _generateFallbackResponse(userMessage, mood);
-          }
-        } else {
-          debugPrint('Using desktop fallback');
-          aiResponseData = await _generateFallbackResponse(userMessage, mood);
-        }
-        
-      } else {
-        // Unknown platform - use fallback
+      try {
+        final platformPrefix = _isMobile ? '📱' : '🖥️';
+        debugPrint('$platformPrefix Using Gemma AI');
+        aiResponseData = await _generateGemmaAIResponse(enhancedMessage, mood);
+      } catch (e) {
+        debugPrint('Gemma AI failed: $e - using fallback');
         aiResponseData = await _generateFallbackResponse(userMessage, mood);
       }
 
@@ -279,27 +254,30 @@ class ConversationProvider extends ChangeNotifier {
     }
   }
 
-  /// Generate mobile AI response using GemmaService directly
-  Future<Map<String, dynamic>> _generateMobileAIResponse(String message, String? mood) async {
+  /// Generate Gemma AI response for both mobile and desktop
+  Future<Map<String, dynamic>> _generateGemmaAIResponse(String message, String? mood) async {
     try {
-      debugPrint('📱 Generating mobile AI response with GemmaService...');
+      final platformPrefix = _isMobile ? '📱' : '🖥️';
+      debugPrint('$platformPrefix Generating Gemma AI response...');
 
-      // Use GemmaService directly (singleton, already initialized in ChatScreen)
+      // Use GemmaService directly (singleton, already initialized)
       final response = await GemmaService().generateEmotionalResponse(message);
 
       if (response.isNotEmpty) {
-        debugPrint('📱 Mobile AI response generated successfully');
+        final source = _isMobile ? 'gemma_mobile' : 'gemma_desktop';
+        debugPrint('$platformPrefix Gemma AI response generated successfully');
         return {
           'response': response,
-          'source': 'gemma_mobile',
+          'source': source,
         };
       } else {
-        debugPrint('📱 Mobile AI returned empty - using fallback');
+        debugPrint('$platformPrefix Gemma AI returned empty - using fallback');
         return await _generateFallbackResponse(message, mood);
       }
 
     } catch (e) {
-      debugPrint('📱 Mobile AI generation failed: $e');
+      final platformPrefix = _isMobile ? '📱' : '🖥️';
+      debugPrint('$platformPrefix Gemma AI generation failed: $e');
       return await _generateFallbackResponse(message, mood);
     }
   }
@@ -595,15 +573,40 @@ What would feel most helpful for you right now?''';
         content: content,
       );
 
+      // Auto-generate title from first user message
+      String? newTitle = conversation.title;
+      if (conversation.title == 'New Chat' && role == 'user') {
+        newTitle = _generateTitleFromMessage(content);
+      }
+
       final updatedConversation = conversation.copyWith(
         messages: [...conversation.messages, newMessage],
         lastModifiedAt: DateTime.now(),
+        title: newTitle ?? conversation.title,
       );
 
       _conversationSessions[messageIndex] = updatedConversation;
       notifyListeners();
       debugPrint('💬 Message added to ${conversation.id}');
     }
+  }
+
+  /// Generate a title from the first message
+  String _generateTitleFromMessage(String message) {
+    // Remove extra whitespace
+    final trimmed = message.trim();
+
+    if (trimmed.isEmpty) return 'New Chat';
+
+    // Find first sentence or use first 40 characters
+    final endOfSentence = trimmed.indexOf(RegExp(r'[.!?]'));
+    final title = endOfSentence > 0 && endOfSentence < 60
+        ? trimmed.substring(0, endOfSentence).trim()
+        : trimmed.length > 50
+            ? '${trimmed.substring(0, 50).trim()}...'
+            : trimmed;
+
+    return title.isNotEmpty ? title : 'New Chat';
   }
 
   /// Delete message from active conversation
@@ -653,9 +656,35 @@ What would feel most helpful for you right now?''';
   void deleteAllConversationSessions() {
     _conversationSessions.clear();
     _activeConversationId = null;
-    createNewConversation(); // Start fresh
+    createNewConversation();
     notifyListeners();
-    debugPrint('🗑️ All conversations deleted');
+    debugPrint('🗑️ All conversation sessions cleared from memory');
+  }
+
+  /// Completely clear all conversations (memory + Hive)
+  Future<void> clearAllConversationsCompletely() async {
+    try {
+      // Clear old single-conversation system from Hive
+      await clearAllConversations();
+
+      // Clear new multi-conversation system
+      _conversationSessions.clear();
+      _activeConversationId = null;
+      _conversations.clear();
+      _recentMessages.clear();
+      _recentResponses.clear();
+
+      // Create fresh new conversation
+      createNewConversation();
+
+      notifyListeners();
+      debugPrint('✅ All conversations completely cleared from Hive + Memory');
+    } catch (e) {
+      debugPrint('❌ Error clearing conversations: $e');
+      _lastErrorMessage = 'Failed to clear conversations: $e';
+      notifyListeners();
+      rethrow;
+    }
   }
 
   /// Rename conversation session

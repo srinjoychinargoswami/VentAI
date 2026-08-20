@@ -20,13 +20,13 @@ bool get _isMobile => !kIsWeb && (Platform.isAndroid || Platform.isIOS);
 bool get _isDesktop => !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
 bool get _isWeb => kIsWeb;
 
-/// Bootstrap Gemma with LiteRT-LM engine (flutter_gemma 1.1.2)
+/// Bootstrap Gemma with LiteRT-LM engine (flutter_gemma 1.5.9)
 /// LiteRtLmEngine: For .litertlm models (ARM64 optimized)
+/// Works on BOTH mobile and desktop platforms
 Future<void> _bootstrapGemma() async {
-  if (!_isMobile) return;
-
   try {
-    debugPrint('📱 Bootstrapping Gemma LiteRT-LM engine...');
+    final platformPrefix = _isMobile ? '📱' : '🖥️';
+    debugPrint('$platformPrefix Bootstrapping Gemma LiteRT-LM engine...');
     debugPrint('📥 Model will download when user accepts license (~500MB)...');
 
     // Initialize flutter_gemma with LiteRtLmEngine for .litertlm models
@@ -42,12 +42,11 @@ Future<void> _bootstrapGemma() async {
   }
 }
 
-/// Initialize mobile AI service
-Future<void> _initMobileAI() async {
-  if (!_isMobile) return;
-  
+/// Initialize Gemma AI service (both platforms)
+Future<void> _initGemmaAI() async {
   try {
-    debugPrint('📱 Initializing Gemma AI service...');
+    final platformPrefix = _isMobile ? '📱' : '🖥️';
+    debugPrint('$platformPrefix Initializing Gemma AI service...');
     await GemmaService().initialize();
     debugPrint('✅ Gemma AI initialized');
   } catch (e) {
@@ -69,13 +68,15 @@ Future<void> main() async {
     // Don't crash - app can work without database
   }
 
-  // Then initialize Gemma (mobile only)
+  // Initialize Gemma for both mobile and desktop
   if (_isMobile) {
     debugPrint('📱 Running on mobile platform');
     await _bootstrapGemma();
-    await _initMobileAI();
+    await _initGemmaAI();
   } else if (_isDesktop) {
-    debugPrint('🖥️ Running on desktop platform (Ollama)');
+    debugPrint('🖥️ Running on desktop platform');
+    await _bootstrapGemma();
+    await _initGemmaAI();
   } else if (_isWeb) {
     debugPrint('🌐 Running on web platform');
   }
@@ -218,13 +219,11 @@ class _VentAiAppState extends State<VentAiApp> with WidgetsBindingObserver {
           if (setupState.needsSetup || setupState.isInitializing) {
             final platformName = _isMobile ? 'mobile' : 'desktop';
             String message = 'Setting up your $platformName AI companion...';
-            
+
             if (setupState.isInitializing) {
-              message = _isMobile
-                  ? 'Initializing Gemma AI...\n\nThis may take a moment on first run.'
-                  : 'Setting up desktop AI (Ollama)...\n\nThis may take several minutes.';
+              message = 'Initializing Gemma AI...\n\nThis may take a moment on first run.';
             }
-            
+
             return AppSetupScreen(message: message);
           } else {
             return const ChatScreen();
