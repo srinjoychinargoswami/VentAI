@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import '../theme/app_colors.dart';
 import '../services/gemma_service.dart';
 
 class InstallationProgressWidget extends StatefulWidget {
@@ -200,10 +201,10 @@ class _InstallationProgressWidgetState extends State<InstallationProgressWidget>
                   height: 12,
                   decoration: BoxDecoration(
                     color: _hasError
-                        ? Colors.red
+                        ? AppColors.error
                         : (_isConnected
-                            ? Colors.green
-                            : Colors.orange),
+                            ? AppColors.success
+                            : AppColors.warning),
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -214,26 +215,26 @@ class _InstallationProgressWidgetState extends State<InstallationProgressWidget>
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
                       fontSize: 16,
-                      color: _hasError ? Colors.red.shade700 : null,
+                      color: _hasError ? AppColors.error : null,
                     ),
                   ),
                 ),
               ],
             ),
-            
+
             const SizedBox(height: 12),
-            
+
             // Progress Bar
             LinearProgressIndicator(
               value: _downloadProgress,
-              backgroundColor: Colors.grey[300],
+              backgroundColor: AppColors.surface,
               valueColor: AlwaysStoppedAnimation<Color>(
                 _hasError
-                    ? Colors.red
-                    : (_isConnected ? Colors.green : Colors.blue),
+                    ? AppColors.error
+                    : (_isConnected ? AppColors.success : AppColors.primary),
               ),
             ),
-            
+
             const SizedBox(height: 12),
 
             // Detailed Status
@@ -241,7 +242,7 @@ class _InstallationProgressWidgetState extends State<InstallationProgressWidget>
               _detailStatus,
               style: TextStyle(
                 fontSize: 13,
-                color: _hasError ? Colors.red.shade600 : Colors.grey[700],
+                color: _hasError ? AppColors.error : AppColors.textTertiary,
                 height: 1.3,
               ),
             ),
@@ -252,24 +253,24 @@ class _InstallationProgressWidgetState extends State<InstallationProgressWidget>
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: Colors.orange.shade50,
+                color: AppColors.warning.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: Colors.orange.shade200),
+                border: Border.all(color: AppColors.warning.withOpacity(0.3)),
               ),
               child: Row(
-                children: [
+                children: const [
                   Icon(
                     Icons.warning_amber_rounded,
                     size: 18,
-                    color: Colors.orange.shade700,
+                    color: AppColors.warning,
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'Keep the app open during download.\nDo not close or minimize.',
                       style: TextStyle(
                         fontSize: 11,
-                        color: Colors.orange.shade900,
+                        color: AppColors.warning,
                         fontWeight: FontWeight.w500,
                         height: 1.3,
                       ),
@@ -285,15 +286,15 @@ class _InstallationProgressWidgetState extends State<InstallationProgressWidget>
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.red.shade50,
+                  color: AppColors.error.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: Colors.red.shade200),
+                  border: Border.all(color: AppColors.error.withOpacity(0.3)),
                 ),
                 child: Text(
                   'Debug: $_errorMessage',
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 11,
-                    color: Colors.red.shade600,
+                    color: AppColors.error,
                     fontFamily: 'monospace',
                   ),
                 ),
@@ -306,27 +307,27 @@ class _InstallationProgressWidgetState extends State<InstallationProgressWidget>
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.green.shade50,
+                  color: AppColors.success.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: Colors.green.shade200),
+                  border: Border.all(color: AppColors.success.withOpacity(0.3)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    const Text(
                       'Available Models:',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: Colors.green.shade700,
+                        color: AppColors.success,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       _availableModels.join(', '),
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 11,
-                        color: Colors.green.shade600,
+                        color: AppColors.success,
                         fontStyle: FontStyle.italic,
                       ),
                     ),

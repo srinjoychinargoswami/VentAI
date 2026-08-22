@@ -184,7 +184,7 @@ class _AppMainScreenState extends State<AppMainScreen> {
                                     height: 20,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation(Colors.white),
+                                      valueColor: const AlwaysStoppedAnimation(AppColors.textPrimary),
                                     ),
                                   )
                                 : Icon(Icons.send),
@@ -340,7 +340,7 @@ class _AppMainScreenState extends State<AppMainScreen> {
                 height: 20,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation(Colors.white),
+                  valueColor: const AlwaysStoppedAnimation(AppColors.textPrimary),
                 ),
               )
             : Icon(Icons.send),

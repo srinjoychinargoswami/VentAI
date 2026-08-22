@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_colors.dart';
 
 class MoodSelector extends StatelessWidget {
   final String? selectedMood;
@@ -24,16 +25,16 @@ class MoodSelector extends StatelessWidget {
   };
 
   static const Map<String, Color> moodColors = {
-    'happy': Colors.amber,
-    'sad': Colors.blueAccent,
-    'angry': Colors.redAccent,
-    'anxious': Colors.deepPurple,
-    'calm': Colors.teal,
-    'stressed': Colors.orangeAccent,
-    'confused': Colors.grey,
-    'excited': Colors.pinkAccent,
-    'lonely': Colors.indigo,
-    'grateful': Colors.green,
+    'happy': AppColors.warning,
+    'sad': AppColors.primary,
+    'angry': AppColors.error,
+    'anxious': AppColors.primary,
+    'calm': AppColors.success,
+    'stressed': AppColors.warning,
+    'confused': AppColors.textTertiary,
+    'excited': AppColors.primary,
+    'lonely': AppColors.primary,
+    'grateful': AppColors.success,
   };
 
   @override
@@ -41,13 +42,14 @@ class MoodSelector extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 4),
           child: Text(
             'How are you feeling? (Optional)',
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            style: TextStyle(
               fontWeight: FontWeight.w500,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              color: AppColors.textTertiary,
+              fontSize: 12,
             ),
           ),
         ),
@@ -72,13 +74,13 @@ class MoodSelector extends StatelessWidget {
                     duration: const Duration(milliseconds: 200),
                     width: 60,
                     decoration: BoxDecoration(
-                      color: isSelected 
-                        ? color.withOpacity(0.15) 
-                        : Theme.of(context).colorScheme.surface,
+                      color: isSelected
+                        ? color.withOpacity(0.15)
+                        : AppColors.surface,
                       border: Border.all(
-                        color: isSelected 
-                          ? color 
-                          : Theme.of(context).colorScheme.outline.withOpacity(0.3),
+                        color: isSelected
+                          ? color
+                          : AppColors.borderDark.withOpacity(0.3),
                         width: isSelected ? 2.5 : 1,
                       ),
                       borderRadius: BorderRadius.circular(16),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_colors.dart';
 
 class ModelLicenseScreen extends StatelessWidget {
   const ModelLicenseScreen({super.key});
@@ -6,10 +7,10 @@ class ModelLicenseScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('Model License & Terms'),
-        backgroundColor: const Color(0xFF0F172A),
+        backgroundColor: AppColors.background,
         elevation: 0,
         centerTitle: true,
       ),
@@ -74,7 +75,7 @@ class ModelLicenseScreen extends StatelessWidget {
             decoration: BoxDecoration(
               border: Border(
                 top: BorderSide(
-                  color: const Color(0xFF374151),
+                  color: AppColors.borderGray,
                   width: 1,
                 ),
               ),
@@ -84,8 +85,8 @@ class ModelLicenseScreen extends StatelessWidget {
               height: 56,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF6366FF),
-                  foregroundColor: Colors.white,
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: AppColors.textPrimary,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -113,7 +114,7 @@ class ModelLicenseScreen extends StatelessWidget {
       text,
       textAlign: TextAlign.center,
       style: const TextStyle(
-        color: Color(0xFF6366FF),
+        color: AppColors.primary,
         fontSize: 20,
         fontWeight: FontWeight.bold,
         letterSpacing: 0.5,
@@ -126,7 +127,7 @@ class ModelLicenseScreen extends StatelessWidget {
       text,
       textAlign: TextAlign.center,
       style: const TextStyle(
-        color: Color(0xFF6366FF),
+        color: AppColors.primary,
         fontSize: 16,
         fontWeight: FontWeight.bold,
         letterSpacing: 0.5,
@@ -138,8 +139,8 @@ class ModelLicenseScreen extends StatelessWidget {
     return Text(
       text,
       textAlign: TextAlign.center,
-      style: TextStyle(
-        color: Colors.grey[300],
+      style: const TextStyle(
+        color: AppColors.textSecondary,
         fontSize: 14,
         height: 1.7,
       ),
@@ -152,10 +153,10 @@ class ModelLicenseScreen extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(
+          const Text(
             '• ',
             style: TextStyle(
-              color: const Color(0xFF6366FF),
+              color: AppColors.primary,
               fontSize: 14,
             ),
           ),
@@ -163,8 +164,8 @@ class ModelLicenseScreen extends StatelessWidget {
             child: Text(
               text,
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.grey[300],
+              style: const TextStyle(
+                color: AppColors.textSecondary,
                 fontSize: 14,
                 height: 1.7,
               ),

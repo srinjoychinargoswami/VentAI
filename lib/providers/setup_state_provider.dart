@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../theme/app_colors.dart';
 import '../utils/app_paths.dart';
 import '../services/gemma_service.dart';
 import '../services/gemma_bootstrap.dart';
@@ -672,11 +673,11 @@ class SetupStateProvider extends ChangeNotifier {
 
   /// Status color
   Color get statusColor {
-    if (_errorMessage != null) return Colors.red;
-    if (_isInitializing) return Colors.orange;
-    if (_currentAIType.contains('gemma')) return Colors.green;
-    if (_currentAIType.contains('fallback')) return Colors.blue;
-    return Colors.grey;
+    if (_errorMessage != null) return AppColors.error;
+    if (_isInitializing) return AppColors.warning;
+    if (_currentAIType.contains('gemma')) return AppColors.success;
+    if (_currentAIType.contains('fallback')) return AppColors.primary;
+    return AppColors.textTertiary;
   }
 
   /// Progress percentage

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:vent_ai/models/conversation_model.dart';
+import '../theme/app_colors.dart';
 import '../providers/conversation_provider.dart';
 
 class EmpathyChatWidget extends StatelessWidget {
@@ -240,7 +241,7 @@ class EmpathyChatWidget extends StatelessWidget {
                     bottomRight: Radius.circular(20),
                   ),
                   border: containsCrisisKeywords ? Border.all(
-                    color: Colors.red.shade300,
+                    color: AppColors.error,
                     width: 2,
                   ) : null,
                 ),
@@ -253,24 +254,24 @@ class EmpathyChatWidget extends StatelessWidget {
                         margin: const EdgeInsets.only(bottom: 8),
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: Colors.red.shade50,
+                          color: AppColors.error.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.red.shade300),
+                          border: Border.all(color: AppColors.error.withOpacity(0.3)),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
-                          children: [
+                          children: const [
                             Icon(
                               Icons.warning,
                               size: 14,
-                              color: Colors.red.shade600,
+                              color: AppColors.error,
                             ),
-                            const SizedBox(width: 4),
+                            SizedBox(width: 4),
                             Text(
                               'Crisis support response',
                               style: TextStyle(
                                 fontSize: 10,
-                                color: Colors.red.shade600,
+                                color: AppColors.error,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),

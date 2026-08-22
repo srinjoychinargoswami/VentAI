@@ -69,9 +69,9 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
+                          color: AppColors.overlay.withOpacity(0.1),
                           blurRadius: 8,
-                          offset: Offset(0, 2),
+                          offset: const Offset(0, 2),
                         ),
                       ],
                     ),
@@ -79,7 +79,7 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
                       widget.content,
                       style: TextStyle(
                         color: widget.isUserMessage
-                            ? Colors.white
+                            ? AppColors.textPrimary
                             : AppColors.aiText,
                         fontSize: 16,
                         height: 1.5,
@@ -97,13 +97,13 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
             ),
             if (widget.isUserMessage)
               Padding(
-                padding: EdgeInsets.only(left: 12, top: 4),
+                padding: const EdgeInsets.only(left: 12, top: 4),
                 child: CircleAvatar(
                   radius: 20,
                   backgroundColor: AppColors.userMessage,
-                  child: Icon(
+                  child: const Icon(
                     Icons.person,
-                    color: Colors.white,
+                    color: AppColors.textPrimary,
                     size: 24,
                   ),
                 ),

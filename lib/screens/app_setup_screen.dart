@@ -5,6 +5,7 @@ import '../widgets/installation_progress_widget.dart';
 import '../services/gemma_service.dart';
 import '../services/gemma_bootstrap.dart';
 import '../providers/setup_state_provider.dart';
+import '../theme/app_colors.dart';
 import 'model_license_screen.dart';
 
 class AppSetupScreen extends StatefulWidget {
@@ -457,7 +458,7 @@ class _AppSetupScreenState extends State<AppSetupScreen>
     final platformName = _isMobile ? 'Mobile' : 'Desktop';
 
     return Scaffold(
-      backgroundColor: Colors.blue.shade50,
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -469,43 +470,43 @@ class _AppSetupScreenState extends State<AppSetupScreen>
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.primary,
                     shape: BoxShape.circle,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.blue.shade200,
+                        color: AppColors.primary.withOpacity(0.3),
                         blurRadius: 20,
                         spreadRadius: 5,
                       ),
                     ],
                   ),
-                  child: Icon(
+                  child: const Icon(
                     Icons.psychology,
                     size: 60,
-                    color: Colors.blue.shade600,
+                    color: AppColors.textPrimary,
                   ),
                 ),
-                
+
                 const SizedBox(height: 32),
-                
-                Text(
+
+                const Text(
                   'Vent AI',
                   style: TextStyle(
                     fontSize: 36,
                     fontWeight: FontWeight.bold,
-                    color: Colors.blue.shade800,
+                    color: AppColors.textPrimary,
                     letterSpacing: -0.5,
                   ),
                 ),
-                
+
                 const SizedBox(height: 8),
-                
-                Text(
+
+                const Text(
                   'Your personal emotional support companion',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 16,
-                    color: Colors.blue.shade600,
+                    color: AppColors.textSecondary,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -518,11 +519,11 @@ class _AppSetupScreenState extends State<AppSetupScreen>
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                     child: Column(
                       children: [
-                        Text(
+                        const Text(
                           'Downloading Gemma 4 E2B model...',
                           style: TextStyle(
                             fontSize: 14,
-                            color: Colors.blue.shade700,
+                            color: AppColors.textSecondary,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -530,33 +531,33 @@ class _AppSetupScreenState extends State<AppSetupScreen>
                         LinearProgressIndicator(
                           value: _downloadProgress,
                           minHeight: 6,
-                          backgroundColor: Colors.blue.shade50,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            Colors.blue.shade600,
+                          backgroundColor: AppColors.surface,
+                          valueColor: const AlwaysStoppedAnimation<Color>(
+                            AppColors.primary,
                           ),
                         ),
                         const SizedBox(height: 16),
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: Colors.orange.shade50,
+                            color: AppColors.warning.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.orange.shade200),
+                            border: Border.all(color: AppColors.warning.withOpacity(0.3)),
                           ),
                           child: Row(
                             children: [
                               Icon(
                                 Icons.warning_amber_rounded,
                                 size: 20,
-                                color: Colors.orange.shade700,
+                                color: AppColors.warning,
                               ),
                               const SizedBox(width: 12),
-                              Expanded(
+                              const Expanded(
                                 child: Text(
                                   'Keep the app open during download.\nDo not close or minimize.',
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: Colors.orange.shade900,
+                                    color: AppColors.textSecondary,
                                     fontWeight: FontWeight.w500,
                                     height: 1.4,
                                   ),
@@ -582,20 +583,20 @@ class _AppSetupScreenState extends State<AppSetupScreen>
                     width: 60,
                     height: 60,
                     decoration: BoxDecoration(
-                      color: Colors.green.shade100,
+                      color: AppColors.success.withOpacity(0.1),
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.green.shade200,
+                          color: AppColors.success.withOpacity(0.2),
                           blurRadius: 12,
                           spreadRadius: 2,
                         ),
                       ],
                     ),
-                    child: Icon(
+                    child: const Icon(
                       Icons.check_circle,
                       size: 40,
-                      color: Colors.green.shade600,
+                      color: AppColors.success,
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -604,20 +605,20 @@ class _AppSetupScreenState extends State<AppSetupScreen>
                     width: 60,
                     height: 60,
                     decoration: BoxDecoration(
-                      color: Colors.orange.shade100,
+                      color: AppColors.warning.withOpacity(0.1),
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.orange.shade200,
+                          color: AppColors.warning.withOpacity(0.2),
                           blurRadius: 12,
                           spreadRadius: 2,
                         ),
                       ],
                     ),
-                    child: Icon(
+                    child: const Icon(
                       Icons.warning_rounded,
                       size: 40,
-                      color: Colors.orange.shade600,
+                      color: AppColors.warning,
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -637,10 +638,10 @@ class _AppSetupScreenState extends State<AppSetupScreen>
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                       color: _hasError
-                        ? Colors.orange.shade800
+                        ? AppColors.warning
                         : _isComplete
-                          ? Colors.green.shade800
-                          : Colors.blue.shade900,
+                          ? AppColors.success
+                          : AppColors.textPrimary,
                       letterSpacing: 0.3,
                     ),
                   ),
@@ -660,9 +661,7 @@ class _AppSetupScreenState extends State<AppSetupScreen>
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 15,
-                      color: _hasError
-                        ? Colors.orange.shade600
-                        : Colors.grey.shade700,
+                      color: _hasError ? AppColors.warning : AppColors.textSecondary,
                       height: 1.4,
                       fontWeight: FontWeight.w400,
                     ),
@@ -684,7 +683,7 @@ class _AppSetupScreenState extends State<AppSetupScreen>
                         decoration: BoxDecoration(
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.blue.shade300,
+                              color: AppColors.primary.withOpacity(0.3),
                               blurRadius: 12,
                               spreadRadius: 1,
                             ),
@@ -708,8 +707,8 @@ class _AppSetupScreenState extends State<AppSetupScreen>
                               ),
                             ),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.blue.shade600,
-                              foregroundColor: Colors.white,
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: AppColors.textPrimary,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(10),
                               ),
@@ -729,8 +728,8 @@ class _AppSetupScreenState extends State<AppSetupScreen>
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                     decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
-                      border: Border.all(color: Colors.blue.shade200, width: 1.5),
+                      color: AppColors.primary.withOpacity(0.1),
+                      border: Border.all(color: AppColors.primary.withOpacity(0.3), width: 1.5),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
@@ -743,9 +742,9 @@ class _AppSetupScreenState extends State<AppSetupScreen>
                         const SizedBox(width: 10),
                         Text(
                           '$platformName AI Setup',
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 13,
-                            color: Colors.blue.shade800,
+                            color: AppColors.textSecondary,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -753,19 +752,19 @@ class _AppSetupScreenState extends State<AppSetupScreen>
                     ),
                   ),
                 ],
-                
+
                 // Offline AI indicator
                 if (_currentStage >= (_isMobile ? 2 : 4)) ...[
                   const SizedBox(height: 20),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                     decoration: BoxDecoration(
-                      color: Colors.green.shade50,
+                      color: AppColors.success.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.green.shade300, width: 1.5),
+                      border: Border.all(color: AppColors.success.withOpacity(0.3), width: 1.5),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.green.shade100,
+                          color: AppColors.success.withOpacity(0.1),
                           blurRadius: 6,
                           spreadRadius: 0,
                         ),
@@ -777,14 +776,14 @@ class _AppSetupScreenState extends State<AppSetupScreen>
                         Icon(
                           Icons.lock_outline,
                           size: 18,
-                          color: Colors.green.shade600,
+                          color: AppColors.success,
                         ),
                         const SizedBox(width: 10),
-                        Text(
+                        const Text(
                           'Privacy Protected • Offline AI',
                           style: TextStyle(
                             fontSize: 13,
-                            color: Colors.green.shade800,
+                            color: AppColors.textSecondary,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -799,14 +798,14 @@ class _AppSetupScreenState extends State<AppSetupScreen>
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
+                      color: AppColors.surface,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
                       'Debug: $_errorDetails',
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 10,
-                        color: Colors.grey.shade600,
+                        color: AppColors.textTertiary,
                         fontFamily: 'monospace',
                       ),
                     ),

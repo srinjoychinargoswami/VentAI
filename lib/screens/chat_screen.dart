@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/gemma_service.dart';
+import '../theme/app_colors.dart';
 import '../widgets/mood_selector.dart';
 import '../widgets/chat_message_widget.dart';
 import '../widgets/chat_sidebar.dart';
@@ -67,7 +68,7 @@ class _ChatScreenState extends State<ChatScreen> {
     final showSidebar = _isDesktop || _isLargeScreen;
 
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: Row(
           children: [
@@ -107,7 +108,7 @@ class _ChatScreenState extends State<ChatScreen> {
                             final statusText = isAdvancedAI
                               ? 'AI Ready • Privacy Protected'
                               : 'Offline Mode • Data Stays Local';
-                            final statusColor = isAdvancedAI ? Colors.green : Colors.blue;
+                            final statusColor = isAdvancedAI ? AppColors.success : AppColors.primary;
 
                             return Text(
                               statusText,
@@ -123,7 +124,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     ),
                     centerTitle: true,
                     elevation: 0,
-                    backgroundColor: Theme.of(context).colorScheme.surface,
+                    backgroundColor: AppColors.background,
                     leading: showSidebar
                         ? IconButton(
                             icon: Icon(
@@ -150,7 +151,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                         child: Container(
                                           padding: const EdgeInsets.all(2),
                                           decoration: BoxDecoration(
-                                            color: Colors.red,
+                                            color: AppColors.error,
                                             borderRadius: BorderRadius.circular(8),
                                           ),
                                           constraints: const BoxConstraints(
@@ -160,7 +161,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                           child: Text(
                                             '${provider.conversationSessions.length}',
                                             style: const TextStyle(
-                                              color: Colors.white,
+                                              color: AppColors.textPrimary,
                                               fontSize: 10,
                                               fontWeight: FontWeight.bold,
                                             ),
@@ -243,13 +244,13 @@ class _ChatScreenState extends State<ChatScreen> {
                                 Icon(
                                   Icons.error_outline,
                                   size: 48,
-                                  color: Colors.red.shade300,
+                                  color: AppColors.error.withOpacity(0.7),
                                 ),
                                 const SizedBox(height: 16),
                                 Text(
                                   'Error: ${provider.lastErrorMessage}',
                                   textAlign: TextAlign.center,
-                                  style: TextStyle(color: Colors.red.shade700),
+                                  style: const TextStyle(color: AppColors.error),
                                 ),
                                 const SizedBox(height: 16),
                                 ElevatedButton(
@@ -277,20 +278,20 @@ class _ChatScreenState extends State<ChatScreen> {
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   crossAxisAlignment: CrossAxisAlignment.center,
                                   children: [
-                                    Text(
+                                    const Text(
                                       '💡 Welcome to ',
                                       style: TextStyle(
-                                        color: Theme.of(context).colorScheme.onSurface,
+                                        color: AppColors.textPrimary,
                                         fontSize: 26,
                                         fontWeight: FontWeight.w600,
                                         letterSpacing: 0.3,
                                       ),
                                       textAlign: TextAlign.center,
                                     ),
-                                    Text(
+                                    const Text(
                                       'VentAI',
-                                      style: const TextStyle(
-                                        color: Color(0xFF6366FF),
+                                      style: TextStyle(
+                                        color: AppColors.primary,
                                         fontSize: 26,
                                         fontWeight: FontWeight.w600,
                                         letterSpacing: 0.3,
@@ -357,52 +358,53 @@ class _ChatScreenState extends State<ChatScreen> {
                                     Container(
                                       padding: const EdgeInsets.all(16),
                                       decoration: BoxDecoration(
-                                        color: Colors.red.shade900.withOpacity(0.15),
+                                        color: AppColors.error.withOpacity(0.15),
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
+                                        children: const [
                                           Text(
                                             '🚨 In Crisis?',
                                             style: TextStyle(
-                                              color: Colors.red.shade300,
+                                              color: AppColors.error,
                                               fontSize: 17,
                                               fontWeight: FontWeight.w600,
                                             ),
                                             textAlign: TextAlign.center,
                                           ),
-                                          const SizedBox(height: 8),
+                                          SizedBox(height: 8),
                                           Text(
                                             'Call local emergency services or reach out to:\n• 988 Suicide & Crisis Lifeline (USA)\n• Text HOME to 741741 (Crisis Text Line)',
                                             style: TextStyle(
-                                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                              color: AppColors.textTertiary,
                                               fontSize: 15,
                                               height: 1.7,
                                             ),
                                             textAlign: TextAlign.center,
                                           ),
-                                          const SizedBox(height: 12),
-                                          SizedBox(
-                                            width: double.infinity,
-                                            child: ElevatedButton(
-                                              onPressed: () {
-                                                _showCrisisResourcesDialog();
-                                              },
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: Colors.red.shade600,
-                                              ),
-                                              child: const Text('View All Resources'),
-                                            ),
-                                          ),
+                                          SizedBox(height: 12),
                                         ],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    SizedBox(
+                                      width: double.infinity,
+                                      child: ElevatedButton(
+                                        onPressed: () {
+                                          _showCrisisResourcesDialog();
+                                        },
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: AppColors.error,
+                                        ),
+                                        child: const Text('View All Resources'),
                                       ),
                                     ),
                                     const SizedBox(height: 28),
                                     Text(
                                       'Tap the ℹ️ button to view our Privacy Policy and Important Disclaimers',
-                                      style: TextStyle(
-                                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                      style: const TextStyle(
+                                        color: AppColors.textTertiary,
                                         fontSize: 11,
                                         height: 1.5,
                                       ),
@@ -526,26 +528,26 @@ class _ChatScreenState extends State<ChatScreen> {
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: const BorderSide(
-                            color: Color(0xFF2D3E52),
+                            color: AppColors.borderDark,
                             width: 1.0,
                           ),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: const BorderSide(
-                            color: Color(0xFF2D3E52),
+                            color: AppColors.borderDark,
                             width: 1.0,
                           ),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: const BorderSide(
-                            color: Color(0xFF6366FF),
+                            color: AppColors.primary,
                             width: 1.5,
                           ),
                         ),
                         filled: true,
-                        fillColor: Theme.of(context).colorScheme.surfaceVariant,
+                        fillColor: AppColors.surface,
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 16,
                           vertical: 12,
@@ -561,8 +563,8 @@ class _ChatScreenState extends State<ChatScreen> {
                   Container(
                     width: 40,
                     height: 40,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primary,
+                    decoration: const BoxDecoration(
+                      color: AppColors.primary,
                       shape: BoxShape.circle,
                     ),
                     child: Material(
@@ -692,11 +694,11 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
               ],
             ),
-            backgroundColor: Colors.red.shade600,
+            backgroundColor: AppColors.error,
             duration: const Duration(seconds: 4),
             action: SnackBarAction(
               label: 'Retry',
-              textColor: Colors.white,
+              textColor: AppColors.textPrimary,
               onPressed: () => _sendMessage(),
             ),
           ),
@@ -737,16 +739,16 @@ class _ChatScreenState extends State<ChatScreen> {
       builder: (BuildContext context) {
         return AlertDialog(
           insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-          backgroundColor: Colors.grey.shade900,
+          backgroundColor: AppColors.surface,
           title: Row(
-            children: [
-              Icon(Icons.emergency, color: Colors.red.shade300, size: 24),
-              const SizedBox(width: 12),
-              const Expanded(
+            children: const [
+              Icon(Icons.emergency, color: AppColors.error, size: 24),
+              SizedBox(width: 12),
+              Expanded(
                 child: Text(
                   'Crisis Resources & Help',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: AppColors.textPrimary,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -757,67 +759,50 @@ class _ChatScreenState extends State<ChatScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
-              children: [
+              children: const [
                 Text(
                   'IF YOU\'RE IN CRISIS:',
                   style: TextStyle(
-                    color: Colors.red.shade300,
+                    color: AppColors.error,
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
                   ),
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 Text(
                   '🇺🇸 USA:\n'
                   '• Call 988 (Suicide & Crisis Lifeline)\n'
                   '• Text HOME to 741741 (Crisis Text Line)\n'
                   '• Call 911 for emergencies',
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
                     fontSize: 13,
                     height: 1.6,
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
                 Text(
                   'FIND HELP IN YOUR COUNTRY:',
                   style: TextStyle(
-                    color: Colors.green.shade300,
+                    color: AppColors.success,
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
                   ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 Text(
                   'Type in chat: "emergency services [country name]"\n\n'
                   'Examples:\n'
                   '• "emergency services Canada"\n'
                   '• "emergency services UK"\n'
                   '• "emergency services Australia"',
-                  style: const TextStyle(
-                    color: Colors.white70,
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
                     fontSize: 13,
                     height: 1.6,
                   ),
                 ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.shade900.withOpacity(0.3),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.blue.shade300),
-                  ),
-                  child: const Text(
-                    'I can help you find crisis hotlines and mental health resources for any country.\n\n'
-                    'You are not alone. Help is available right now.',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      height: 1.6,
-                    ),
-                  ),
-                ),
+                SizedBox(height: 16),
               ],
             ),
           ),
@@ -826,7 +811,7 @@ class _ChatScreenState extends State<ChatScreen> {
               onPressed: () => Navigator.of(context).pop(),
               child: const Text(
                 'Close',
-                style: TextStyle(color: Colors.white70),
+                style: TextStyle(color: AppColors.textSecondary),
               ),
             ),
           ],
@@ -842,16 +827,16 @@ class _ChatScreenState extends State<ChatScreen> {
       builder: (BuildContext context) {
         return AlertDialog(
           insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-          backgroundColor: Colors.grey.shade900,
+          backgroundColor: AppColors.surface,
           title: Row(
-            children: [
-              Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 24),
-              const SizedBox(width: 12),
-              const Expanded(
+            children: const [
+              Icon(Icons.warning_amber_rounded, color: AppColors.warning, size: 24),
+              SizedBox(width: 12),
+              Expanded(
                 child: Text(
                   'Clear All Conversations',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: AppColors.textPrimary,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -862,15 +847,15 @@ class _ChatScreenState extends State<ChatScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
+              children: const [
+                Text(
                   'This will permanently delete all your conversations including:\n\n'
                   '• All text messages and AI responses\n'
                   '• Mood selections and conversation history\n\n'
                   'This action cannot be undone.\n\n'
                   'Are you sure you want to continue?',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: AppColors.textPrimary,
                     fontSize: 14,
                     height: 1.5,
                   ),
@@ -883,7 +868,7 @@ class _ChatScreenState extends State<ChatScreen> {
               onPressed: () => Navigator.of(context).pop(),
               child: const Text(
                 'Cancel',
-                style: TextStyle(color: Colors.white70),
+                style: TextStyle(color: AppColors.textSecondary),
               ),
             ),
             TextButton(
@@ -891,7 +876,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 Navigator.of(context).pop();
                 _clearAllConversations();
               },
-              style: TextButton.styleFrom(foregroundColor: Colors.red.shade300),
+              style: TextButton.styleFrom(foregroundColor: AppColors.error),
               child: const Text('Clear All'),
             ),
           ],
@@ -910,12 +895,12 @@ class _ChatScreenState extends State<ChatScreen> {
           SnackBar(
             content: const Row(
               children: [
-                Icon(Icons.check_circle, color: Colors.white),
+                const Icon(Icons.check_circle, color: AppColors.textPrimary),
                 SizedBox(width: 8),
                 Text('All conversations cleared successfully'),
               ],
             ),
-            backgroundColor: Colors.green.shade600,
+            backgroundColor: AppColors.success,
             duration: const Duration(seconds: 3),
             behavior: SnackBarBehavior.floating,
           ),
@@ -941,11 +926,11 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
               ],
             ),
-            backgroundColor: Colors.red.shade600,
+            backgroundColor: AppColors.error,
             duration: const Duration(seconds: 4),
             action: SnackBarAction(
               label: 'Retry',
-              textColor: Colors.white,
+              textColor: AppColors.textPrimary,
               onPressed: () => _clearAllConversations(),
             ),
           ),
@@ -1032,18 +1017,18 @@ class _ChatScreenState extends State<ChatScreen> {
                                             SnackBar(
                                               content: const Row(
                                                 children: [
-                                                  Icon(Icons.check_circle, color: Colors.white),
+                                                  const Icon(Icons.check_circle, color: AppColors.textPrimary),
                                                   SizedBox(width: 8),
                                                   Text('All conversations cleared'),
                                                 ],
                                               ),
-                                              backgroundColor: Colors.green.shade600,
+                                              backgroundColor: AppColors.success,
                                               duration: const Duration(seconds: 2),
                                             ),
                                           );
                                         },
                                         style: TextButton.styleFrom(
-                                          foregroundColor: Colors.red,
+                                          foregroundColor: AppColors.error,
                                         ),
                                         child: const Text('Delete All'),
                                       ),
@@ -1057,8 +1042,8 @@ class _ChatScreenState extends State<ChatScreen> {
                                 style: TextStyle(fontSize: 12),
                               ),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.red.shade600,
-                                foregroundColor: Colors.white,
+                                backgroundColor: AppColors.error,
+                                foregroundColor: AppColors.textPrimary,
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                               ),
                             ),
@@ -1081,7 +1066,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
                             return ListTile(
                               selected: isActive,
-                              selectedTileColor: Colors.blue.shade200.withOpacity(0.3),
+                              selectedTileColor: AppColors.primary.withOpacity(0.15),
                               title: Text(
                                 conv.title,
                                 style: TextStyle(
@@ -1096,7 +1081,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                 style: const TextStyle(fontSize: 12),
                               ),
                               leading: isActive
-                                ? const Icon(Icons.check_circle, color: Colors.blue)
+                                ? const Icon(Icons.check_circle, color: AppColors.primary)
                                 : const Icon(Icons.chat_bubble_outline),
                               onTap: () {
                                 debugPrint('🔄 Switching to: ${conv.id}');
@@ -1106,7 +1091,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                 debugPrint('✅ Switched to: ${conv.title} (${conv.messages.length} messages)');
                               },
                               trailing: IconButton(
-                                icon: const Icon(Icons.delete, color: Colors.red),
+                                icon: const Icon(Icons.delete, color: AppColors.error),
                                 onPressed: () {
                                   debugPrint('🗑️ Deleting: ${conv.title}');
                                   provider.deleteConversationSession(conv.id);

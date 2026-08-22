@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_colors.dart';
 import '../widgets/app_footer.dart';
 
 class LegalPage extends StatefulWidget {
@@ -14,10 +15,10 @@ class _LegalPageState extends State<LegalPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('Privacy Policy & Disclaimers'),
-        backgroundColor: const Color(0xFF0F172A),
+        backgroundColor: AppColors.background,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.close),
@@ -40,7 +41,7 @@ class _LegalPageState extends State<LegalPage> {
                         border: Border(
                           bottom: BorderSide(
                             color: _selectedTabIndex == 0
-                                ? const Color(0xFF6366FF)
+                                ? AppColors.primary
                                 : Colors.transparent,
                             width: 2,
                           ),
@@ -51,8 +52,8 @@ class _LegalPageState extends State<LegalPage> {
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: _selectedTabIndex == 0
-                              ? const Color(0xFF6366FF)
-                              : Colors.grey[400],
+                              ? AppColors.primary
+                              : AppColors.textTertiary,
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                         ),
@@ -70,7 +71,7 @@ class _LegalPageState extends State<LegalPage> {
                         border: Border(
                           bottom: BorderSide(
                             color: _selectedTabIndex == 1
-                                ? const Color(0xFF6366FF)
+                                ? AppColors.primary
                                 : Colors.transparent,
                             width: 2,
                           ),
@@ -81,8 +82,8 @@ class _LegalPageState extends State<LegalPage> {
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: _selectedTabIndex == 1
-                              ? const Color(0xFF6366FF)
-                              : Colors.grey[400],
+                              ? AppColors.primary
+                              : AppColors.textTertiary,
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                         ),
@@ -230,7 +231,7 @@ class _LegalPageState extends State<LegalPage> {
       text,
       textAlign: TextAlign.left,
       style: const TextStyle(
-        color: Color(0xFF6366FF),
+        color: AppColors.primary,
         fontSize: 16,
         fontWeight: FontWeight.bold,
         letterSpacing: 0.5,
@@ -242,8 +243,8 @@ class _LegalPageState extends State<LegalPage> {
     return Text(
       text,
       textAlign: TextAlign.left,
-      style: TextStyle(
-        color: Colors.grey[300],
+      style: const TextStyle(
+        color: AppColors.textSecondary,
         fontSize: 18,
         height: 1.7,
       ),
@@ -256,10 +257,10 @@ class _LegalPageState extends State<LegalPage> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          const Text(
             '• ',
             style: TextStyle(
-              color: const Color(0xFF6366FF),
+              color: AppColors.primary,
               fontSize: 18,
             ),
           ),
@@ -267,8 +268,8 @@ class _LegalPageState extends State<LegalPage> {
             child: Text(
               text,
               textAlign: TextAlign.left,
-              style: TextStyle(
-                color: Colors.grey[300],
+              style: const TextStyle(
+                color: AppColors.textSecondary,
                 fontSize: 18,
                 height: 1.7,
               ),

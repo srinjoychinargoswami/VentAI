@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../theme/app_colors.dart';
 import '../providers/conversation_provider.dart';
 import '../models/conversation_model.dart';
 
@@ -24,8 +25,8 @@ class _ChatSidebarState extends State<ChatSidebar> {
   Widget build(BuildContext context) {
     return Container(
       width: 280,
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
       ),
       child: Column(
         children: [
@@ -45,8 +46,8 @@ class _ChatSidebarState extends State<ChatSidebar> {
                   ),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: AppColors.textOnPrimary,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -56,8 +57,8 @@ class _ChatSidebarState extends State<ChatSidebar> {
           ),
 
           // Recent Conversations Section
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Align(
               alignment: Alignment.centerLeft,
               child: Text(
@@ -65,7 +66,7 @@ class _ChatSidebarState extends State<ChatSidebar> {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  color: AppColors.textTertiary,
                   letterSpacing: 0.5,
                 ),
               ),
@@ -77,11 +78,11 @@ class _ChatSidebarState extends State<ChatSidebar> {
             child: Consumer<ConversationProvider>(
               builder: (context, provider, _) {
                 if (provider.conversationSessions.isEmpty) {
-                  return Center(
+                  return const Center(
                     child: Text(
                       'No chats yet',
                       style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        color: AppColors.textTertiary,
                         fontSize: 13,
                       ),
                     ),
@@ -123,15 +124,15 @@ class _ChatSidebarState extends State<ChatSidebar> {
                               ),
                               decoration: BoxDecoration(
                                 color: isActive
-                                    ? const Color(0xFF6366FF).withOpacity(0.15)
+                                    ? AppColors.primary.withOpacity(0.15)
                                     : isHovered
-                                        ? const Color(0xFF6366FF).withOpacity(0.08)
+                                        ? AppColors.primary.withOpacity(0.08)
                                         : Colors.transparent,
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
                                   color: isActive
-                                      ? const Color(0xFF6366FF)
-                                      : const Color(0xFF2D3E52),
+                                      ? AppColors.primary
+                                      : AppColors.borderDark,
                                   width: isActive ? 1.5 : 1.0,
                                 ),
                               ),
@@ -152,8 +153,8 @@ class _ChatSidebarState extends State<ChatSidebar> {
                                                 ? FontWeight.w600
                                                 : FontWeight.w500,
                                             color: isActive
-                                                ? Theme.of(context).colorScheme.primary
-                                                : Theme.of(context).colorScheme.onSurface,
+                                                ? AppColors.primary
+                                                : AppColors.textPrimary,
                                           ),
                                         ),
                                         const SizedBox(height: 2),
@@ -161,11 +162,9 @@ class _ChatSidebarState extends State<ChatSidebar> {
                                           '${conversation.messages.length} messages',
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
+                                          style: const TextStyle(
                                             fontSize: 11,
-                                            color: Theme.of(context)
-                                                .colorScheme
-                                                .onSurfaceVariant,
+                                            color: AppColors.textTertiary,
                                           ),
                                         ),
                                       ],
@@ -176,7 +175,7 @@ class _ChatSidebarState extends State<ChatSidebar> {
                                       padding: const EdgeInsets.only(left: 8),
                                       child: IconButton(
                                         icon: const Icon(Icons.delete_outline, size: 18),
-                                        color: Colors.red.shade400,
+                                        color: AppColors.error,
                                         onPressed: () {
                                           _showDeleteConfirmation(context, provider, conversation);
                                         },
@@ -185,12 +184,12 @@ class _ChatSidebarState extends State<ChatSidebar> {
                                       ),
                                     )
                                   else if (isActive)
-                                    Padding(
-                                      padding: const EdgeInsets.only(left: 8),
+                                    const Padding(
+                                      padding: EdgeInsets.only(left: 8),
                                       child: Icon(
                                         Icons.check_circle,
                                         size: 16,
-                                        color: Theme.of(context).colorScheme.primary,
+                                        color: AppColors.primary,
                                       ),
                                     ),
                               ],
@@ -221,8 +220,8 @@ class _ChatSidebarState extends State<ChatSidebar> {
                   ),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red.shade600,
-                  foregroundColor: Colors.white,
+                  backgroundColor: AppColors.error,
+                  foregroundColor: AppColors.textPrimary,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -231,8 +230,8 @@ class _ChatSidebarState extends State<ChatSidebar> {
             ),
           ),
           const SizedBox(height: 12),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -241,23 +240,23 @@ class _ChatSidebarState extends State<ChatSidebar> {
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: Theme.of(context).colorScheme.primary,
+                    color: AppColors.primary,
                   ),
                 ),
-                const SizedBox(height: 2),
+                SizedBox(height: 2),
                 Text(
                   'Privacy Protected',
                   style: TextStyle(
                     fontSize: 10,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    color: AppColors.textTertiary,
                   ),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: 4),
                 Text(
                   '100% on-device, fully encrypted',
                   style: TextStyle(
                     fontSize: 9,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    color: AppColors.textTertiary,
                     height: 1.4,
                   ),
                   textAlign: TextAlign.center,
@@ -292,7 +291,7 @@ class _ChatSidebarState extends State<ChatSidebar> {
               provider.deleteConversationSession(conversation.id);
               Navigator.pop(context);
             },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
             child: const Text('Delete'),
           ),
         ],
