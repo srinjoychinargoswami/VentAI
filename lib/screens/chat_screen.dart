@@ -88,131 +88,134 @@ class _ChatScreenState extends State<ChatScreen> {
               child: Column(
                 children: [
                   // Top AppBar
-                  AppBar(
-                    title: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Consumer<ConversationProvider>(
-                          builder: (context, provider, _) {
-                            final title = provider.activeConversation?.title ?? 'VentAI';
-                            return Text(
-                              title,
+                  Consumer<ConversationProvider>(
+                    builder: (context, provider, _) {
+                      final hasMessages = provider.activeConversation?.messages.isNotEmpty ?? false;
+                      return AppBar(
+                        title: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              provider.activeConversation?.title ?? 'VentAI',
                               style: const TextStyle(fontSize: 16),
-                            );
-                          },
-                        ),
-                        Consumer2<ConversationProvider, SetupStateProvider>(
-                          builder: (context, conversationProvider, setupProvider, child) {
-                            // Status display
-                            final isAdvancedAI = setupProvider.hasAdvancedAI;
-                            final statusText = isAdvancedAI
-                              ? 'AI Ready • Privacy Protected'
-                              : 'Offline Mode • Data Stays Local';
-                            final statusColor = isAdvancedAI ? AppColors.success : AppColors.primary;
-
-                            return Text(
-                              statusText,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: statusColor,
-                                fontWeight: FontWeight.normal,
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                    centerTitle: true,
-                    elevation: 0,
-                    backgroundColor: AppColors.background,
-                    leading: showSidebar
-                        ? IconButton(
-                            icon: Icon(
-                              _sidebarVisible ? Icons.chevron_left : Icons.menu,
-                              size: 24,
                             ),
-                            onPressed: () {
-                              setState(() {
-                                _sidebarVisible = !_sidebarVisible;
-                              });
-                            },
-                            tooltip: _sidebarVisible ? 'Hide sidebar' : 'Show sidebar',
-                          )
-                        : Consumer<ConversationProvider>(
-                            builder: (context, provider, _) {
-                              return IconButton(
-                                icon: Stack(
-                                  children: [
-                                    const Icon(Icons.menu),
-                                    if (provider.conversationSessions.length > 1)
-                                      Positioned(
-                                        right: 0,
-                                        top: 0,
-                                        child: Container(
-                                          padding: const EdgeInsets.all(2),
-                                          decoration: BoxDecoration(
-                                            color: AppColors.error,
-                                            borderRadius: BorderRadius.circular(8),
-                                          ),
-                                          constraints: const BoxConstraints(
-                                            minWidth: 16,
-                                            minHeight: 16,
-                                          ),
-                                          child: Text(
-                                            '${provider.conversationSessions.length}',
-                                            style: const TextStyle(
-                                              color: AppColors.textPrimary,
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.bold,
+                            Consumer<SetupStateProvider>(
+                              builder: (context, setupProvider, child) {
+                                final isAdvancedAI = setupProvider.hasAdvancedAI;
+                                final statusText = isAdvancedAI
+                                  ? 'AI Ready • Privacy Protected'
+                                  : 'Offline Mode • Data Stays Local';
+                                final statusColor = isAdvancedAI ? AppColors.success : AppColors.primary;
+
+                                return Text(
+                                  statusText,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: statusColor,
+                                    fontWeight: FontWeight.normal,
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                        centerTitle: true,
+                        elevation: 0,
+                        backgroundColor: AppColors.background,
+                        bottom: hasMessages ? PreferredSize(
+                          preferredSize: const Size.fromHeight(1),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              border: Border(
+                                bottom: BorderSide(
+                                  color: Color(0xFF94A3B8).withOpacity(0.3),
+                                  width: 1,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ) : null,
+                        leading: showSidebar
+                          ? IconButton(
+                              icon: Icon(
+                                _sidebarVisible ? Icons.chevron_left : Icons.menu,
+                                size: 24,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _sidebarVisible = !_sidebarVisible;
+                                });
+                              },
+                              tooltip: _sidebarVisible ? 'Hide sidebar' : 'Show sidebar',
+                            )
+                          : Consumer<ConversationProvider>(
+                              builder: (context, provider, _) {
+                                return IconButton(
+                                  icon: Stack(
+                                    children: [
+                                      const Icon(Icons.menu),
+                                      if (provider.conversationSessions.length > 1)
+                                        Positioned(
+                                          right: 0,
+                                          top: 0,
+                                          child: Container(
+                                            padding: const EdgeInsets.all(2),
+                                            decoration: BoxDecoration(
+                                              color: AppColors.error,
+                                              borderRadius: BorderRadius.circular(8),
                                             ),
-                                            textAlign: TextAlign.center,
+                                            constraints: const BoxConstraints(
+                                              minWidth: 16,
+                                              minHeight: 16,
+                                            ),
+                                            child: Text(
+                                              '${provider.conversationSessions.length}',
+                                              style: const TextStyle(
+                                                color: AppColors.textPrimary,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                              textAlign: TextAlign.center,
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                  ],
+                                    ],
+                                  ),
+                                  onPressed: () => _showConversationDrawer(),
+                                  tooltip: 'View conversations',
+                                );
+                              },
+                            ),
+                        actions: [
+                          IconButton(
+                            icon: const Text(
+                              'ℹ️',
+                              style: TextStyle(fontSize: 20),
+                            ),
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const LegalPage(),
                                 ),
-                                onPressed: () => _showConversationDrawer(),
-                                tooltip: 'View conversations',
                               );
                             },
+                            tooltip: 'Privacy Policy & Disclaimers',
                           ),
-                    actions: [
-                      IconButton(
-                        icon: const Text(
-                          'ℹ️',
-                          style: TextStyle(fontSize: 20),
-                        ),
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const LegalPage(),
+                          IconButton(
+                            icon: const Text('🚨', style: TextStyle(fontSize: 26)),
+                            onPressed: () => _showCrisisResourcesDialog(),
+                            tooltip: 'Crisis Resources & Help',
+                          ),
+                          if (!showSidebar)
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline),
+                              onPressed: () => _showClearConversationsDialog(),
+                              tooltip: 'Clear all conversations',
                             ),
-                          );
-                        },
-                        tooltip: 'Privacy Policy & Disclaimers',
-                      ),
-                      IconButton(
-                        icon: const Text('🚨', style: TextStyle(fontSize: 26)),
-                        onPressed: () => _showCrisisResourcesDialog(),
-                        tooltip: 'Crisis Resources & Help',
-                      ),
-                      if (!showSidebar)
-                        IconButton(
-                          icon: const Icon(Icons.delete_outline),
-                          onPressed: () => _showClearConversationsDialog(),
-                          tooltip: 'Clear all conversations',
-                        ),
-                    ],
-                  ),
-
-                  // Mood selector
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    child: MoodSelector(
-                      selectedMood: _selectedMood,
-                      onMoodSelected: (mood) => setState(() => _selectedMood = mood),
-                    ),
+                        ],
+                      );
+                    },
                   ),
 
                   // Chat messages - Display active conversation's messages
@@ -270,148 +273,129 @@ class _ChatScreenState extends State<ChatScreen> {
                         debugPrint('🎯 Rendering ${messages.length} messages from active conversation');
 
                         if (messages.isEmpty && !_isWaitingForResponse) {
-                          return SingleChildScrollView(
-                            child: Center(
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 48),
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  children: [
-                                    const Text(
-                                      '💡 Welcome to ',
-                                      style: TextStyle(
-                                        color: AppColors.textPrimary,
-                                        fontSize: 26,
-                                        fontWeight: FontWeight.w600,
-                                        letterSpacing: 0.3,
+                          return Center(
+                            child: SingleChildScrollView(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  // Icon section: 128x128 circle with bulb
+                                  Container(
+                                    width: 128,
+                                    height: 128,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: AppColors.primary.withOpacity(0.1),
+                                    ),
+                                    child: const Center(
+                                      child: Text(
+                                        '💡',
+                                        style: TextStyle(fontSize: 96),
                                       ),
-                                      textAlign: TextAlign.center,
                                     ),
-                                    const Text(
-                                      'VentAI',
-                                      style: TextStyle(
-                                        color: AppColors.primary,
-                                        fontSize: 26,
-                                        fontWeight: FontWeight.w600,
-                                        letterSpacing: 0.3,
-                                      ),
-                                      textAlign: TextAlign.center,
-                                    ),
-                                    const SizedBox(height: 20),
-                                    Text(
-                                      "I'm your AI emotional support companion. Share what's on your mind, and I'll respond with empathy and understanding.",
-                                      style: TextStyle(
-                                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                        fontSize: 15,
-                                        height: 1.7,
-                                      ),
-                                      textAlign: TextAlign.center,
-                                    ),
-                                    const SizedBox(height: 40),
-                                    Row(
-                                      children: [
-                                        Icon(
-                                          Icons.lock,
-                                          color: Theme.of(context).colorScheme.primary,
-                                          size: 18,
-                                        ),
-                                        const SizedBox(width: 10),
-                                        Expanded(
-                                          child: Text(
-                                            '100% on-device. Your data stays private.',
-                                            style: TextStyle(
-                                              color: Theme.of(context).colorScheme.onSurface,
-                                              fontSize: 15,
-                                              height: 1.7,                                              
-                                            ),
-                                            textAlign: TextAlign.center,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 28),
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          '⚠️ Important',
-                                          style: TextStyle(
-                                            color: Theme.of(context).colorScheme.onSurface,
-                                            fontSize: 17,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 6),
-                                        Text(
-                                          "I'm not a substitute for professional mental health care. If you need urgent help, please reach out to local services or crisis hotlines.",
-                                          style: TextStyle(
-                                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                            fontSize: 15,
-                                            height: 1.7,
-                                          ),
-                                          textAlign: TextAlign.center,
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 28),
-                                    Container(
-                                      padding: const EdgeInsets.all(16),
-                                      decoration: BoxDecoration(
-                                        color: AppColors.error.withOpacity(0.15),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
+                                  ),
+                                  const SizedBox(height: 36), // Gap between icon and text
+
+                                  // Text section with max-width 512
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                                    child: ConstrainedBox(
+                                      constraints: const BoxConstraints(maxWidth: 512),
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: const [
-                                          Text(
-                                            '🚨 In Crisis?',
+                                        crossAxisAlignment: CrossAxisAlignment.center,
+                                        children: [
+                                          // Title: "Welcome to Vent AI" with "Vent AI" in indigo
+                                          RichText(
+                                            textAlign: TextAlign.center,
+                                            text: const TextSpan(
+                                              children: [
+                                                TextSpan(
+                                                  text: 'Welcome to ',
+                                                  style: TextStyle(
+                                                    fontSize: 32,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: AppColors.textPrimary,
+                                                    letterSpacing: -0.02,
+                                                  ),
+                                                ),
+                                                TextSpan(
+                                                  text: 'Vent AI',
+                                                  style: TextStyle(
+                                                    fontSize: 32,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: AppColors.primary,
+                                                    letterSpacing: -0.02,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          const SizedBox(height: 24), // Gap between title and body
+
+                                          // Body paragraphs
+                                          const Text(
+                                            "I'm your AI emotional support companion. Share what's on your mind, and I'll respond with empathy and understanding.",
                                             style: TextStyle(
-                                              color: AppColors.error,
-                                              fontSize: 17,
-                                              fontWeight: FontWeight.w600,
+                                              fontSize: 14,
+                                              height: 1.6,
+                                              color: AppColors.textSecondary,
                                             ),
                                             textAlign: TextAlign.center,
                                           ),
-                                          SizedBox(height: 8),
-                                          Text(
-                                            'Call local emergency services or reach out to:\n• 988 Suicide & Crisis Lifeline (USA)\n• Text HOME to 741741 (Crisis Text Line)',
+                                          const SizedBox(height: 16),
+
+                                          // White paragraph (on-device)
+                                          const Text(
+                                            '100% on-device. Your data stays private and secure.',
                                             style: TextStyle(
+                                              fontSize: 14,
+                                              height: 1.6,
+                                              color: AppColors.textPrimary,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                          const SizedBox(height: 16),
+
+                                          // Important disclaimer paragraph
+                                          const Text(
+                                            "I'm not a substitute for professional mental health care. If you need urgent help, please reach out to local services or crisis hotlines.",
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              height: 1.6,
                                               color: AppColors.textTertiary,
-                                              fontSize: 15,
-                                              height: 1.7,
                                             ),
                                             textAlign: TextAlign.center,
                                           ),
-                                          SizedBox(height: 12),
+                                          const SizedBox(height: 16),
+
+                                          // Crisis resources paragraph
+                                          const Text(
+                                            'In crisis? Call 988 (Suicide & Crisis Lifeline USA) or text HOME to 741741. Tap the 🚨 button for global resources.',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              height: 1.6,
+                                              color: AppColors.textTertiary,
+                                            ),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                          const SizedBox(height: 24), // Extra gap before privacy note
+
+                                          // Privacy policy note (smaller)
+                                          const Text(
+                                            'Tap the ℹ️ button to view our Privacy Policy and Disclaimers',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              height: 1.4,
+                                              color: AppColors.textTertiary,
+                                            ),
+                                            textAlign: TextAlign.center,
+                                          ),
                                         ],
                                       ),
                                     ),
-                                    const SizedBox(height: 12),
-                                    SizedBox(
-                                      width: double.infinity,
-                                      child: ElevatedButton(
-                                        onPressed: () {
-                                          _showCrisisResourcesDialog();
-                                        },
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: AppColors.error,
-                                        ),
-                                        child: const Text('View All Resources'),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 28),
-                                    Text(
-                                      'Tap the ℹ️ button to view our Privacy Policy and Important Disclaimers',
-                                      style: const TextStyle(
-                                        color: AppColors.textTertiary,
-                                        fontSize: 11,
-                                        height: 1.5,
-                                      ),
-                                      textAlign: TextAlign.center,
-                                    ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
                             ),
                           );
@@ -502,110 +486,136 @@ class _ChatScreenState extends State<ChatScreen> {
         final isSending = provider.isSendingMessage;
 
         return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          padding: const EdgeInsets.only(top: 16, left: 20, right: 20, bottom: 20),
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
+            gradient: LinearGradient(
+              begin: Alignment.bottomCenter,
+              end: Alignment.topCenter,
+              colors: [
+                AppColors.background,
+                AppColors.background.withOpacity(0.8),
+                Colors.transparent,
+              ],
+            ),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Progress indicator while sending
-              if (isSending)
-                const LinearProgressIndicator(minHeight: 2),
-
-              if (isSending) const SizedBox(height: 8),
-
-              // Text input
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _messageController,
-                      decoration: InputDecoration(
-                        hintText: isSending
-                          ? 'Generating response...'
-                          : 'Share what\'s on your mind...',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: AppColors.borderDark,
-                            width: 1.0,
-                          ),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: AppColors.borderDark,
-                            width: 1.0,
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: AppColors.primary,
-                            width: 1.5,
-                          ),
-                        ),
-                        filled: true,
-                        fillColor: AppColors.surface,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                      ),
-                      maxLines: null,
-                      textCapitalization: TextCapitalization.sentences,
-                      enabled: !isSending,
-                      onSubmitted: (_) => _sendMessage(),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: const BoxDecoration(
-                      color: AppColors.primary,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: isSending ? null : _sendMessage,
-                        customBorder: const CircleBorder(),
-                        child: Center(
-                          child: isSending
-                              ? SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation(
-                                      Theme.of(context).colorScheme.onPrimary,
-                                    ),
-                                  ),
-                                )
-                              : Icon(
-                                  Icons.send,
-                                  size: 18,
-                                  color: Theme.of(context).colorScheme.onPrimary,
-                                ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'VentAI is not a substitute for professional mental health care.\n100% on-device • Fully private • No data stored',
-                style: TextStyle(
-                  fontSize: 10,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  height: 1.4,
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(24),
+              border: Border(
+                top: BorderSide(
+                  color: Color(0xFF94A3B8).withOpacity(0.2),
+                  width: 1,
                 ),
-                textAlign: TextAlign.center,
               ),
-            ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Progress indicator while sending
+                if (isSending)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 8),
+                    child: LinearProgressIndicator(minHeight: 2),
+                  ),
+
+                // Mood selector
+                Padding(
+                  padding: const EdgeInsets.only(left: 8, right: 8, top: 8, bottom: 8),
+                  child: MoodSelector(
+                    selectedMood: _selectedMood,
+                    onMoodSelected: (mood) => setState(() => _selectedMood = mood),
+                  ),
+                ),
+
+                // Text input
+                Padding(
+                  padding: const EdgeInsets.only(left: 16, right: 16, top: 12),
+                  child: TextField(
+                    controller: _messageController,
+                    decoration: InputDecoration(
+                      hintText: isSending
+                        ? 'Generating response...'
+                        : 'Share what\'s on your mind...',
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      filled: false,
+                      contentPadding: EdgeInsets.zero,
+                      isDense: true,
+                    ),
+                    minLines: 1,
+                    maxLines: 6,
+                    maxLength: 4000,
+                    textCapitalization: TextCapitalization.sentences,
+                    enabled: !isSending,
+                    onChanged: (value) => setState(() {}),
+                    onSubmitted: (_) => _sendMessage(),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      color: AppColors.textPrimary,
+                      height: 1.5,
+                    ),
+                  ),
+                ),
+
+                // Bottom action area (character count + send button)
+                Padding(
+                  padding: const EdgeInsets.only(left: 16, right: 16, top: 8, bottom: 12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // Character count (shows at 3000+)
+                      if (_messageController.text.length > 3000)
+                        Text(
+                          '${_messageController.text.length}/4000',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textTertiary,
+                          ),
+                        )
+                      else
+                        const SizedBox(width: 0),
+
+                      // Send button
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: const BoxDecoration(
+                          color: AppColors.primary,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: isSending ? null : _sendMessage,
+                            customBorder: const CircleBorder(),
+                            child: Center(
+                              child: isSending
+                                  ? SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        valueColor: AlwaysStoppedAnimation(
+                                          Theme.of(context).colorScheme.onPrimary,
+                                        ),
+                                      ),
+                                    )
+                                  : const Icon(
+                                      Icons.send,
+                                      size: 20,
+                                      color: AppColors.textOnPrimary,
+                                    ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -740,6 +750,13 @@ class _ChatScreenState extends State<ChatScreen> {
         return AlertDialog(
           insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
           backgroundColor: AppColors.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(
+              color: Color(0xFF94A3B8).withOpacity(0.3),
+              width: 1,
+            ),
+          ),
           title: Row(
             children: const [
               Icon(Icons.emergency, color: AppColors.error, size: 24),
@@ -828,6 +845,13 @@ class _ChatScreenState extends State<ChatScreen> {
         return AlertDialog(
           insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
           backgroundColor: AppColors.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(
+              color: Color(0xFF94A3B8).withOpacity(0.3),
+              width: 1,
+            ),
+          ),
           title: Row(
             children: const [
               Icon(Icons.warning_amber_rounded, color: AppColors.warning, size: 24),
@@ -998,6 +1022,14 @@ class _ChatScreenState extends State<ChatScreen> {
                                 showDialog(
                                   context: context,
                                   builder: (dialogContext) => AlertDialog(
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                      side: BorderSide(
+                                        color: Color(0xFF94A3B8).withOpacity(0.3),
+                                        width: 1,
+                                      ),
+                                    ),
+                                    backgroundColor: AppColors.surface,
                                     title: const Text('Delete All Conversations?'),
                                     content: const Text(
                                       'This will permanently delete all conversations and messages. This cannot be undone.',

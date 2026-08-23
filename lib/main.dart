@@ -13,6 +13,7 @@ import 'providers/conversation_provider.dart';
 import 'providers/setup_state_provider.dart';
 import 'screens/app_setup_screen.dart';
 import 'screens/chat_screen.dart';
+import 'screens/legal_page.dart';
 import 'themes/app_theme.dart';
 
 // Platform detection
@@ -230,6 +231,9 @@ class _VentAiAppState extends State<VentAiApp> with WidgetsBindingObserver {
           }
         },
       ),
+      routes: {
+        '/legal': (context) => const LegalPage(),
+      },
       debugShowCheckedModeBanner: false,
     );
   }

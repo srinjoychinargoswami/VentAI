@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
+import '../widgets/app_footer.dart';
 
 class ModelLicenseScreen extends StatelessWidget {
   const ModelLicenseScreen({super.key});
@@ -104,6 +105,8 @@ class ModelLicenseScreen extends StatelessWidget {
               ),
             ),
           ),
+          // Footer
+          const AppFooter(),
         ],
       ),
     );

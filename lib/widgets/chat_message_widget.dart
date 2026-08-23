@@ -54,19 +54,24 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
                     : CrossAxisAlignment.start,
                 children: [
                   Container(
-                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
                       color: widget.isUserMessage
                           ? AppColors.userMessage
                           : AppColors.aiMessage,
-                      borderRadius: BorderRadius.circular(24).copyWith(
-                        bottomLeft: widget.isUserMessage
-                            ? Radius.circular(24)
-                            : Radius.zero,
-                        bottomRight: widget.isUserMessage
-                            ? Radius.zero
-                            : Radius.circular(24),
-                      ),
+                      borderRadius: widget.isUserMessage
+                          ? const BorderRadius.only(
+                              topLeft: Radius.circular(24),
+                              topRight: Radius.circular(24),
+                              bottomRight: Radius.circular(0),
+                              bottomLeft: Radius.circular(24),
+                            )
+                          : const BorderRadius.only(
+                              topLeft: Radius.circular(0),
+                              topRight: Radius.circular(24),
+                              bottomRight: Radius.circular(24),
+                              bottomLeft: Radius.circular(24),
+                            ),
                       boxShadow: [
                         BoxShadow(
                           color: AppColors.overlay.withOpacity(0.1),

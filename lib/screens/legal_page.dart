@@ -13,6 +13,20 @@ class _LegalPageState extends State<LegalPage> {
   int _selectedTabIndex = 0;
 
   @override
+  void initState() {
+    super.initState();
+    // Check if navigated with tab argument
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final args = ModalRoute.of(context)?.settings.arguments as String?;
+      if (args == 'privacy') {
+        setState(() => _selectedTabIndex = 0);
+      } else if (args == 'disclaimers') {
+        setState(() => _selectedTabIndex = 1);
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,

@@ -80,8 +80,8 @@ class MoodSelector extends StatelessWidget {
                       border: Border.all(
                         color: isSelected
                           ? color
-                          : AppColors.borderDark.withOpacity(0.3),
-                        width: isSelected ? 2.5 : 1,
+                          : Colors.transparent,
+                        width: 2,
                       ),
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: isSelected ? [

@@ -25,8 +25,14 @@ class _ChatSidebarState extends State<ChatSidebar> {
   Widget build(BuildContext context) {
     return Container(
       width: 280,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppColors.surface,
+        border: Border(
+          right: BorderSide(
+            color: Color(0xFF94A3B8).withOpacity(0.3),
+            width: 1,
+          ),
+        ),
       ),
       child: Column(
         children: [
@@ -132,8 +138,8 @@ class _ChatSidebarState extends State<ChatSidebar> {
                                 border: Border.all(
                                   color: isActive
                                       ? AppColors.primary
-                                      : AppColors.borderDark,
-                                  width: isActive ? 1.5 : 1.0,
+                                      : Color(0xFF94A3B8).withOpacity(0.2),
+                                  width: 1,
                                 ),
                               ),
                               child: Row(
@@ -277,6 +283,14 @@ class _ChatSidebarState extends State<ChatSidebar> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(
+            color: Color(0xFF94A3B8).withOpacity(0.3),
+            width: 1,
+          ),
+        ),
+        backgroundColor: AppColors.surface,
         title: const Text('Delete Conversation?'),
         content: Text(
           'This will permanently delete "${conversation.title}" and all its messages.',
