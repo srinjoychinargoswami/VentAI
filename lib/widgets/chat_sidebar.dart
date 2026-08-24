@@ -256,14 +256,25 @@ class _ChatSidebarState extends State<ChatSidebar> {
             width: 1,
           ),
         ),
-        title: const Text('Clear all chats?'),
+        title: const Text(
+          'Clear all chats?',
+          style: TextStyle(color: AppColors.textPrimary),
+        ),
         content: const Text(
           'This will permanently delete your entire chat history. This action cannot be undone.',
+          style: TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 14,
+            height: 1.5,
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: AppColors.textTertiary),
+            ),
           ),
           TextButton(
             onPressed: () async {
@@ -272,7 +283,10 @@ class _ChatSidebarState extends State<ChatSidebar> {
               await provider.clearAllConversationsCompletely();
             },
             style: TextButton.styleFrom(foregroundColor: AppColors.error),
-            child: const Text('Clear All'),
+            child: const Text(
+              'Clear All',
+              style: TextStyle(color: AppColors.error),
+            ),
           ),
         ],
       ),
@@ -295,14 +309,25 @@ class _ChatSidebarState extends State<ChatSidebar> {
           ),
         ),
         backgroundColor: AppColors.surface,
-        title: const Text('Delete Conversation?'),
+        title: const Text(
+          'Delete Conversation?',
+          style: TextStyle(color: AppColors.textPrimary),
+        ),
         content: Text(
           'This will permanently delete "${conversation.title}" and all its messages.',
+          style: const TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 14,
+            height: 1.5,
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: AppColors.textTertiary),
+            ),
           ),
           TextButton(
             onPressed: () {
@@ -310,7 +335,10 @@ class _ChatSidebarState extends State<ChatSidebar> {
               Navigator.pop(context);
             },
             style: TextButton.styleFrom(foregroundColor: AppColors.error),
-            child: const Text('Delete'),
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: AppColors.error),
+            ),
           ),
         ],
       ),
