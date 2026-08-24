@@ -87,133 +87,153 @@ class _ChatScreenState extends State<ChatScreen> {
             Expanded(
               child: Column(
                 children: [
-                  // Top AppBar
+                  // CUSTOM FIXED HEADER (pinned, can't be overlapped by messages)
                   Consumer<ConversationProvider>(
                     builder: (context, provider, _) {
                       final hasMessages = provider.activeConversation?.messages.isNotEmpty ?? false;
-                      return AppBar(
-                        title: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              provider.activeConversation?.title ?? 'VentAI',
-                              style: const TextStyle(fontSize: 16),
+                      return Container(
+                        height: 64,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        decoration: BoxDecoration(
+                          color: AppColors.background,
+                          border: Border(
+                            bottom: BorderSide(
+                              color: const Color(0xFF94A3B8).withOpacity(0.3),
+                              width: 1,
                             ),
-                            Consumer<SetupStateProvider>(
-                              builder: (context, setupProvider, child) {
-                                final isAdvancedAI = setupProvider.hasAdvancedAI;
-                                final statusText = isAdvancedAI
-                                  ? 'AI Ready • Privacy Protected'
-                                  : 'Offline Mode • Data Stays Local';
-                                final statusColor = isAdvancedAI ? AppColors.success : AppColors.primary;
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            // LEFT: Sidebar toggle or spacer
+                            if (showSidebar)
+                              IconButton(
+                                icon: Icon(
+                                  _sidebarVisible ? Icons.chevron_left : Icons.menu,
+                                  size: 24,
+                                  color: AppColors.primary,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    _sidebarVisible = !_sidebarVisible;
+                                  });
+                                },
+                                tooltip: _sidebarVisible ? 'Hide sidebar' : 'Show sidebar',
+                              )
+                            else
+                              Consumer<ConversationProvider>(
+                                builder: (context, provider, _) {
+                                  return IconButton(
+                                    icon: Stack(
+                                      children: [
+                                        const Icon(Icons.menu, color: AppColors.primary),
+                                        if (provider.conversationSessions.length > 1)
+                                          Positioned(
+                                            right: 0,
+                                            top: 0,
+                                            child: Container(
+                                              padding: const EdgeInsets.all(2),
+                                              decoration: BoxDecoration(
+                                                color: AppColors.error,
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                              constraints: const BoxConstraints(
+                                                minWidth: 16,
+                                                minHeight: 16,
+                                              ),
+                                              child: Text(
+                                                '${provider.conversationSessions.length}',
+                                                style: const TextStyle(
+                                                  color: AppColors.textPrimary,
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                                textAlign: TextAlign.center,
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                    onPressed: () => _showConversationDrawer(),
+                                    tooltip: 'View conversations',
+                                  );
+                                },
+                              ),
 
-                                return Text(
-                                  statusText,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: statusColor,
-                                    fontWeight: FontWeight.normal,
+                            // CENTER: Title and status
+                            Expanded(
+                              child: Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      provider.activeConversation?.title ?? 'VentAI',
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
+                                        color: AppColors.textPrimary,
+                                      ),
+                                    ),
+                                    Consumer<SetupStateProvider>(
+                                      builder: (context, setupProvider, child) {
+                                        final isAdvancedAI = setupProvider.hasAdvancedAI;
+                                        final statusText = isAdvancedAI
+                                          ? 'AI Ready • Privacy Protected'
+                                          : 'Offline Mode • Data Stays Local';
+                                        final statusColor = isAdvancedAI ? AppColors.success : AppColors.primary;
+
+                                        return Text(
+                                          statusText,
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: statusColor,
+                                            fontWeight: FontWeight.normal,
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+
+                            // RIGHT: Action buttons
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                // ℹ️ Info button
+                                IconButton(
+                                  icon: const Text('ℹ️', style: TextStyle(fontSize: 20)),
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => const LegalPage(),
+                                      ),
+                                    );
+                                  },
+                                  tooltip: 'Privacy Policy & Disclaimers',
+                                ),
+
+                                // 🚨 Crisis button
+                                IconButton(
+                                  icon: const Text('🚨', style: TextStyle(fontSize: 24)),
+                                  onPressed: () => _showCrisisResourcesDialog(),
+                                  tooltip: 'Crisis Resources & Help',
+                                ),
+
+                                // Delete button (only when sidebar hidden)
+                                if (!showSidebar)
+                                  IconButton(
+                                    icon: const Icon(Icons.delete_outline, color: AppColors.error),
+                                    onPressed: () => _showClearConversationsDialog(),
+                                    tooltip: 'Clear all conversations',
                                   ),
-                                );
-                              },
+                              ],
                             ),
                           ],
                         ),
-                        centerTitle: true,
-                        elevation: 0,
-                        backgroundColor: AppColors.background,
-                        bottom: hasMessages ? PreferredSize(
-                          preferredSize: const Size.fromHeight(1),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              border: Border(
-                                bottom: BorderSide(
-                                  color: Color(0xFF94A3B8).withOpacity(0.3),
-                                  width: 1,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ) : null,
-                        leading: showSidebar
-                          ? IconButton(
-                              icon: Icon(
-                                _sidebarVisible ? Icons.chevron_left : Icons.menu,
-                                size: 24,
-                              ),
-                              onPressed: () {
-                                setState(() {
-                                  _sidebarVisible = !_sidebarVisible;
-                                });
-                              },
-                              tooltip: _sidebarVisible ? 'Hide sidebar' : 'Show sidebar',
-                            )
-                          : Consumer<ConversationProvider>(
-                              builder: (context, provider, _) {
-                                return IconButton(
-                                  icon: Stack(
-                                    children: [
-                                      const Icon(Icons.menu),
-                                      if (provider.conversationSessions.length > 1)
-                                        Positioned(
-                                          right: 0,
-                                          top: 0,
-                                          child: Container(
-                                            padding: const EdgeInsets.all(2),
-                                            decoration: BoxDecoration(
-                                              color: AppColors.error,
-                                              borderRadius: BorderRadius.circular(8),
-                                            ),
-                                            constraints: const BoxConstraints(
-                                              minWidth: 16,
-                                              minHeight: 16,
-                                            ),
-                                            child: Text(
-                                              '${provider.conversationSessions.length}',
-                                              style: const TextStyle(
-                                                color: AppColors.textPrimary,
-                                                fontSize: 10,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                              textAlign: TextAlign.center,
-                                            ),
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                  onPressed: () => _showConversationDrawer(),
-                                  tooltip: 'View conversations',
-                                );
-                              },
-                            ),
-                        actions: [
-                          IconButton(
-                            icon: const Text(
-                              'ℹ️',
-                              style: TextStyle(fontSize: 20),
-                            ),
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const LegalPage(),
-                                ),
-                              );
-                            },
-                            tooltip: 'Privacy Policy & Disclaimers',
-                          ),
-                          IconButton(
-                            icon: const Text('🚨', style: TextStyle(fontSize: 26)),
-                            onPressed: () => _showCrisisResourcesDialog(),
-                            tooltip: 'Crisis Resources & Help',
-                          ),
-                          if (!showSidebar)
-                            IconButton(
-                              icon: const Icon(Icons.delete_outline),
-                              onPressed: () => _showClearConversationsDialog(),
-                              tooltip: 'Clear all conversations',
-                            ),
-                        ],
                       );
                     },
                   ),

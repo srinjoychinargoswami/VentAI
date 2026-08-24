@@ -25,8 +25,9 @@ class _ChatSidebarState extends State<ChatSidebar> {
   Widget build(BuildContext context) {
     return Container(
       width: 280,
+      height: double.infinity,
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: AppColors.background,
         border: Border(
           right: BorderSide(
             color: Color(0xFF94A3B8).withOpacity(0.3),
@@ -35,43 +36,47 @@ class _ChatSidebarState extends State<ChatSidebar> {
         ),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.max,
         children: [
+          // ✅ HEADER: New Chat Button - NO TOP PADDING
           Padding(
-            padding: const EdgeInsets.all(12),
-            child: SizedBox(
-              width: double.infinity,
-              height: 44,
-              child: ElevatedButton.icon(
-                onPressed: widget.onNewChat,
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text(
-                  'New Chat',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
+            padding: const EdgeInsets.only(left: 12, right: 12, top: 0, bottom: 12),
+            child: ElevatedButton(
+              onPressed: widget.onNewChat,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: AppColors.textOnPrimary,
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: AppColors.textOnPrimary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    '+ ',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
-                ),
+                  Text(
+                    'New Chat',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                  ),
+                ],
               ),
             ),
           ),
 
-          // Recent Conversations Section
+          // ✅ RECENT LABEL (always visible)
           const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Align(
               alignment: Alignment.centerLeft,
               child: Text(
                 'RECENT',
                 style: TextStyle(
                   fontSize: 12,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                   color: AppColors.textTertiary,
                   letterSpacing: 0.5,
                 ),
@@ -79,22 +84,10 @@ class _ChatSidebarState extends State<ChatSidebar> {
             ),
           ),
 
-          // Conversation List
+          // ✅ CONVERSATION LIST (empty state shows nothing)
           Expanded(
             child: Consumer<ConversationProvider>(
               builder: (context, provider, _) {
-                if (provider.conversationSessions.isEmpty) {
-                  return const Center(
-                    child: Text(
-                      'No chats yet',
-                      style: TextStyle(
-                        color: AppColors.textTertiary,
-                        fontSize: 13,
-                      ),
-                    ),
-                  );
-                }
-
                 return ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   itemCount: provider.conversationSessions.length,
@@ -106,39 +99,20 @@ class _ChatSidebarState extends State<ChatSidebar> {
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 4),
                       child: MouseRegion(
-                        onEnter: (_) {
-                          setState(() {
-                            _hoveredConversationId = conversation.id;
-                          });
-                        },
-                        onExit: (_) {
-                          setState(() {
-                            _hoveredConversationId = null;
-                          });
-                        },
+                        onEnter: (_) => setState(() => _hoveredConversationId = conversation.id),
+                        onExit: (_) => setState(() => _hoveredConversationId = null),
                         child: Material(
                           color: Colors.transparent,
                           child: InkWell(
-                            onTap: () {
-                              provider.switchConversation(conversation.id);
-                            },
+                            onTap: () => provider.switchConversation(conversation.id),
                             borderRadius: BorderRadius.circular(8),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 10,
-                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                               decoration: BoxDecoration(
-                                color: isActive
-                                    ? AppColors.primary.withOpacity(0.15)
-                                    : isHovered
-                                        ? AppColors.primary.withOpacity(0.08)
-                                        : Colors.transparent,
+                                color: isActive ? AppColors.primary.withOpacity(0.15) : isHovered ? AppColors.primary.withOpacity(0.08) : Colors.transparent,
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
-                                  color: isActive
-                                      ? AppColors.primary
-                                      : Color(0xFF94A3B8).withOpacity(0.2),
+                                  color: isActive ? AppColors.primary : Color(0xFF94A3B8).withOpacity(0.2),
                                   width: 1,
                                 ),
                               ),
@@ -155,12 +129,8 @@ class _ChatSidebarState extends State<ChatSidebar> {
                                           overflow: TextOverflow.ellipsis,
                                           style: TextStyle(
                                             fontSize: 14,
-                                            fontWeight: isActive
-                                                ? FontWeight.w600
-                                                : FontWeight.w500,
-                                            color: isActive
-                                                ? AppColors.primary
-                                                : AppColors.textPrimary,
+                                            fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                                            color: isActive ? AppColors.primary : AppColors.textPrimary,
                                           ),
                                         ),
                                         const SizedBox(height: 2),
@@ -168,10 +138,7 @@ class _ChatSidebarState extends State<ChatSidebar> {
                                           '${conversation.messages.length} messages',
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                            fontSize: 11,
-                                            color: AppColors.textTertiary,
-                                          ),
+                                          style: const TextStyle(fontSize: 11, color: AppColors.textTertiary),
                                         ),
                                       ],
                                     ),
@@ -182,9 +149,7 @@ class _ChatSidebarState extends State<ChatSidebar> {
                                       child: IconButton(
                                         icon: const Icon(Icons.delete_outline, size: 18),
                                         color: AppColors.error,
-                                        onPressed: () {
-                                          _showDeleteConfirmation(context, provider, conversation);
-                                        },
+                                        onPressed: () => _showDeleteConfirmation(context, provider, conversation),
                                         constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                                         padding: EdgeInsets.zero,
                                       ),
@@ -192,83 +157,122 @@ class _ChatSidebarState extends State<ChatSidebar> {
                                   else if (isActive)
                                     const Padding(
                                       padding: EdgeInsets.only(left: 8),
-                                      child: Icon(
-                                        Icons.check_circle,
-                                        size: 16,
-                                        color: AppColors.primary,
-                                      ),
+                                      child: Icon(Icons.check_circle, size: 16, color: AppColors.primary),
                                     ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ));
+                    );
                   },
                 );
               },
             ),
           ),
 
+          // ✅ CLEAR ALL BUTTON
           Padding(
             padding: const EdgeInsets.all(12),
             child: SizedBox(
               width: double.infinity,
               height: 44,
               child: ElevatedButton.icon(
-                onPressed: widget.onClearAll,
+                onPressed: _showClearAllConfirmation,
                 icon: const Icon(Icons.delete_sweep, size: 18),
                 label: const Text(
-                  'Clear All',
+                  'Clear all chats',
                   style: TextStyle(
                     fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.error,
-                  foregroundColor: AppColors.textPrimary,
+                  backgroundColor: Colors.transparent,
+                  foregroundColor: AppColors.textTertiary,
+                  side: BorderSide(
+                    color: AppColors.textTertiary.withOpacity(0.3),
+                    width: 1,
+                  ),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
               ),
             ),
           ),
-          const SizedBox(height: 12),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Column(
+
+          // ✅ FOOTER
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            decoration: BoxDecoration(
+              border: Border(
+                top: BorderSide(
+                  color: AppColors.textTertiary.withOpacity(0.2),
+                  width: 1,
+                ),
+              ),
+            ),
+            child: const Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'VentAI',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primary,
-                  ),
-                ),
-                SizedBox(height: 2),
-                Text(
-                  'Privacy Protected',
+                  'Vent AI • Privacy Protected',
                   style: TextStyle(
                     fontSize: 10,
+                    fontWeight: FontWeight.w500,
                     color: AppColors.textTertiary,
                   ),
+                  textAlign: TextAlign.center,
                 ),
                 SizedBox(height: 4),
                 Text(
                   '100% on-device, fully encrypted',
                   style: TextStyle(
-                    fontSize: 9,
+                    fontSize: 10,
                     color: AppColors.textTertiary,
-                    height: 1.4,
                   ),
                   textAlign: TextAlign.center,
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showClearAllConfirmation() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(
+            color: Color(0xFF94A3B8).withOpacity(0.3),
+            width: 1,
+          ),
+        ),
+        title: const Text('Clear all chats?'),
+        content: const Text(
+          'This will permanently delete your entire chat history. This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              final provider = context.read<ConversationProvider>();
+              await provider.clearAllConversationsCompletely();
+            },
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: const Text('Clear All'),
           ),
         ],
       ),

@@ -674,9 +674,6 @@ What would feel most helpful for you right now?''';
       _recentMessages.clear();
       _recentResponses.clear();
 
-      // Create fresh new conversation
-      createNewConversation();
-
       notifyListeners();
       debugPrint('✅ All conversations completely cleared from Hive + Memory');
     } catch (e) {

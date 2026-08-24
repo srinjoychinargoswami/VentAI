@@ -42,11 +42,12 @@ class AppFooter extends StatelessWidget {
 
           // Copyright section
           const Text(
-            '© 2024-2026 Srinjoy Goswami & Resolveera',
+            '© 2024-2026 Srinjoy Goswami & Resolveera\nLicensed under GNU Affero General Public License v3.0',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 12,
               color: AppColors.textTertiary,
+              height: 1.4,
             ),
           ),
           const SizedBox(height: 12),

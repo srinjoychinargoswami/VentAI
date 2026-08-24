@@ -14,6 +14,7 @@ import 'providers/setup_state_provider.dart';
 import 'screens/app_setup_screen.dart';
 import 'screens/chat_screen.dart';
 import 'screens/legal_page.dart';
+import 'screens/model_license_screen.dart';
 import 'themes/app_theme.dart';
 
 // Platform detection
@@ -233,6 +234,7 @@ class _VentAiAppState extends State<VentAiApp> with WidgetsBindingObserver {
       ),
       routes: {
         '/legal': (context) => const LegalPage(),
+        '/license': (context) => const ModelLicenseScreen(),
       },
       debugShowCheckedModeBanner: false,
     );

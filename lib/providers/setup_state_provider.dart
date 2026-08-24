@@ -92,6 +92,28 @@ class SetupStateProvider extends ChangeNotifier {
     }
   }
 
+  /// Mark license as accepted (called from ModelLicenseScreen)
+  /// Updates setup stage to show download ready message
+  Future<void> markLicenseAccepted() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_gemmadaLicenseAcceptedKey, true);
+      debugPrint('✅ License accepted - ready for download');
+
+      // Show "ready to download" message - don't start downloading yet
+      await _updateSetupStage(
+        SetupStage.acceptingLicense,
+        'License accepted! Ready to download Gemma model.\nTap "Start Download" to begin.',
+        0.15,
+      );
+      notifyListeners();
+    } catch (e) {
+      debugPrint('❌ Error in markLicenseAccepted: $e');
+      _errorMessage = 'Setup error: $e';
+      notifyListeners();
+    }
+  }
+
   /// Start model download (called AFTER license accepted and user explicitly taps download)
   Future<void> startDownloading() async {
     _isInitializing = true;
@@ -309,7 +331,21 @@ class SetupStateProvider extends ChangeNotifier {
           return;
         }
 
-        // Desktop: show download ready message (same as mobile)
+        // Check license acceptance on desktop (same as mobile)
+        final prefs = await SharedPreferences.getInstance();
+        final licenseAccepted = prefs.getBool(_gemmadaLicenseAcceptedKey) ?? false;
+
+        if (!licenseAccepted) {
+          debugPrint('🖥️ License not accepted - showing license screen');
+          await _updateSetupStage(
+            SetupStage.acceptingLicense,
+            'Please accept Gemma model license to continue',
+            0.15,
+          );
+          return; // Stop here, app will show license screen
+        }
+
+        debugPrint('🖥️ License already accepted - ready for download');
         await _updateSetupStage(
           SetupStage.acceptingLicense,
           'License accepted! Ready to download Gemma model.\nTap "Start Download" to begin.',
