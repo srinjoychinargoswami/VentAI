@@ -76,7 +76,7 @@ Future<bool> bootstrapGemma({
       // Verify installation
       debugPrint('📥 [DOWNLOAD STEP 5] Verifying model is active...');
       try {
-        final activeModel = await FlutterGemma.getActiveModel(maxTokens: 250);
+        final activeModel = await FlutterGemma.getActiveModel(maxTokens: 1024);  // Matches .litertlm minimum context window
         debugPrint('✅ [DOWNLOAD STEP 5] Verified - Active model ready');
       } catch (e) {
         debugPrint('⚠️ [DOWNLOAD STEP 5] Could not verify: $e');

@@ -204,7 +204,13 @@ class _ChatScreenState extends State<ChatScreen> {
                               children: [
                                 // ℹ️ Info button
                                 IconButton(
-                                  icon: const Text('ℹ️', style: TextStyle(fontSize: 20)),
+                                  icon: Text(
+                                    'ℹ️',
+                                    style: TextStyle(
+                                      fontSize: 20,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
                                   onPressed: () {
                                     Navigator.push(
                                       context,
@@ -218,7 +224,13 @@ class _ChatScreenState extends State<ChatScreen> {
 
                                 // 🚨 Crisis button
                                 IconButton(
-                                  icon: const Text('🚨', style: TextStyle(fontSize: 24)),
+                                  icon: Text(
+                                    '🚨',
+                                    style: TextStyle(
+                                      fontSize: 24,
+                                      color: AppColors.error,
+                                    ),
+                                  ),
                                   onPressed: () => _showCrisisResourcesDialog(),
                                   tooltip: 'Crisis Resources & Help',
                                 ),
