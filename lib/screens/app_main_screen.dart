@@ -90,6 +90,7 @@ class _AppMainScreenState extends State<AppMainScreen> {
     debugPrint('  - activeConversation: ${provider.activeConversation?.title ?? "null"}');
 
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: Consumer<ConversationProvider>(
           builder: (context, provider, _) =>
