@@ -22,10 +22,10 @@ class _AppMainScreenState extends State<AppMainScreen> {
   void initState() {
     super.initState();
     // Initialize with first conversation if empty
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       final provider = context.read<ConversationProvider>();
       if (provider.conversationSessions.isEmpty) {
-        provider.createNewConversation();
+        await provider.createNewConversation();
       }
     });
   }

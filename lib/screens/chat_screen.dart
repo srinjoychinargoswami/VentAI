@@ -75,8 +75,8 @@ class _ChatScreenState extends State<ChatScreen> {
             // Sidebar (shown on desktop/tablet with toggle)
             if (showSidebar && _sidebarVisible)
               ChatSidebar(
-                onNewChat: () {
-                  provider.createNewConversation();
+                onNewChat: () async {
+                  await provider.createNewConversation();
                   setState(() {});
                   debugPrint('✨ New conversation created');
                 },
@@ -488,8 +488,8 @@ class _ChatScreenState extends State<ChatScreen> {
                               onRegenerate: () {
                                 // TODO: Regenerate last AI message
                               },
-                              onDelete: () {
-                                provider.deleteMessageFromSession(message.id);
+                              onDelete: () async {
+                                await provider.deleteMessageFromSession(message.id);
                               },
                             );
                           },
@@ -664,7 +664,7 @@ class _ChatScreenState extends State<ChatScreen> {
     // Ensure active conversation exists
     if (provider.activeConversationId == null) {
       debugPrint('❌ No active conversation - creating new one');
-      provider.createNewConversation();
+      await provider.createNewConversation();
     }
 
     // Prevent multiple simultaneous operations
@@ -677,7 +677,7 @@ class _ChatScreenState extends State<ChatScreen> {
       _messageController.clear();
 
       // Add user message to active conversation
-      provider.addMessageToSession('user', message);
+      await provider.addMessageToSession('user', message);
       debugPrint('✅ User message added');
 
       // Set loading state to show thinking bubble
@@ -693,7 +693,7 @@ class _ChatScreenState extends State<ChatScreen> {
       debugPrint('✅ AI response received: ${response.length} chars');
 
       // Add AI response to active conversation
-      provider.addMessageToSession('assistant', response);
+      await provider.addMessageToSession('assistant', response);
       debugPrint('✅ AI message added to conversation');
 
       // Hide thinking bubble and update UI
@@ -1029,8 +1029,8 @@ class _ChatScreenState extends State<ChatScreen> {
                           SizedBox(
                             height: 36,
                             child: ElevatedButton.icon(
-                              onPressed: () {
-                                provider.createNewConversation();
+                              onPressed: () async {
+                                await provider.createNewConversation();
                                 setState(() {});
                                 Navigator.pop(context);
                                 debugPrint('✨ New conversation created');
@@ -1156,9 +1156,9 @@ class _ChatScreenState extends State<ChatScreen> {
                               },
                               trailing: IconButton(
                                 icon: const Icon(Icons.delete, color: AppColors.error),
-                                onPressed: () {
+                                onPressed: () async {
                                   debugPrint('🗑️ Deleting: ${conv.title}');
-                                  provider.deleteConversationSession(conv.id);
+                                  await provider.deleteConversationSession(conv.id);
                                   Navigator.pop(context);
                                   debugPrint('✅ Deleted: ${conv.title}');
                                   // Reopen drawer to show updated list

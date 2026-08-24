@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../services/hive_database.dart';
 import '../services/gemma_service.dart';
@@ -56,6 +57,39 @@ class ConversationProvider extends ChangeNotifier {
         )
       : null;
 
+  /// Load conversation sessions from Hive (new multi-conversation system)
+  Future<void> _loadConversationSessions() async {
+    try {
+      final sessionMaps = await HiveDatabase.getAllConversationSessions();
+      final conversations = <Conversation>[];
+
+      for (final map in sessionMaps) {
+        try {
+          // Convert through JSON to ensure proper typing
+          final jsonString = jsonEncode(map);
+          final decoded = jsonDecode(jsonString) as Map<String, dynamic>;
+          final conversation = Conversation.fromJson(decoded);
+          conversations.add(conversation);
+        } catch (e) {
+          debugPrint('⚠️ Error converting conversation: $e');
+          // Skip this conversation and continue
+        }
+      }
+
+      _conversationSessions = conversations;
+
+      // Set first conversation as active if none is set
+      if (_conversationSessions.isNotEmpty && _activeConversationId == null) {
+        _activeConversationId = _conversationSessions.first.id;
+      }
+
+      debugPrint('💾 Loaded ${_conversationSessions.length} conversation sessions from Hive');
+    } catch (e) {
+      debugPrint('❌ Failed to load conversation sessions: $e');
+      _lastErrorMessage = 'Failed to load conversations: $e';
+    }
+  }
+
   /// Load conversations
   Future<void> _loadConversations() async {
     _isLoading = true;
@@ -63,6 +97,9 @@ class ConversationProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+      // Load new multi-conversation sessions
+      await _loadConversationSessions();
+
       final convMaps = await HiveDatabase.getRecentConversations(limit: 100);
       _conversations = convMaps.map((map) => _mapToConversation(map)).toList();
 
@@ -536,15 +573,27 @@ What would feel most helpful for you right now?''';
 
   // ===== Multi-Conversation Management =====
 
-  /// Create new conversation session
-  void createNewConversation() {
-    final newConversation = Conversation(
-      title: 'New Chat',
-    );
-    _conversationSessions.insert(0, newConversation);
-    _activeConversationId = newConversation.id;
-    notifyListeners();
-    debugPrint('✅ New conversation created: ${newConversation.id}');
+  /// Create new conversation session and save to Hive
+  Future<void> createNewConversation() async {
+    try {
+      final newConversation = Conversation(
+        title: 'New Chat',
+      );
+      _conversationSessions.insert(0, newConversation);
+      _activeConversationId = newConversation.id;
+
+      // Save to Hive
+      await HiveDatabase.saveConversationSession(
+        newConversation.id,
+        newConversation.toJson(),
+      );
+
+      notifyListeners();
+      debugPrint('✅ New conversation created: ${newConversation.id}');
+    } catch (e) {
+      debugPrint('❌ Error creating conversation: $e');
+      rethrow;
+    }
   }
 
   /// Switch to conversation
@@ -556,38 +605,50 @@ What would feel most helpful for you right now?''';
     }
   }
 
-  /// Add message to active conversation session
-  void addMessageToSession(String role, String content) {
-    if (_activeConversationId == null) {
-      createNewConversation();
-    }
-
-    final messageIndex = _conversationSessions.indexWhere(
-      (c) => c.id == _activeConversationId,
-    );
-
-    if (messageIndex >= 0) {
-      final conversation = _conversationSessions[messageIndex];
-      final newMessage = ChatMessage(
-        role: role,
-        content: content,
-      );
-
-      // Auto-generate title from first user message
-      String? newTitle = conversation.title;
-      if (conversation.title == 'New Chat' && role == 'user') {
-        newTitle = _generateTitleFromMessage(content);
+  /// Add message to active conversation session and save to Hive
+  Future<void> addMessageToSession(String role, String content) async {
+    try {
+      if (_activeConversationId == null) {
+        await createNewConversation();
       }
 
-      final updatedConversation = conversation.copyWith(
-        messages: [...conversation.messages, newMessage],
-        lastModifiedAt: DateTime.now(),
-        title: newTitle ?? conversation.title,
+      final messageIndex = _conversationSessions.indexWhere(
+        (c) => c.id == _activeConversationId,
       );
 
-      _conversationSessions[messageIndex] = updatedConversation;
-      notifyListeners();
-      debugPrint('💬 Message added to ${conversation.id}');
+      if (messageIndex >= 0) {
+        final conversation = _conversationSessions[messageIndex];
+        final newMessage = ChatMessage(
+          role: role,
+          content: content,
+        );
+
+        // Auto-generate title from first user message
+        String? newTitle = conversation.title;
+        if (conversation.title == 'New Chat' && role == 'user') {
+          newTitle = _generateTitleFromMessage(content);
+        }
+
+        final updatedConversation = conversation.copyWith(
+          messages: [...conversation.messages, newMessage],
+          lastModifiedAt: DateTime.now(),
+          title: newTitle ?? conversation.title,
+        );
+
+        _conversationSessions[messageIndex] = updatedConversation;
+
+        // Save updated conversation to Hive
+        await HiveDatabase.saveConversationSession(
+          updatedConversation.id,
+          updatedConversation.toJson(),
+        );
+
+        notifyListeners();
+        debugPrint('💬 Message added to ${conversation.id}');
+      }
+    } catch (e) {
+      debugPrint('❌ Error adding message to session: $e');
+      rethrow;
     }
   }
 
@@ -609,43 +670,66 @@ What would feel most helpful for you right now?''';
     return title.isNotEmpty ? title : 'New Chat';
   }
 
-  /// Delete message from active conversation
-  void deleteMessageFromSession(String messageId) {
-    if (_activeConversationId == null) return;
+  /// Delete message from active conversation and update Hive
+  Future<void> deleteMessageFromSession(String messageId) async {
+    try {
+      if (_activeConversationId == null) return;
 
-    final messageIndex = _conversationSessions.indexWhere(
-      (c) => c.id == _activeConversationId,
-    );
-
-    if (messageIndex >= 0) {
-      final conversation = _conversationSessions[messageIndex];
-      final updatedMessages = conversation.messages
-        .where((m) => m.id != messageId)
-        .toList();
-
-      final updatedConversation = conversation.copyWith(
-        messages: updatedMessages,
-        lastModifiedAt: DateTime.now(),
+      final messageIndex = _conversationSessions.indexWhere(
+        (c) => c.id == _activeConversationId,
       );
 
-      _conversationSessions[messageIndex] = updatedConversation;
-      notifyListeners();
-      debugPrint('🗑️ Message deleted: $messageId');
+      if (messageIndex >= 0) {
+        final conversation = _conversationSessions[messageIndex];
+        final updatedMessages = conversation.messages
+          .where((m) => m.id != messageId)
+          .toList();
+
+        final updatedConversation = conversation.copyWith(
+          messages: updatedMessages,
+          lastModifiedAt: DateTime.now(),
+        );
+
+        _conversationSessions[messageIndex] = updatedConversation;
+
+        // Save updated conversation to Hive
+        await HiveDatabase.saveConversationSession(
+          updatedConversation.id,
+          updatedConversation.toJson(),
+        );
+
+        notifyListeners();
+        debugPrint('🗑️ Message deleted: $messageId');
+      }
+    } catch (e) {
+      debugPrint('❌ Error deleting message: $e');
+      rethrow;
     }
   }
 
-  /// Delete single conversation session
-  void deleteConversationSession(String conversationId) {
-    _conversationSessions.removeWhere((c) => c.id == conversationId);
+  /// Delete single conversation session and remove from Hive
+  Future<void> deleteConversationSession(String conversationId) async {
+    try {
+      _conversationSessions.removeWhere((c) => c.id == conversationId);
 
-    if (_activeConversationId == conversationId) {
-      _activeConversationId = _conversationSessions.isNotEmpty
-        ? _conversationSessions.first.id
-        : null;
+      // Delete from Hive
+      await HiveDatabase.deleteConversationSession(conversationId);
 
-      if (_conversationSessions.isEmpty) {
-        createNewConversation();
+      if (_activeConversationId == conversationId) {
+        _activeConversationId = _conversationSessions.isNotEmpty
+          ? _conversationSessions.first.id
+          : null;
+
+        if (_conversationSessions.isEmpty) {
+          await createNewConversation();
+        }
       }
+
+      notifyListeners();
+      debugPrint('✅ Conversation deleted: $conversationId');
+    } catch (e) {
+      debugPrint('❌ Error deleting conversation: $e');
+      rethrow;
     }
 
     notifyListeners();

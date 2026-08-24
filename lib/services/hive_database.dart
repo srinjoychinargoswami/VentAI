@@ -159,6 +159,77 @@ class HiveDatabase {
     }
   }
 
+  // ===== Multi-Conversation Sessions (New System) =====
+
+  static Future<void> saveConversationSession(String conversationId, Map<String, dynamic> conversationJson) async {
+    try {
+      await conversationBox.put(conversationId, conversationJson);
+      debugPrint('💾 Conversation session saved: $conversationId');
+    } catch (e) {
+      debugPrint('❌ Save conversation session error: $e');
+      rethrow;
+    }
+  }
+
+  static Future<Map<String, dynamic>?> getConversationSession(String conversationId) async {
+    try {
+      final data = conversationBox.get(conversationId);
+      if (data is Map) {
+        return Map<String, dynamic>.from(data);
+      }
+      return null;
+    } catch (e) {
+      debugPrint('❌ Get conversation session error: $e');
+      return null;
+    }
+  }
+
+  static Future<List<Map<String, dynamic>>> getAllConversationSessions() async {
+    try {
+      final sessions = <Map<String, dynamic>>[];
+      for (final key in conversationBox.keys) {
+        try {
+          final data = conversationBox.get(key);
+          if (data is Map) {
+            final sessionMap = Map<String, dynamic>.from(data);
+            // Only include if it has required fields (new system conversation)
+            if (sessionMap.containsKey('id') && sessionMap.containsKey('title')) {
+              sessions.add(sessionMap);
+            }
+          }
+        } catch (e) {
+          debugPrint('⚠️ Error loading session for key $key: $e');
+          // Continue loading other sessions
+        }
+      }
+      // Sort by lastModifiedAt in descending order
+      sessions.sort((a, b) {
+        try {
+          final dateA = DateTime.tryParse(a['lastModifiedAt'] as String? ?? '') ?? DateTime.now();
+          final dateB = DateTime.tryParse(b['lastModifiedAt'] as String? ?? '') ?? DateTime.now();
+          return dateB.compareTo(dateA);
+        } catch (e) {
+          return 0;
+        }
+      });
+      debugPrint('✅ Loaded ${sessions.length} conversation sessions from Hive');
+      return sessions;
+    } catch (e) {
+      debugPrint('❌ Get all conversation sessions error: $e');
+      return [];
+    }
+  }
+
+  static Future<void> deleteConversationSession(String conversationId) async {
+    try {
+      await conversationBox.delete(conversationId);
+      debugPrint('✅ Conversation session deleted: $conversationId');
+    } catch (e) {
+      debugPrint('❌ Delete conversation session error: $e');
+      rethrow;
+    }
+  }
+
   static Future<Map<String, dynamic>> getConversationStats() async {
     try {
       final conversations = await getAllConversations();
