@@ -51,3 +51,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Windows installer executable (build artifact, not source)
+VentAI-Setup.exe
+*.exe
