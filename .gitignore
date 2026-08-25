@@ -67,3 +67,6 @@ AppRun.runtime
 AppRun
 VentAI.desktop
 VentAI.png
+
+# macOS DMG
+ventAI.dmg 
