@@ -4,17 +4,17 @@
 [![Dart](https://img.shields.io/badge/Dart-0175C2?style=for-the-badge&logo=dart&logoColor=white)](https://dart.dev)
 [![Gemma](https://img.shields.io/badge/Gemma_4-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev/gemma)
 
-**VentAI is a privacy-first emotional support companion powered by Google's Gemma 3n models. It provides compassionate, real-time support — completely offline.**
+**VentAI is a privacy-first emotional support companion powered by Google's Gemma 4 models. It provides compassionate, real-time support — completely offline.**
 
 ---
 
 ## Key Features
 
 ### Auto-Install System
-- **Zero setup** — Downloads and installs Ollama automatically on first run
+- **Zero setup** — Downloads and installs the model on first run
 - **Uses signed installers** — No permission issues or manual config
 - **Smart detection** — Reuses existing installations if found
-- **Universal compatibility** — Works on Windows 10/11 systems
+- **Universal compatibility** — Works on Windows 10/11 systems, Linux and macOS
 
 ### Privacy-First Design
 - **Offline-only** — No internet required after setup
@@ -23,7 +23,7 @@
 - **Safe for emotional support** — Designed with privacy as a core feature
 
 ### Advanced AI Support
-- **Powered by Gemma 3n** — Multimodal, state-of-the-art emotional AI
+- **Powered by Gemma 4** — Multimodal, state-of-the-art emotional AI
 - **Empathetic responses** — Based on therapeutic best practices
 - **Crisis-aware** — Detects signs of distress, offers immediate resources
 - **Context understanding** — Responds appropriately to emotion and tone
