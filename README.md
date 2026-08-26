@@ -46,17 +46,3 @@ Over **1.3 billion people** lack access to basic mental health support due to:
 **VentAI bridges this gap** by offering a secure, on-device AI assistant for emotional well-being — anywhere, anytime.
 
 ---
-
-## Technical Innovation
-
-### Auto-Download Architecture
-```dart
-static Future<bool> initialize() async {
-  if (await _isOllamaInstalled()) {
-    _ollamaPath = await _findOllamaExecutablePath();
-  } else {
-    final installSuccess = await _autoInstallOllama();
-    if (!installSuccess) return false;
-  }
-  return await startPersistentService();
-}
