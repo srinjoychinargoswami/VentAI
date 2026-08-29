@@ -81,6 +81,7 @@ class EmpathyChatWidget extends StatelessWidget {
                 'Remember: I\'m not a substitute for professional mental health care.\n\n'
                 'If you\'re in crisis, you can:\n'
                 '• Tap the 🆘 Crisis Resources button above\n'
+                '• Tap the 🧘 Calm button for a guided 4-7-8 breathing exercise anytime you need to reset\n'
                 '• Type "emergency services [your country]" in chat\n\n'
                 'Example: Type "emergency services Canada" or "emergency services UK"\n\n'
                 'Please contact local emergency services or mental health professionals immediately if in danger.',

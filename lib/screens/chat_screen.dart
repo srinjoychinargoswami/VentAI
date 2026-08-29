@@ -11,6 +11,7 @@ import '../widgets/app_footer.dart';
 import '../providers/conversation_provider.dart';
 import '../providers/setup_state_provider.dart';
 import 'legal_page.dart';
+import 'breathing_exercise_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -41,6 +42,16 @@ class _ChatScreenState extends State<ChatScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ConversationProvider>().refresh();
     });
+
+    // Auto-scroll on message changes (React-style useEffect)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<ConversationProvider>().addListener(_onMessagesChanged);
+    });
+  }
+
+  /// Called whenever messages change (auto-scroll trigger)
+  void _onMessagesChanged() {
+    _scrollToBottom();
   }
 
   /// Ensure GemmaService is initialized for inference
@@ -202,6 +213,24 @@ class _ChatScreenState extends State<ChatScreen> {
                             Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
+                                // 🧘 Calm button (4-7-8 breathing)
+                                IconButton(
+                                  icon: Text(
+                                    '🧘',
+                                    style: TextStyle(
+                                      fontSize: 20,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                  onPressed: () {
+                                    showDialog(
+                                      context: context,
+                                      builder: (BuildContext context) => const BreathingExerciseScreen(),
+                                    );
+                                  },
+                                  tooltip: 'Calm Breathing Exercise (4-7-8)',
+                                ),
+
                                 // ℹ️ Info button
                                 IconButton(
                                   icon: Text(
@@ -306,15 +335,21 @@ class _ChatScreenState extends State<ChatScreen> {
 
                         if (messages.isEmpty && !_isWaitingForResponse) {
                           return Center(
-                            child: SingleChildScrollView(
-                              child: Column(
+                            child: Scrollbar(
+                              controller: _scrollController,
+                              thumbVisibility: true,
+                              thickness: 8,
+                              radius: const Radius.circular(4),
+                              child: SingleChildScrollView(
+                                controller: _scrollController,
+                                child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
-                                  // Icon section: 128x128 circle with bulb
+                                  // Icon section: 96x96 circle with bulb
                                   Container(
-                                    width: 128,
-                                    height: 128,
+                                    width: 96,
+                                    height: 96,
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
                                       color: AppColors.primary.withOpacity(0.1),
@@ -322,11 +357,11 @@ class _ChatScreenState extends State<ChatScreen> {
                                     child: const Center(
                                       child: Text(
                                         '💡',
-                                        style: TextStyle(fontSize: 96),
+                                        style: TextStyle(fontSize: 64),
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(height: 36), // Gap between icon and text
+                                  const SizedBox(height: 24), // Gap between icon and text
 
                                   // Text section with max-width 512
                                   Padding(
@@ -344,7 +379,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                                 TextSpan(
                                                   text: 'Welcome to ',
                                                   style: TextStyle(
-                                                    fontSize: 32,
+                                                    fontSize: 24,
                                                     fontWeight: FontWeight.bold,
                                                     color: AppColors.textPrimary,
                                                     letterSpacing: -0.02,
@@ -353,7 +388,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                                 TextSpan(
                                                   text: 'Vent AI',
                                                   style: TextStyle(
-                                                    fontSize: 32,
+                                                    fontSize: 24,
                                                     fontWeight: FontWeight.bold,
                                                     color: AppColors.primary,
                                                     letterSpacing: -0.02,
@@ -362,62 +397,65 @@ class _ChatScreenState extends State<ChatScreen> {
                                               ],
                                             ),
                                           ),
-                                          const SizedBox(height: 24), // Gap between title and body
+                                          const SizedBox(height: 16), // Gap between title and body
 
                                           // Body paragraphs
                                           const Text(
                                             "I'm your AI emotional support companion. Share what's on your mind, and I'll respond with empathy and understanding.",
                                             style: TextStyle(
-                                              fontSize: 14,
-                                              height: 1.6,
+                                              fontSize: 12,
+                                              height: 1.5,
                                               color: AppColors.textSecondary,
                                             ),
                                             textAlign: TextAlign.center,
                                           ),
-                                          const SizedBox(height: 16),
+                                          const SizedBox(height: 12),
 
                                           // White paragraph (on-device)
                                           const Text(
                                             '100% on-device. Your data stays private and secure.',
                                             style: TextStyle(
-                                              fontSize: 14,
-                                              height: 1.6,
+                                              fontSize: 12,
+                                              height: 1.5,
                                               color: AppColors.textPrimary,
                                               fontWeight: FontWeight.w500,
                                             ),
                                             textAlign: TextAlign.center,
                                           ),
-                                          const SizedBox(height: 16),
+                                          const SizedBox(height: 12),
 
                                           // Important disclaimer paragraph
                                           const Text(
                                             "I'm not a substitute for professional mental health care. If you need urgent help, please reach out to local services or crisis hotlines.",
                                             style: TextStyle(
-                                              fontSize: 14,
-                                              height: 1.6,
+                                              fontSize: 12,
+                                              height: 1.5,
                                               color: AppColors.textTertiary,
                                             ),
                                             textAlign: TextAlign.center,
                                           ),
-                                          const SizedBox(height: 16),
+                                          const SizedBox(height: 12),
 
                                           // Crisis resources paragraph
                                           const Text(
-                                            'In crisis? Call 988 (Suicide & Crisis Lifeline USA) or text HOME to 741741. Tap the 🚨 button for global resources.',
+                                            'If you\'re in crisis, you can:\n'
+                                            '• Tap the 🚨 Crisis Resources button above\n'
+                                            '• Tap the 🧘 Calm button for a guided 4-7-8 breathing exercise anytime you need to reset\n'
+                                            '• Type "emergency services [your country]" in chat',
                                             style: TextStyle(
-                                              fontSize: 14,
-                                              height: 1.6,
+                                              fontSize: 12,
+                                              height: 1.5,
                                               color: AppColors.textTertiary,
                                             ),
                                             textAlign: TextAlign.center,
                                           ),
-                                          const SizedBox(height: 24), // Extra gap before privacy note
+                                          const SizedBox(height: 16), // Extra gap before privacy note
 
                                           // Privacy policy note (smaller)
                                           const Text(
                                             'Tap the ℹ️ button to view our Privacy Policy and Disclaimers',
                                             style: TextStyle(
-                                              fontSize: 12,
+                                              fontSize: 11,
                                               height: 1.4,
                                               color: AppColors.textTertiary,
                                             ),
@@ -430,14 +468,20 @@ class _ChatScreenState extends State<ChatScreen> {
                                 ],
                               ),
                             ),
+                            ),
                           );
                         }
 
-                        return ListView.builder(
+                        return Scrollbar(
                           controller: _scrollController,
-                          reverse: true,
-                          itemCount: messages.length + (_isWaitingForResponse ? 1 : 0),
-                          itemBuilder: (context, index) {
+                          thumbVisibility: true,
+                          thickness: 8,
+                          radius: const Radius.circular(4),
+                          child: ListView.builder(
+                            controller: _scrollController,
+                            reverse: true,
+                            itemCount: messages.length + (_isWaitingForResponse ? 1 : 0),
+                            itemBuilder: (context, index) {
                             // Show thinking bubble at the top (first item when reversed)
                             if (_isWaitingForResponse && index == 0) {
                               return Align(
@@ -492,7 +536,8 @@ class _ChatScreenState extends State<ChatScreen> {
                                 await provider.deleteMessageFromSession(message.id);
                               },
                             );
-                          },
+                            },
+                          ),
                         );
                       },
                     ),
@@ -1184,6 +1229,8 @@ class _ChatScreenState extends State<ChatScreen> {
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
+    // Remove auto-scroll listener
+    context.read<ConversationProvider>().removeListener(_onMessagesChanged);
     super.dispose();
   }
 }
