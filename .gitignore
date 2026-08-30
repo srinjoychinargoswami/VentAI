@@ -61,6 +61,7 @@ VentAI-Setup.exe
 # Linux AppImage build artifacts
 VentAI.AppDir/
 VentAI.AppImage
+VentAI-x86_64.AppImage
 VentAI.squashfs
 appimagetool-x86_64.AppImage
 AppRun.runtime
