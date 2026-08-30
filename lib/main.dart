@@ -94,16 +94,29 @@ Future<void> main() async {
     // Don't crash - app can work without database
   }
 
-  // Handle app termination - cleanup temp files on exit
+  // Handle app termination - cleanup model and temp files on exit
   SystemChannels.lifecycle.setMessageHandler((msg) async {
     if (msg?.contains('AppLifecycleState.detached') ?? false) {
       debugPrint('🧹 App terminating - running cleanup...');
       try {
+        // Delete the Gemma model (~500MB)
+        debugPrint('🗑️ Deleting Gemma model...');
+        await HiveDatabase.deleteModel();
+        debugPrint('✅ Gemma model deleted');
+        SecureLogger.debug('✅ Gemma model deleted');
+
+        // Clean up temporary files
+        debugPrint('🧹 Cleaning temporary files...');
         await HiveDatabase.cleanupTempDirectory();
-        SecureLogger.debug('🧹 App termination cleanup complete');
+        debugPrint('✅ Temporary files cleaned');
+        SecureLogger.debug('✅ Temporary files cleaned');
+
+        SecureLogger.debug('✅ App termination cleanup complete');
         debugPrint('✅ App termination cleanup complete');
       } catch (e) {
         debugPrint('⚠️ Termination cleanup error: $e');
+        SecureLogger.redacted('⚠️ Termination cleanup error: $e');
+        // Don't rethrow - cleanup errors shouldn't block uninstall
       }
     }
     return null;
@@ -217,8 +230,9 @@ class _VentAiAppState extends State<VentAiApp> with WidgetsBindingObserver {
 
     switch (state) {
       case AppLifecycleState.detached:
-        debugPrint('$platformPrefix App detached');
-        // Cleanup temporary files on app exit
+        debugPrint('$platformPrefix App detached - running cleanup');
+        // Cleanup model and temporary files on app exit (fire and forget)
+        HiveDatabase.deleteModel();
         HiveDatabase.cleanupTempDirectory();
         break;
         
