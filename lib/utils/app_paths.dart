@@ -8,44 +8,63 @@ class AppPaths {
   
   /// Initialize version (call once at app startup)
   static Future<void> initialize({String? version}) async {
+    print('🔍 [APP-PATHS] initialize() called');
     if (version != null) {
       _appVersion = version;
+      print('🔍 [APP-PATHS] Using provided version: $version');
     } else {
       // Use timestamp for development/testing
       _appVersion = DateTime.now().millisecondsSinceEpoch.toString();
+      print('🔍 [APP-PATHS] Generated timestamp version: $_appVersion');
       // TODO: For production, use package_info_plus:
       // final packageInfo = await PackageInfo.fromPlatform();
       // _appVersion = packageInfo.version;
     }
-    
+
     // Pre-create essential directories
-    await getAppDataDirectory();
-    
-    print('AppPaths initialized with version: $_appVersion');
+    print('🔍 [APP-PATHS] Pre-creating app data directory...');
+    final appDir = await getAppDataDirectory();
+    print('✅ [APP-PATHS] App directory ready: $appDir');
+
+    print('✅ [APP-PATHS] Initialization complete with version: $_appVersion');
   }
   
   /// Get main application data directory
   static Future<String> getAppDataDirectory() async {
-    if (_cachedAppDirectory != null) return _cachedAppDirectory!;
-    
+    print('📁 [APP-PATHS] getAppDataDirectory() called');
+    if (_cachedAppDirectory != null) {
+      print('📁 [APP-PATHS] Returning cached directory: $_cachedAppDirectory');
+      return _cachedAppDirectory!;
+    }
+
     try {
       if (_appVersion == null) {
+        print('📁 [APP-PATHS] Version not set, initializing...');
         await initialize();
       }
-      
+
+      print('📁 [APP-PATHS] Getting application support directory...');
       final baseDir = await getApplicationSupportDirectory();
+      print('📁 [APP-PATHS] Base dir: ${baseDir.path}');
+
       final appPath = path.join(baseDir.path, 'VentAI_$_appVersion');
-      
+      print('📁 [APP-PATHS] App path: $appPath');
+
       final directory = Directory(appPath);
       if (!await directory.exists()) {
+        print('📁 [APP-PATHS] Directory does not exist, creating: $appPath');
         await directory.create(recursive: true);
-        print('Created app directory: $appPath');
+        print('✅ [APP-PATHS] Created app directory: $appPath');
+      } else {
+        print('✅ [APP-PATHS] Directory already exists: $appPath');
       }
-      
+
       _cachedAppDirectory = appPath;
+      print('✅ [APP-PATHS] Cached: $_cachedAppDirectory');
       return appPath;
     } catch (e) {
-      print('Failed to create app directory: $e');
+      print('❌ [APP-PATHS] FAILED to create app directory: $e');
+      print('❌ [APP-PATHS] Stack: ${StackTrace.current}');
       throw Exception('Could not create application data directory: $e');
     }
   }

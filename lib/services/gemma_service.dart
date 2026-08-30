@@ -16,18 +16,34 @@ class GemmaService {
   /// Initialize Gemma model once (flutter_gemma official API)
   /// Subsequent calls reuse the same model - NEVER closes
   Future<void> initialize() async {
+    debugPrint('🔍 [GEMMA-INIT] initialize() called');
+
     // If model already loaded, reuse it
     if (_model != null) {
+      debugPrint('✅ [GEMMA-INIT] Model already initialized, reusing singleton');
       SecureLogger.debug('✅ Model already initialized, reusing singleton');
       return;
     }
 
     try {
+      debugPrint('📱 [GEMMA-INIT] Loading Gemma model (maxTokens=2048)...');
       SecureLogger.debug('📱 Loading Gemma model...');
+
       _model = await FlutterGemma.getActiveModel(maxTokens: 2048);
+
+      if (_model == null) {
+        debugPrint('❌ [GEMMA-INIT] Model is null after getActiveModel()');
+        throw StateError('getActiveModel() returned null');
+      }
+
+      debugPrint('✅ [GEMMA-INIT] Model loaded and stored as singleton (will NOT close)');
+      debugPrint('✅ [GEMMA-INIT] Model type: ${_model.runtimeType}');
       SecureLogger.debug('✅ Model loaded and stored as singleton (will NOT close)');
     } catch (e) {
+      debugPrint('❌ [GEMMA-INIT] FAILED TO LOAD MODEL: $e');
+      debugPrint('❌ [GEMMA-INIT] Stack trace: ${StackTrace.current}');
       SecureLogger.redacted('⚠️ Failed to load model: $e');
+      _model = null; // Reset on failure
       rethrow;
     }
   }

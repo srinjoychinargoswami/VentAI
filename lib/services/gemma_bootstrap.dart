@@ -111,34 +111,58 @@ Timer _startFileExistenceChecker(Function(int) onProgress) {
     try {
       checkCount++;
       final modelsPath = await AppPaths.getModelsDirectory();
+      debugPrint('📁 [FILE-CHECK #$checkCount] Checking path: $modelsPath');
+
       final modelDir = Directory(modelsPath);
 
       if (!await modelDir.exists()) {
         if (checkCount % 5 == 0) {
-          debugPrint('📁 [FILE CHECK #$checkCount] Models dir does not exist yet: $modelsPath');
+          debugPrint('📁 [FILE-CHECK #$checkCount] ⏳ Models dir does not exist yet: $modelsPath');
         }
         return;
       }
 
+      debugPrint('📁 [FILE-CHECK #$checkCount] Models dir exists: $modelsPath');
+
       // Check if any .litertlm files exist (Gemma 4 E2B format)
+      int fileCount = 0;
       await for (final entity in modelDir.list(recursive: true)) {
-        if (entity is File && entity.path.endsWith('.litertlm')) {
-          if (!fileDetected) {
-            fileDetected = true;
-            debugPrint('✅ [FILE CHECK #$checkCount] 📥 Download complete - model file detected');
-            debugPrint('📦 Model file: ${entity.path}');
-            debugPrint('📊 File size: ${await entity.length()} bytes');
-            onProgress(50);
+        if (entity is File) {
+          fileCount++;
+          debugPrint('📁 [FILE-CHECK #$checkCount] Found file: ${entity.path}');
+
+          if (entity.path.endsWith('.litertlm')) {
+            if (!fileDetected) {
+              fileDetected = true;
+              final fileSize = await entity.length();
+              final fileSizeMB = (fileSize / (1024 * 1024)).toStringAsFixed(2);
+              debugPrint('✅ [FILE-CHECK #$checkCount] 📥 Download complete - model file detected!');
+              debugPrint('📦 Model file: ${entity.path}');
+              debugPrint('📊 File size: $fileSizeMB MB ($fileSize bytes)');
+
+              // Validate file integrity
+              try {
+                final stat = await entity.stat();
+                debugPrint('✅ [FILE-CHECK] File access: ${stat.accessed}');
+                debugPrint('✅ [FILE-CHECK] File modified: ${stat.modified}');
+                debugPrint('✅ [FILE-CHECK] File readable: ${stat.mode}');
+              } catch (e) {
+                debugPrint('⚠️ [FILE-CHECK] Could not read file stats: $e');
+              }
+
+              onProgress(50);
+            }
+            return;
           }
-          return;
         }
       }
 
       if (checkCount % 10 == 0) {
-        debugPrint('📁 [FILE CHECK #$checkCount] Checking models dir for .litertlm files...');
+        debugPrint('📁 [FILE-CHECK #$checkCount] Scanning (found $fileCount files so far)...');
       }
     } catch (e) {
-      debugPrint('⚠️ File checker error (check #$checkCount): $e');
+      debugPrint('❌ [FILE-CHECK] Error on check #$checkCount: $e');
+      debugPrint('❌ [FILE-CHECK] Stack: ${StackTrace.current}');
     }
   });
 }

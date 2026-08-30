@@ -24,6 +24,9 @@ bool get _isMobile => !kIsWeb && (Platform.isAndroid || Platform.isIOS);
 bool get _isDesktop => !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
 bool get _isWeb => kIsWeb;
 
+// Setup completion flag - prevents cleanup during initial setup
+bool _isSetupComplete = false;
+
 /// Bootstrap Gemma with LiteRT-LM engine (flutter_gemma 1.5.9)
 /// LiteRtLmEngine: For .litertlm models (ARM64 optimized)
 /// Works on BOTH mobile and desktop platforms
@@ -97,26 +100,32 @@ Future<void> main() async {
   // Handle app termination - cleanup model and temp files on exit
   SystemChannels.lifecycle.setMessageHandler((msg) async {
     if (msg?.contains('AppLifecycleState.detached') ?? false) {
-      debugPrint('🧹 App terminating - running cleanup...');
-      try {
-        // Delete the Gemma model (~500MB)
-        debugPrint('🗑️ Deleting Gemma model...');
-        await HiveDatabase.deleteModel();
-        debugPrint('✅ Gemma model deleted');
-        SecureLogger.debug('✅ Gemma model deleted');
+      debugPrint('🧹 App terminating - running cleanup... (setup_complete: $_isSetupComplete)');
 
-        // Clean up temporary files
-        debugPrint('🧹 Cleaning temporary files...');
-        await HiveDatabase.cleanupTempDirectory();
-        debugPrint('✅ Temporary files cleaned');
-        SecureLogger.debug('✅ Temporary files cleaned');
+      // Only cleanup if setup was completed - avoids deleting model during initial setup
+      if (_isSetupComplete) {
+        try {
+          // Delete the Gemma model (~500MB)
+          debugPrint('🗑️ Deleting Gemma model...');
+          await HiveDatabase.deleteModel();
+          debugPrint('✅ Gemma model deleted');
+          SecureLogger.debug('✅ Gemma model deleted');
 
-        SecureLogger.debug('✅ App termination cleanup complete');
-        debugPrint('✅ App termination cleanup complete');
-      } catch (e) {
-        debugPrint('⚠️ Termination cleanup error: $e');
-        SecureLogger.redacted('⚠️ Termination cleanup error: $e');
-        // Don't rethrow - cleanup errors shouldn't block uninstall
+          // Clean up temporary files
+          debugPrint('🧹 Cleaning temporary files...');
+          await HiveDatabase.cleanupTempDirectory();
+          debugPrint('✅ Temporary files cleaned');
+          SecureLogger.debug('✅ Temporary files cleaned');
+
+          SecureLogger.debug('✅ App termination cleanup complete');
+          debugPrint('✅ App termination cleanup complete');
+        } catch (e) {
+          debugPrint('⚠️ Termination cleanup error: $e');
+          SecureLogger.redacted('⚠️ Termination cleanup error: $e');
+          // Don't rethrow - cleanup errors shouldn't block uninstall
+        }
+      } else {
+        debugPrint('⏭️ Skipping cleanup - setup not yet complete');
       }
     }
     return null;
@@ -273,6 +282,12 @@ class _VentAiAppState extends State<VentAiApp> with WidgetsBindingObserver {
       themeMode: ThemeMode.system,
       home: Consumer<SetupStateProvider>(
         builder: (context, setupState, child) {
+          // Mark setup as complete when provider indicates it
+          if (setupState.isSetupComplete && !_isSetupComplete) {
+            _isSetupComplete = true;
+            debugPrint('✅ Setup marked complete - cleanup on exit enabled');
+          }
+
           if (setupState.needsSetup || setupState.isInitializing) {
             final platformName = _isMobile ? 'mobile' : 'desktop';
             String message = 'Setting up your $platformName AI companion...';

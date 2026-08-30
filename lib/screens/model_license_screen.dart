@@ -20,6 +20,7 @@ class _ModelLicenseScreenState extends State<ModelLicenseScreen> {
   @override
   void initState() {
     super.initState();
+    debugPrint('📜 [LICENSE-SCREEN] License screen initiated');
     // Show license screen immediately when opened
     setState(() => _isLoading = false);
   }
@@ -62,6 +63,8 @@ class _ModelLicenseScreenState extends State<ModelLicenseScreen> {
 
   @override
   Widget build(BuildContext context) {
+    debugPrint('📜 [LICENSE-SCREEN] Building license screen (isLoading: $_isLoading)');
+
     if (_isLoading) {
       return Scaffold(
         backgroundColor: AppColors.background,
@@ -71,6 +74,7 @@ class _ModelLicenseScreenState extends State<ModelLicenseScreen> {
       );
     }
 
+    debugPrint('📜 [LICENSE-SCREEN] Rendering license content');
     return Scaffold(
       backgroundColor: AppColors.background,
       body: Column(

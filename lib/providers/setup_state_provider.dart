@@ -291,21 +291,26 @@ class SetupStateProvider extends ChangeNotifier {
 
       if (isMobile) {
         // Check if model is already downloaded
+        debugPrint('📱 [SETUP-FLOW] Checking if Gemma model is loaded...');
         final status = await GemmaService().getStatus();
+        debugPrint('📱 [SETUP-FLOW] Status: $status');
         final modelLoaded = status['model_loaded'] as bool? ?? false;
+        debugPrint('📱 [SETUP-FLOW] Model loaded: $modelLoaded');
 
         if (modelLoaded) {
-          debugPrint('📱 Gemma model already loaded - skipping setup');
+          debugPrint('✅ [SETUP-FLOW] 📱 Gemma model already loaded - skipping setup');
           await markSetupComplete('gemma_mobile');
           return; // Model exists, skip to chat
         }
 
         // Check license acceptance on mobile
+        debugPrint('📱 [SETUP-FLOW] Checking license acceptance...');
         final prefs = await SharedPreferences.getInstance();
         final licenseAccepted = prefs.getBool(_gemmadaLicenseAcceptedKey) ?? false;
+        debugPrint('📱 [SETUP-FLOW] License accepted: $licenseAccepted');
 
         if (!licenseAccepted) {
-          debugPrint('📱 License not accepted - showing license screen');
+          debugPrint('🏛️ [SETUP-FLOW] 📱 License not accepted - showing license screen');
           await _updateSetupStage(
             SetupStage.acceptingLicense,
             'Please accept Gemma model license to continue',
@@ -314,7 +319,7 @@ class SetupStateProvider extends ChangeNotifier {
           return; // Stop here, app will show license screen
         }
 
-        debugPrint('📱 License already accepted - ready for download');
+        debugPrint('✅ [SETUP-FLOW] 📱 License already accepted - ready for download');
         await _updateSetupStage(
           SetupStage.acceptingLicense,
           'License accepted! Ready to download Gemma model.\nTap "Start Download" to begin.',
@@ -322,21 +327,26 @@ class SetupStateProvider extends ChangeNotifier {
         );
       } else {
         // Desktop: Check if Gemma model is already downloaded
+        debugPrint('🖥️ [SETUP-FLOW] Checking if Gemma model is loaded...');
         final status = await GemmaService().getStatus();
+        debugPrint('🖥️ [SETUP-FLOW] Status: $status');
         final modelLoaded = status['model_loaded'] as bool? ?? false;
+        debugPrint('🖥️ [SETUP-FLOW] Model loaded: $modelLoaded');
 
         if (modelLoaded) {
-          debugPrint('🖥️ Gemma model already loaded - skipping setup');
+          debugPrint('✅ [SETUP-FLOW] 🖥️ Gemma model already loaded - skipping setup');
           await markSetupComplete('gemma_desktop');
           return;
         }
 
         // Check license acceptance on desktop (same as mobile)
+        debugPrint('🖥️ [SETUP-FLOW] Checking license acceptance...');
         final prefs = await SharedPreferences.getInstance();
         final licenseAccepted = prefs.getBool(_gemmadaLicenseAcceptedKey) ?? false;
+        debugPrint('🖥️ [SETUP-FLOW] License accepted: $licenseAccepted');
 
         if (!licenseAccepted) {
-          debugPrint('🖥️ License not accepted - showing license screen');
+          debugPrint('🏛️ [SETUP-FLOW] 🖥️ License not accepted - showing license screen');
           await _updateSetupStage(
             SetupStage.acceptingLicense,
             'Please accept Gemma model license to continue',
@@ -345,7 +355,7 @@ class SetupStateProvider extends ChangeNotifier {
           return; // Stop here, app will show license screen
         }
 
-        debugPrint('🖥️ License already accepted - ready for download');
+        debugPrint('✅ [SETUP-FLOW] 🖥️ License already accepted - ready for download');
         await _updateSetupStage(
           SetupStage.acceptingLicense,
           'License accepted! Ready to download Gemma model.\nTap "Start Download" to begin.',

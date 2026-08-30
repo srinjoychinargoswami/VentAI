@@ -441,12 +441,19 @@ class _AppSetupScreenState extends State<AppSetupScreen>
       builder: (context, setupState, child) {
         // Show license screen ONLY if accepting license AND not yet accepted
         // (Message will say "Please accept" if not accepted, "Ready to download" if accepted)
-        if (setupState.currentStage == SetupStage.acceptingLicense &&
-            setupState.setupMessage.contains('Please accept')) {
+        final isAcceptingLicense = setupState.currentStage == SetupStage.acceptingLicense;
+        final needsAcceptance = setupState.setupMessage.contains('Please accept');
+
+        debugPrint('🏗️ [SETUP-SCREEN] Build: stage=${setupState.currentStage}, '
+            'needsAcceptance=$needsAcceptance, msg="${setupState.setupMessage}"');
+
+        if (isAcceptingLicense && needsAcceptance) {
+          debugPrint('📜 [SETUP-SCREEN] Showing license screen');
           return const ModelLicenseScreen();
         }
 
         // Otherwise show setup progress screen
+        debugPrint('🏗️ [SETUP-SCREEN] Showing progress screen');
         return _buildSetupProgressScreen(context);
       },
     );
