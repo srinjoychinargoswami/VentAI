@@ -499,9 +499,8 @@ class SetupStateProvider extends ChangeNotifier {
   Future<void> checkSetupNeeded() async {
     try {
       final platformPrefix = isMobile ? '📱' : '🖥️';
-      
+
       final prefs = await SharedPreferences.getInstance();
-      
       final prefSetupComplete = prefs.getBool(_setupCompleteKey) ?? false;
       final prefAIType = prefs.getString(_aiTypeKey) ?? 'unknown';
       
@@ -644,10 +643,10 @@ class SetupStateProvider extends ChangeNotifier {
   Future<void> forceSetup() async {
     try {
       await _resetSetupState();
-      
+
       final prefs = await SharedPreferences.getInstance();
       await prefs.clear();
-      
+
       await AppPaths.createFreshInstallation();
       
       final platformPrefix = isMobile ? '📱' : '🖥️';

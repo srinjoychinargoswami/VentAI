@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
+import '../utils/secure_logger.dart';
 
 class GemmaService {
   static final GemmaService _instance = GemmaService._internal();
@@ -17,16 +18,16 @@ class GemmaService {
   Future<void> initialize() async {
     // If model already loaded, reuse it
     if (_model != null) {
-      debugPrint('✅ Model already initialized, reusing singleton');
+      SecureLogger.debug('✅ Model already initialized, reusing singleton');
       return;
     }
 
     try {
-      debugPrint('📱 Loading Gemma model...');
+      SecureLogger.debug('📱 Loading Gemma model...');
       _model = await FlutterGemma.getActiveModel(maxTokens: 2048);
-      debugPrint('✅ Model loaded and stored as singleton (will NOT close)');
+      SecureLogger.debug('✅ Model loaded and stored as singleton (will NOT close)');
     } catch (e) {
-      debugPrint('⚠️ Failed to load model: $e');
+      SecureLogger.redacted('⚠️ Failed to load model: $e');
       rethrow;
     }
   }
@@ -34,7 +35,7 @@ class GemmaService {
   /// Generate empathetic response using persistent singleton model
   /// Model stays alive throughout entire app lifecycle
   Future<String> generateEmotionalResponse(String userMessage) async {
-    debugPrint('🔵 generateEmotionalResponse called');
+    SecureLogger.debug('🔵 generateEmotionalResponse called');
 
     if (_model == null) {
       throw StateError('Model not initialized. Call initialize() first');
@@ -43,7 +44,7 @@ class GemmaService {
     final messagePreview = userMessage.length > 50
       ? userMessage.substring(0, 50)
       : userMessage;
-    debugPrint('📱 Generating response for: "$messagePreview..."');
+    SecureLogger.silent('📱 Generating response for: "$messagePreview..."');
 
     final prompt = '''You are Vent AI, a compassionate emotional support companion.
 Your role is to listen with empathy and provide supportive responses.
@@ -91,36 +92,36 @@ User message: "$userMessage"
 Respond with empathy and support:''';
 
     try {
-      debugPrint('📝 Creating inference session...');
+      SecureLogger.debug('📝 Creating inference session...');
       final session = await _model!.createSession();
-      debugPrint('✅ Session created');
+      SecureLogger.debug('✅ Session created');
 
-      debugPrint('📝 Adding query to session...');
+      SecureLogger.debug('📝 Adding query to session...');
       await session.addQueryChunk(Message.text(text: prompt, isUser: true));
-      debugPrint('✅ Query added');
+      SecureLogger.debug('✅ Query added');
 
-      debugPrint('📝 Requesting response from Gemma...');
+      SecureLogger.debug('📝 Requesting response from Gemma...');
       final response = await session.getResponse();
-      debugPrint('📊 Response received: ${response.length} chars');
+      SecureLogger.debug('📊 Response received: ${response.length} chars');
 
-      debugPrint('📝 Closing session...');
+      SecureLogger.debug('📝 Closing session...');
       await session.close();
-      debugPrint('✅ Session closed (model stays alive)');
+      SecureLogger.debug('✅ Session closed (model stays alive)');
 
       if (response.isEmpty) {
-        debugPrint('⚠️ Empty response from model');
+        SecureLogger.debug('⚠️ Empty response from model');
         return 'I hear you. I\'m here to listen.';
       }
 
       final responsePreview = response.length > 50
         ? response.substring(0, 50)
         : response;
-      debugPrint('✅ Response generated: "$responsePreview..."');
+      SecureLogger.silent('✅ Response generated: "$responsePreview..."');
       return response;
 
     } catch (e, stackTrace) {
-      debugPrint('❌ Response generation failed: $e');
-      debugPrint('❌ Stack trace: $stackTrace');
+      SecureLogger.redacted('❌ Response generation failed: $e');
+      SecureLogger.silent('❌ Stack trace: $stackTrace');
       return 'I hear you. I\'m here to support you. Could you tell me more?';
     }
     // NOTE: Session closes, but model STAYS ALIVE for next inference
@@ -144,12 +145,12 @@ Respond with empathy and support:''';
     if (_model != null) {
       try {
         await _model!.close();
-        debugPrint('📱 Model closed on app shutdown');
+        SecureLogger.debug('📱 Model closed on app shutdown');
       } catch (e) {
-        debugPrint('⚠️ Error closing model: $e');
+        SecureLogger.redacted('⚠️ Error closing model: $e');
       }
       _model = null;
     }
-    debugPrint('📱 GemmaService disposed');
+    SecureLogger.debug('📱 GemmaService disposed');
   }
 }

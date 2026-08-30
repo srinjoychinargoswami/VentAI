@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
@@ -9,6 +10,7 @@ import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 
 import 'services/hive_database.dart';
 import 'services/gemma_service.dart';
+import 'utils/secure_logger.dart';
 import 'providers/conversation_provider.dart';
 import 'providers/setup_state_provider.dart';
 import 'screens/app_setup_screen.dart';
@@ -58,7 +60,29 @@ Future<void> _initGemmaAI() async {
 }
 
 Future<void> main() async {
+  // Suppress ALL debug output in release builds
+  if (kReleaseMode) {
+    debugPrint = (String? message, {int? wrapWidth}) {
+      // No-op: suppress all debugPrint() calls in release
+      // This prevents conversation content and sensitive data from appearing in system logs
+    };
+  }
+
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Restrict keyboard input to system keyboard only (security)
+  try {
+    debugPrint('🔐 Restricting keyboard to system input method only...');
+    await SystemChannels.textInput.invokeMethod('TextInput.setClientHandler', null);
+    debugPrint('✅ Keyboard restricted to system input method');
+  } catch (e) {
+    debugPrint('⚠️ Keyboard restriction not fully supported on this platform: $e');
+  }
+
+  // Print storage paths in debug mode for diagnostics
+  if (kDebugMode) {
+    await HiveDatabase.printStoragePaths();
+  }
 
   // Initialize Hive FIRST - before everything else
   try {
@@ -69,6 +93,21 @@ Future<void> main() async {
     debugPrint('❌ Hive init failed: $e');
     // Don't crash - app can work without database
   }
+
+  // Handle app termination - cleanup temp files on exit
+  SystemChannels.lifecycle.setMessageHandler((msg) async {
+    if (msg?.contains('AppLifecycleState.detached') ?? false) {
+      debugPrint('🧹 App terminating - running cleanup...');
+      try {
+        await HiveDatabase.cleanupTempDirectory();
+        SecureLogger.debug('🧹 App termination cleanup complete');
+        debugPrint('✅ App termination cleanup complete');
+      } catch (e) {
+        debugPrint('⚠️ Termination cleanup error: $e');
+      }
+    }
+    return null;
+  });
 
   // Initialize Gemma for both mobile and desktop
   if (_isMobile) {
@@ -145,13 +184,13 @@ class _VentAiAppState extends State<VentAiApp> with WidgetsBindingObserver {
     try {
       final platformPrefix = _isMobile ? '📱' : '🖥️';
       debugPrint('$platformPrefix FORCING FRESH SETUP FOR TESTING...');
-      
+
       // Clear SharedPreferences
       final prefs = await SharedPreferences.getInstance();
       await prefs.clear();
-      
+
       debugPrint('$platformPrefix Setup data cleared');
-      
+
     } catch (e) {
       debugPrint('❌ Force reset error: $e');
     }
@@ -175,10 +214,12 @@ class _VentAiAppState extends State<VentAiApp> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     final platformPrefix = _isMobile ? '📱' : '🖥️';
-    
+
     switch (state) {
       case AppLifecycleState.detached:
         debugPrint('$platformPrefix App detached');
+        // Cleanup temporary files on app exit
+        HiveDatabase.cleanupTempDirectory();
         break;
         
       case AppLifecycleState.paused:

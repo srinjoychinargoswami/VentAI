@@ -10,6 +10,7 @@ import '../widgets/chat_sidebar.dart';
 import '../widgets/app_footer.dart';
 import '../providers/conversation_provider.dart';
 import '../providers/setup_state_provider.dart';
+import '../utils/secure_logger.dart';
 import 'legal_page.dart';
 import 'breathing_exercise_screen.dart';
 
@@ -58,22 +59,22 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _initializeAI() async {
     try {
       await GemmaService().initialize();
-      debugPrint('✅ GemmaService ready for chat');
+      SecureLogger.debug('✅ GemmaService ready for chat');
     } catch (e) {
-      debugPrint('❌ Failed to initialize GemmaService: $e');
+      SecureLogger.redacted('❌ Failed to initialize GemmaService: $e');
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    debugPrint('📱 Building ChatScreen');
+    SecureLogger.debug('📱 Building ChatScreen');
     final screenSize = MediaQuery.of(context).size;
-    debugPrint('Screen size: ${screenSize.width} x ${screenSize.height}');
+    SecureLogger.debug('Screen size: ${screenSize.width} x ${screenSize.height}');
 
     final provider = context.read<ConversationProvider>();
-    debugPrint('📊 ChatScreen Provider state:');
-    debugPrint('  - conversationSessions: ${provider.conversationSessions.length}');
-    debugPrint('  - activeConversationId: ${provider.activeConversationId}');
+    SecureLogger.silent('📊 ChatScreen Provider state:');
+    SecureLogger.silent('  - conversationSessions: ${provider.conversationSessions.length}');
+    SecureLogger.silent('  - activeConversationId: ${provider.activeConversationId}');
 
     // Determine if we should show sidebar (desktop layout)
     final showSidebar = _isDesktop || _isLargeScreen;
@@ -89,7 +90,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 onNewChat: () async {
                   await provider.createNewConversation();
                   setState(() {});
-                  debugPrint('✨ New conversation created');
+                  SecureLogger.debug('✨ New conversation created');
                 },
                 onClearAll: () => _showClearConversationsDialog(),
               ),
@@ -283,8 +284,8 @@ class _ChatScreenState extends State<ChatScreen> {
                   Expanded(
                     child: Consumer<ConversationProvider>(
                       builder: (context, provider, child) {
-                        debugPrint('📨 Active conversation: ${provider.activeConversation?.title}');
-                        debugPrint('📊 Messages count: ${provider.activeConversation?.messages.length ?? 0}');
+                        SecureLogger.silent('📨 Active conversation: ${provider.activeConversation?.title}');
+                        SecureLogger.silent('📊 Messages count: ${provider.activeConversation?.messages.length ?? 0}');
 
                   // Handle empty state and errors
                         if (provider.isLoading) {
@@ -331,7 +332,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
                         // Show active conversation's messages
                         final messages = provider.activeConversation?.messages ?? [];
-                        debugPrint('🎯 Rendering ${messages.length} messages from active conversation');
+                        SecureLogger.debug('🎯 Rendering ${messages.length} messages from active conversation');
 
                         if (messages.isEmpty && !_isWaitingForResponse) {
                           return Center(
@@ -708,7 +709,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
     // Ensure active conversation exists
     if (provider.activeConversationId == null) {
-      debugPrint('❌ No active conversation - creating new one');
+      SecureLogger.debug('❌ No active conversation - creating new one');
       await provider.createNewConversation();
     }
 
@@ -716,14 +717,14 @@ class _ChatScreenState extends State<ChatScreen> {
     if (_isWaitingForResponse) return;
 
     try {
-      debugPrint('📤 Sending message to active conversation: ${provider.activeConversation?.title}');
+      SecureLogger.silent('📤 Sending message to active conversation: ${provider.activeConversation?.title}');
 
       // Clear input immediately for better UX
       _messageController.clear();
 
       // Add user message to active conversation
       await provider.addMessageToSession('user', message);
-      debugPrint('✅ User message added');
+      SecureLogger.debug('✅ User message added');
 
       // Set loading state to show thinking bubble
       setState(() {
@@ -731,15 +732,15 @@ class _ChatScreenState extends State<ChatScreen> {
         _selectedMood = null;
       });
 
-      debugPrint('⏳ Showing thinking bubble - waiting for AI response...');
+      SecureLogger.debug('⏳ Showing thinking bubble - waiting for AI response...');
 
       // Generate AI response - this waits for the COMPLETE response
       final response = await GemmaService().generateEmotionalResponse(message);
-      debugPrint('✅ AI response received: ${response.length} chars');
+      SecureLogger.debug('✅ AI response received: ${response.length} chars');
 
       // Add AI response to active conversation
       await provider.addMessageToSession('assistant', response);
-      debugPrint('✅ AI message added to conversation');
+      SecureLogger.debug('✅ AI message added to conversation');
 
       // Hide thinking bubble and update UI
       setState(() {
@@ -750,7 +751,7 @@ class _ChatScreenState extends State<ChatScreen> {
       _scrollToBottom();
 
     } catch (e) {
-      debugPrint('❌ Error sending message: $e');
+      SecureLogger.redacted('❌ Error sending message: $e');
 
       // Restore message if there was an error
       _messageController.text = message;
@@ -1078,7 +1079,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                 await provider.createNewConversation();
                                 setState(() {});
                                 Navigator.pop(context);
-                                debugPrint('✨ New conversation created');
+                                SecureLogger.debug('✨ New conversation created');
                               },
                               icon: const Icon(Icons.add, size: 16),
                               label: const Text(

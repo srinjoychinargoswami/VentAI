@@ -45,5 +45,21 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSLocalizedDescription</key>
+	<string>VentAI - Emotional Support</string>
+	<key>UIFileSharingEnabled</key>
+	<false/>
+	<key>NSURLHomeDirectoryContentsExcludedFromBackup</key>
+	<array>
+		<string>Library/Application Support/com.ventai.app</string>
+		<string>Documents/com.ventai.app</string>
+		<string>tmp/flutter_gemma</string>
+	</array>
+	<key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>keyboard</string>
+	</array>
+	<key>NSLocalizedDescription</key>
+	<string>VentAI - Emotional Support. System keyboard only for security.</string>
 </dict>
 </plist>

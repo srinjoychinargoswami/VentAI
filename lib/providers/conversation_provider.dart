@@ -5,6 +5,7 @@ import '../services/hive_database.dart';
 import '../services/gemma_service.dart';
 import '../providers/setup_state_provider.dart';
 import '../models/conversation_model.dart';
+import '../utils/secure_logger.dart';
 
 class ConversationProvider extends ChangeNotifier {
   final SetupStateProvider? _setupStateProvider;
@@ -71,7 +72,7 @@ class ConversationProvider extends ChangeNotifier {
           final conversation = Conversation.fromJson(decoded);
           conversations.add(conversation);
         } catch (e) {
-          debugPrint('⚠️ Error converting conversation: $e');
+          SecureLogger.redacted('⚠️ Error converting conversation: $e');
           // Skip this conversation and continue
         }
       }
@@ -83,9 +84,9 @@ class ConversationProvider extends ChangeNotifier {
         _activeConversationId = _conversationSessions.first.id;
       }
 
-      debugPrint('💾 Loaded ${_conversationSessions.length} conversation sessions from Hive');
+      SecureLogger.debug('💾 Loaded ${_conversationSessions.length} conversation sessions from Hive');
     } catch (e) {
-      debugPrint('❌ Failed to load conversation sessions: $e');
+      SecureLogger.redacted('❌ Failed to load conversation sessions: $e');
       _lastErrorMessage = 'Failed to load conversations: $e';
     }
   }
@@ -105,9 +106,9 @@ class ConversationProvider extends ChangeNotifier {
 
       _rebuildContextFromConversations();
 
-      debugPrint('Loaded ${_conversations.length} conversations');
+      SecureLogger.debug('Loaded ${_conversations.length} conversations');
     } catch (e) {
-      debugPrint('Failed to load conversations: $e');
+      SecureLogger.redacted('Failed to load conversations: $e');
       _lastErrorMessage = 'Failed to load conversations: $e';
     } finally {
       _isLoading = false;
@@ -155,7 +156,7 @@ class ConversationProvider extends ChangeNotifier {
     Map<String, dynamic>? metadata,
   }) async {
     try {
-      debugPrint('Adding ${isUser ? 'user' : 'AI'} message...');
+      SecureLogger.debug('Adding ${isUser ? 'user' : 'AI'} message...');
 
       if (isUser) {
         await HiveDatabase.saveConversation(
@@ -183,9 +184,9 @@ class ConversationProvider extends ChangeNotifier {
 
       await _forceRefreshAndNotify();
 
-      debugPrint('Added message');
+      SecureLogger.debug('Added message');
     } catch (e) {
-      debugPrint('Failed to add message: $e');
+      SecureLogger.redacted('Failed to add message: $e');
       _lastErrorMessage = 'Failed to add message: $e';
       notifyListeners();
       rethrow;
@@ -200,9 +201,9 @@ class ConversationProvider extends ChangeNotifier {
       await _loadConversations();
       notifyListeners();
       
-      debugPrint('Force refresh completed');
+      SecureLogger.debug('Force refresh completed');
     } catch (e) {
-      debugPrint('Force refresh failed: $e');
+      SecureLogger.redacted('Force refresh failed: $e');
       notifyListeners();
     }
   }
@@ -227,7 +228,7 @@ class ConversationProvider extends ChangeNotifier {
         final context = _getConversationContext();
         if (context.isNotEmpty) {
           enhancedMessage = '$context\n\nUser: $userMessage';
-          debugPrint('Adding conversation context');
+          SecureLogger.silent('Adding conversation context');
         }
       }
 
@@ -239,7 +240,7 @@ class ConversationProvider extends ChangeNotifier {
         debugPrint('$platformPrefix Using Gemma AI');
         aiResponseData = await _generateGemmaAIResponse(enhancedMessage, mood);
       } catch (e) {
-        debugPrint('Gemma AI failed: $e - using fallback');
+        SecureLogger.redacted('Gemma AI failed: $e - using fallback');
         aiResponseData = await _generateFallbackResponse(userMessage, mood);
       }
 
@@ -250,6 +251,11 @@ class ConversationProvider extends ChangeNotifier {
       _addToContext(userMessage, aiResponse);
 
       // Insert conversation via Hive
+      debugPrint('📤 [MSG-DEBUG] About to call HiveDatabase.saveConversation()');
+      debugPrint('📤 [MSG-DEBUG] userMessage: ${userMessage.length} chars');
+      debugPrint('📤 [MSG-DEBUG] aiResponse: ${aiResponse.length} chars');
+      debugPrint('📤 [MSG-DEBUG] sessionId: $_currentSessionId');
+
       await HiveDatabase.saveConversation(
         userMessage: userMessage.trim(),
         aiResponse: aiResponse,
@@ -258,20 +264,24 @@ class ConversationProvider extends ChangeNotifier {
         isOffline: true,
       );
 
+      debugPrint('✅ [MSG-DEBUG] HiveDatabase.saveConversation() completed');
+
       await _forceRefreshAndNotify();
-      
-      debugPrint('Message sent and response generated');
+
+      SecureLogger.debug('Message sent and response generated');
 
     } catch (e) {
-      debugPrint('Failed to send message: $e');
+      SecureLogger.redacted('Failed to send message: $e');
       _lastErrorMessage = 'Failed to send message: $e';
       
       // Emergency fallback
       try {
+        debugPrint('⚠️ [EMERGENCY-DEBUG] Entering emergency fallback...');
         const fallbackResponse = 'I\'m experiencing technical difficulties right now, but I want you to know that your feelings are valid and important. Please try again in a moment.';
 
         _addToContext(userMessage, fallbackResponse);
 
+        debugPrint('⚠️ [EMERGENCY-DEBUG] Calling saveConversation() in emergency fallback...');
         await HiveDatabase.saveConversation(
           userMessage: userMessage.trim(),
           aiResponse: fallbackResponse,
@@ -280,10 +290,12 @@ class ConversationProvider extends ChangeNotifier {
           isOffline: true,
         );
 
+        debugPrint('✅ [EMERGENCY-DEBUG] Emergency response saved successfully');
         await _forceRefreshAndNotify();
-        debugPrint('Emergency response saved');
+        SecureLogger.debug('Emergency response saved');
       } catch (emergencyError) {
-        debugPrint('Emergency fallback failed: $emergencyError');
+        debugPrint('❌ [EMERGENCY-DEBUG] Emergency fallback failed: $emergencyError');
+        SecureLogger.redacted('Emergency fallback failed: $emergencyError');
       }
     } finally {
       _isSendingMessage = false;
@@ -463,10 +475,10 @@ What would feel most helpful for you right now?''';
       _conversations.clear();
       _recentMessages.clear();
       _recentResponses.clear();
-      debugPrint('Cleared all conversations');
+      SecureLogger.debug('Cleared all conversations');
       notifyListeners();
     } catch (e) {
-      debugPrint('Failed to clear conversations: $e');
+      SecureLogger.redacted('Failed to clear conversations: $e');
       _lastErrorMessage = 'Failed to clear conversations: $e';
       notifyListeners();
     }
@@ -476,7 +488,7 @@ What would feel most helpful for you right now?''';
     _currentSessionId = DateTime.now().millisecondsSinceEpoch.toString();
     _recentMessages.clear();
     _recentResponses.clear();
-    debugPrint('Started new session: $_currentSessionId');
+    SecureLogger.debug('Started new session: $_currentSessionId');
     notifyListeners();
   }
 
@@ -589,9 +601,9 @@ What would feel most helpful for you right now?''';
       );
 
       notifyListeners();
-      debugPrint('✅ New conversation created: ${newConversation.id}');
+      SecureLogger.debug('✅ New conversation created: ${newConversation.id}');
     } catch (e) {
-      debugPrint('❌ Error creating conversation: $e');
+      SecureLogger.redacted('❌ Error creating conversation: $e');
       rethrow;
     }
   }
@@ -601,7 +613,7 @@ What would feel most helpful for you right now?''';
     if (_conversationSessions.any((c) => c.id == conversationId)) {
       _activeConversationId = conversationId;
       notifyListeners();
-      debugPrint('🔄 Switched to conversation: $conversationId');
+      SecureLogger.debug('🔄 Switched to conversation: $conversationId');
     }
   }
 
@@ -644,10 +656,10 @@ What would feel most helpful for you right now?''';
         );
 
         notifyListeners();
-        debugPrint('💬 Message added to ${conversation.id}');
+        SecureLogger.debug('💬 Message added to ${conversation.id}');
       }
     } catch (e) {
-      debugPrint('❌ Error adding message to session: $e');
+      SecureLogger.redacted('❌ Error adding message to session: $e');
       rethrow;
     }
   }
@@ -699,10 +711,10 @@ What would feel most helpful for you right now?''';
         );
 
         notifyListeners();
-        debugPrint('🗑️ Message deleted: $messageId');
+        SecureLogger.debug('🗑️ Message deleted: $messageId');
       }
     } catch (e) {
-      debugPrint('❌ Error deleting message: $e');
+      SecureLogger.redacted('❌ Error deleting message: $e');
       rethrow;
     }
   }
@@ -726,14 +738,14 @@ What would feel most helpful for you right now?''';
       }
 
       notifyListeners();
-      debugPrint('✅ Conversation deleted: $conversationId');
+      SecureLogger.debug('✅ Conversation deleted: $conversationId');
     } catch (e) {
-      debugPrint('❌ Error deleting conversation: $e');
+      SecureLogger.redacted('❌ Error deleting conversation: $e');
       rethrow;
     }
 
     notifyListeners();
-    debugPrint('🗑️ Conversation deleted: $conversationId');
+    SecureLogger.debug('🗑️ Conversation deleted: $conversationId');
   }
 
   /// Delete ALL conversation sessions
@@ -742,7 +754,7 @@ What would feel most helpful for you right now?''';
     _activeConversationId = null;
     createNewConversation();
     notifyListeners();
-    debugPrint('🗑️ All conversation sessions cleared from memory');
+    SecureLogger.debug('🗑️ All conversation sessions cleared from memory');
   }
 
   /// Completely clear all conversations (memory + Hive)
@@ -759,9 +771,9 @@ What would feel most helpful for you right now?''';
       _recentResponses.clear();
 
       notifyListeners();
-      debugPrint('✅ All conversations completely cleared from Hive + Memory');
+      SecureLogger.debug('✅ All conversations completely cleared from Hive + Memory');
     } catch (e) {
-      debugPrint('❌ Error clearing conversations: $e');
+      SecureLogger.redacted('❌ Error clearing conversations: $e');
       _lastErrorMessage = 'Failed to clear conversations: $e';
       notifyListeners();
       rethrow;
@@ -774,13 +786,13 @@ What would feel most helpful for you right now?''';
     if (index >= 0) {
       _conversationSessions[index] = _conversationSessions[index].copyWith(title: newTitle);
       notifyListeners();
-      debugPrint('✏️ Conversation renamed: $newTitle');
+      SecureLogger.silent('✏️ Conversation renamed: $newTitle');
     }
   }
 
   @override
   void notifyListeners() {
-    debugPrint('ConversationProvider: Notifying (${_conversations.length} conversations, ${_conversationSessions.length} sessions)');
+    SecureLogger.debug('ConversationProvider: Notifying (${_conversations.length} conversations, ${_conversationSessions.length} sessions)');
     super.notifyListeners();
   }
 }

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:vent_ai/models/conversation_model.dart';
 import '../theme/app_colors.dart';
 import '../providers/conversation_provider.dart';
@@ -444,17 +443,6 @@ class EmpathyChatWidget extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              ListTile(
-                leading: const Icon(Icons.copy),
-                title: const Text('Copy message'),
-                onTap: () {
-                  Clipboard.setData(ClipboardData(text: message));
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Message copied to clipboard')),
-                  );
-                },
-              ),
               if (!isUserMessage) ...[
                 ListTile(
                   leading: const Icon(Icons.thumb_up_outlined),

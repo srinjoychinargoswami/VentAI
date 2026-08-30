@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <!-- Prevent cleartext traffic to critical domains - HTTPS only -->
+    <domain-config cleartextTrafficPermitted="false">
+        <!-- Google Cloud/One Backup -->
+        <domain includeSubdomains="true">*.googleapis.com</domain>
+        <domain includeSubdomains="true">google.com</domain>
+
+        <!-- Model downloads from HuggingFace -->
+        <domain includeSubdomains="true">huggingface.co</domain>
+
+        <!-- Backend API (if used) -->
+        <domain includeSubdomains="true">render.com</domain>
+    </domain-config>
+
+    <!-- Exclude sensitive app data from backup -->
+    <cloud-backup excludeNested="true">
+        <!-- Exclude entire app data directory from cloud backup -->
+        <exclude domain="file" path="." />
+    </cloud-backup>
+
+    <!-- Device-to-device transfer exclusions -->
+    <device-transfer excludeNested="true">
+        <!-- Exclude sensitive data from device-to-device migration -->
+        <exclude domain="file" path="." />
+    </device-transfer>
+</data-extraction-rules>

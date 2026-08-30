@@ -228,7 +228,7 @@ class _ChatSidebarState extends State<ChatSidebar> {
                 ),
                 SizedBox(height: 4),
                 Text(
-                  '100% on-device, fully encrypted',
+                  '100% on-device. Encrypted at rest with AES-256.',
                   style: TextStyle(
                     fontSize: 10,
                     color: AppColors.textTertiary,
