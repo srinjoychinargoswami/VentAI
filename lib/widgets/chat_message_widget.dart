@@ -1,18 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:vent_ai/themes/app_colors.dart';
 import 'chat_message_options.dart';
+import 'private_message.dart';
 
 class ChatMessageWidget extends StatefulWidget {
   final String content;
   final bool isUserMessage;
   final VoidCallback onRegenerate;
   final VoidCallback onDelete;
+  final bool isPrivacyMode;
 
   const ChatMessageWidget({
     required this.content,
     required this.isUserMessage,
     required this.onRegenerate,
     required this.onDelete,
+    this.isPrivacyMode = false,
   });
 
   @override
@@ -53,41 +56,44 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
                     ? CrossAxisAlignment.end
                     : CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: widget.isUserMessage
-                          ? AppColors.userMessage
-                          : AppColors.aiMessage,
-                      borderRadius: widget.isUserMessage
-                          ? const BorderRadius.only(
-                              topLeft: Radius.circular(24),
-                              topRight: Radius.circular(24),
-                              bottomRight: Radius.circular(0),
-                              bottomLeft: Radius.circular(24),
-                            )
-                          : const BorderRadius.only(
-                              topLeft: Radius.circular(0),
-                              topRight: Radius.circular(24),
-                              bottomRight: Radius.circular(24),
-                              bottomLeft: Radius.circular(24),
-                            ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.overlay.withOpacity(0.1),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Text(
-                      widget.content,
-                      style: TextStyle(
+                  PrivateMessage(
+                    isPrivacy: widget.isPrivacyMode,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
                         color: widget.isUserMessage
-                            ? AppColors.textPrimary
-                            : AppColors.aiText,
-                        fontSize: 16,
-                        height: 1.5,
+                            ? AppColors.userMessage
+                            : AppColors.aiMessage,
+                        borderRadius: widget.isUserMessage
+                            ? const BorderRadius.only(
+                                topLeft: Radius.circular(24),
+                                topRight: Radius.circular(24),
+                                bottomRight: Radius.circular(0),
+                                bottomLeft: Radius.circular(24),
+                              )
+                            : const BorderRadius.only(
+                                topLeft: Radius.circular(0),
+                                topRight: Radius.circular(24),
+                                bottomRight: Radius.circular(24),
+                                bottomLeft: Radius.circular(24),
+                              ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.overlay.withOpacity(0.1),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Text(
+                        widget.content,
+                        style: TextStyle(
+                          color: widget.isUserMessage
+                              ? AppColors.textPrimary
+                              : AppColors.aiText,
+                          fontSize: 16,
+                          height: 1.5,
+                        ),
                       ),
                     ),
                   ),

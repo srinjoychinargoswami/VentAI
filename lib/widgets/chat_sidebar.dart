@@ -3,15 +3,18 @@ import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
 import '../providers/conversation_provider.dart';
 import '../models/conversation_model.dart';
+import 'private_message.dart';
 
 class ChatSidebar extends StatefulWidget {
   final VoidCallback onNewChat;
   final VoidCallback onClearAll;
+  final bool isPrivacyMode;
 
   const ChatSidebar({
     Key? key,
     required this.onNewChat,
     required this.onClearAll,
+    this.isPrivacyMode = false,
   }) : super(key: key);
 
   @override
@@ -123,22 +126,28 @@ class _ChatSidebarState extends State<ChatSidebar> {
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Text(
-                                          conversation.title,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
-                                            color: isActive ? AppColors.primary : AppColors.textPrimary,
+                                        PrivateMessage(
+                                          isPrivacy: widget.isPrivacyMode && !isHovered,
+                                          child: Text(
+                                            conversation.title,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                                              color: isActive ? AppColors.primary : AppColors.textPrimary,
+                                            ),
                                           ),
                                         ),
                                         const SizedBox(height: 2),
-                                        Text(
-                                          '${conversation.messages.length} messages',
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(fontSize: 11, color: AppColors.textTertiary),
+                                        PrivateMessage(
+                                          isPrivacy: widget.isPrivacyMode && !isHovered,
+                                          child: Text(
+                                            '${conversation.messages.length} messages',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(fontSize: 11, color: AppColors.textTertiary),
+                                          ),
                                         ),
                                       ],
                                     ),

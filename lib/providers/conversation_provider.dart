@@ -25,6 +25,9 @@ class ConversationProvider extends ChangeNotifier {
   final int _maxContextMessages = 3;
   String? _currentSessionId;
 
+  // Privacy mode
+  bool _isPrivacyMode = false;
+
   // Platform detection
   bool get _isMobile => Platform.isAndroid || Platform.isIOS;
   bool get _isDesktop => Platform.isWindows || Platform.isMacOS || Platform.isLinux;
@@ -49,6 +52,9 @@ class ConversationProvider extends ChangeNotifier {
   // Multi-conversation getters
   List<Conversation> get conversationSessions => _conversationSessions;
   String? get activeConversationId => _activeConversationId;
+
+  // Privacy mode getters
+  bool get isPrivacyMode => _isPrivacyMode;
 
   Conversation? get activeConversation =>
     _activeConversationId != null
@@ -580,6 +586,13 @@ What would feel most helpful for you right now?''';
 
   void clearError() {
     _lastErrorMessage = '';
+    notifyListeners();
+  }
+
+  // ===== Privacy Mode =====
+
+  void togglePrivacyMode() {
+    _isPrivacyMode = !_isPrivacyMode;
     notifyListeners();
   }
 

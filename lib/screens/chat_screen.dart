@@ -8,6 +8,7 @@ import '../widgets/mood_selector.dart';
 import '../widgets/chat_message_widget.dart';
 import '../widgets/chat_sidebar.dart';
 import '../widgets/app_footer.dart';
+import '../widgets/private_message.dart';
 import '../providers/conversation_provider.dart';
 import '../providers/setup_state_provider.dart';
 import '../utils/secure_logger.dart';
@@ -86,13 +87,18 @@ class _ChatScreenState extends State<ChatScreen> {
           children: [
             // Sidebar (shown on desktop/tablet with toggle)
             if (showSidebar && _sidebarVisible)
-              ChatSidebar(
-                onNewChat: () async {
-                  await provider.createNewConversation();
-                  setState(() {});
-                  SecureLogger.debug('✨ New conversation created');
+              Consumer<ConversationProvider>(
+                builder: (context, privacyProvider, _) {
+                  return ChatSidebar(
+                    onNewChat: () async {
+                      await provider.createNewConversation();
+                      setState(() {});
+                      SecureLogger.debug('✨ New conversation created');
+                    },
+                    onClearAll: () => _showClearConversationsDialog(),
+                    isPrivacyMode: privacyProvider.isPrivacyMode,
+                  );
                 },
-                onClearAll: () => _showClearConversationsDialog(),
               ),
 
             // Main chat area
@@ -179,12 +185,15 @@ class _ChatScreenState extends State<ChatScreen> {
                                 child: Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Text(
-                                      provider.activeConversation?.title ?? 'VentAI',
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w500,
-                                        color: AppColors.textPrimary,
+                                    PrivateMessage(
+                                      isPrivacy: provider.isPrivacyMode,
+                                      child: Text(
+                                        provider.activeConversation?.title ?? 'VentAI',
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w500,
+                                          color: AppColors.textPrimary,
+                                        ),
                                       ),
                                     ),
                                     Consumer<SetupStateProvider>(
@@ -230,6 +239,34 @@ class _ChatScreenState extends State<ChatScreen> {
                                     );
                                   },
                                   tooltip: 'Calm Breathing Exercise (4-7-8)',
+                                ),
+
+                                // 👁️ Privacy Mode button
+                                Container(
+                                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                                  decoration: BoxDecoration(
+                                    color: provider.isPrivacyMode
+                                      ? const Color(0xFFFEF3C7)
+                                      : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: IconButton(
+                                    icon: Text(
+                                      provider.isPrivacyMode ? '👁️‍🗨️' : '👁️',
+                                      style: TextStyle(
+                                        fontSize: 20,
+                                        color: provider.isPrivacyMode
+                                          ? const Color(0xFF92400E)
+                                          : const Color(0xFF666666),
+                                      ),
+                                    ),
+                                    onPressed: () {
+                                      provider.togglePrivacyMode();
+                                    },
+                                    tooltip: provider.isPrivacyMode
+                                      ? "Privacy Mode ON (Text hidden)"
+                                      : "Enable Privacy Mode",
+                                  ),
                                 ),
 
                                 // ℹ️ Info button
@@ -536,6 +573,7 @@ class _ChatScreenState extends State<ChatScreen> {
                               onDelete: () async {
                                 await provider.deleteMessageFromSession(message.id);
                               },
+                              isPrivacyMode: provider.isPrivacyMode,
                             );
                             },
                           ),
