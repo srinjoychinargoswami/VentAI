@@ -57,12 +57,14 @@ class ChatMessage {
   final String role; // 'user' or 'assistant'
   final String content;
   final DateTime timestamp;
+  final String? mood;
 
   ChatMessage({
     String? id,
     required this.role,
     required this.content,
     DateTime? timestamp,
+    this.mood,
   })  : id = id ?? const Uuid().v4(),
         timestamp = timestamp ?? DateTime.now();
 
@@ -71,12 +73,14 @@ class ChatMessage {
     String? role,
     String? content,
     DateTime? timestamp,
+    String? mood,
   }) {
     return ChatMessage(
       id: id ?? this.id,
       role: role ?? this.role,
       content: content ?? this.content,
       timestamp: timestamp ?? this.timestamp,
+      mood: mood ?? this.mood,
     );
   }
 
@@ -85,6 +89,7 @@ class ChatMessage {
     'role': role,
     'content': content,
     'timestamp': timestamp.toIso8601String(),
+    'mood': mood,
   };
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) => ChatMessage(
@@ -92,5 +97,6 @@ class ChatMessage {
     role: json['role'],
     content: json['content'],
     timestamp: DateTime.parse(json['timestamp']),
+    mood: json['mood'] as String?,
   );
 }

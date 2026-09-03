@@ -50,8 +50,8 @@ class GemmaService {
 
   /// Generate empathetic response using persistent singleton model
   /// Model stays alive throughout entire app lifecycle
-  Future<String> generateEmotionalResponse(String userMessage) async {
-    SecureLogger.debug('🔵 generateEmotionalResponse called');
+  Future<String> generateEmotionalResponse(String userMessage, {String? mood}) async {
+    SecureLogger.debug('🔵 generateEmotionalResponse called (mood: $mood)');
 
     if (_model == null) {
       throw StateError('Model not initialized. Call initialize() first');
@@ -60,7 +60,12 @@ class GemmaService {
     final messagePreview = userMessage.length > 50
       ? userMessage.substring(0, 50)
       : userMessage;
-    SecureLogger.silent('📱 Generating response for: "$messagePreview..."');
+    SecureLogger.silent('📱 Generating response for: "$messagePreview..." (mood: $mood)');
+
+    // Build mood context for the prompt
+    final moodContext = mood != null && mood.isNotEmpty
+      ? 'User\'s current emotional state: $mood.\n\n'
+      : '';
 
     final prompt = '''You are Vent AI, a compassionate emotional support companion.
 Your role is to listen with empathy and provide supportive responses.
@@ -103,7 +108,7 @@ For USA, use: 988 (Suicide & Crisis Lifeline), 741741 (Crisis Text Line), 911
 For other countries: Respond with local emergency numbers (usually 911, 112, or 999) and search suggestion.
 If unknown country, respond: "Search [country name] + crisis hotline or suicide prevention hotline for local resources. Emergency number is usually 911, 112, or 999."
 
-User message: "$userMessage"
+${moodContext}User message: "$userMessage"
 
 Respond with empathy and support:''';
 

@@ -316,7 +316,7 @@ class ConversationProvider extends ChangeNotifier {
       debugPrint('$platformPrefix Generating Gemma AI response...');
 
       // Use GemmaService directly (singleton, already initialized)
-      final response = await GemmaService().generateEmotionalResponse(message);
+      final response = await GemmaService().generateEmotionalResponse(message, mood: mood);
 
       if (response.isNotEmpty) {
         final source = _isMobile ? 'gemma_mobile' : 'gemma_desktop';
@@ -631,7 +631,7 @@ What would feel most helpful for you right now?''';
   }
 
   /// Add message to active conversation session and save to Hive
-  Future<void> addMessageToSession(String role, String content) async {
+  Future<void> addMessageToSession(String role, String content, {String? mood}) async {
     try {
       if (_activeConversationId == null) {
         await createNewConversation();
@@ -646,6 +646,7 @@ What would feel most helpful for you right now?''';
         final newMessage = ChatMessage(
           role: role,
           content: content,
+          mood: mood,
         );
 
         // Auto-generate title from first user message

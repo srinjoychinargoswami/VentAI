@@ -760,9 +760,12 @@ class _ChatScreenState extends State<ChatScreen> {
       // Clear input immediately for better UX
       _messageController.clear();
 
-      // Add user message to active conversation
-      await provider.addMessageToSession('user', message);
-      SecureLogger.debug('✅ User message added');
+      // Capture mood before clearing it
+      final messageMood = _selectedMood;
+
+      // Add user message to active conversation with mood
+      await provider.addMessageToSession('user', message, mood: messageMood);
+      SecureLogger.debug('✅ User message added with mood: $messageMood');
 
       // Set loading state to show thinking bubble
       setState(() {
@@ -772,8 +775,8 @@ class _ChatScreenState extends State<ChatScreen> {
 
       SecureLogger.debug('⏳ Showing thinking bubble - waiting for AI response...');
 
-      // Generate AI response - this waits for the COMPLETE response
-      final response = await GemmaService().generateEmotionalResponse(message);
+      // Generate AI response - this waits for the COMPLETE response (mood-aware)
+      final response = await GemmaService().generateEmotionalResponse(message, mood: messageMood);
       SecureLogger.debug('✅ AI response received: ${response.length} chars');
 
       // Add AI response to active conversation
