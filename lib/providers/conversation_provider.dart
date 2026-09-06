@@ -27,6 +27,7 @@ class ConversationProvider extends ChangeNotifier {
 
   // Privacy mode
   bool _isPrivacyMode = false;
+  String? _revealedPrivacyItemId;  // Tracks which item is currently revealed
 
   // Platform detection
   bool get _isMobile => Platform.isAndroid || Platform.isIOS;
@@ -55,6 +56,7 @@ class ConversationProvider extends ChangeNotifier {
 
   // Privacy mode getters
   bool get isPrivacyMode => _isPrivacyMode;
+  String? get revealedPrivacyItemId => _revealedPrivacyItemId;
 
   Conversation? get activeConversation =>
     _activeConversationId != null
@@ -593,6 +595,19 @@ What would feel most helpful for you right now?''';
 
   void togglePrivacyMode() {
     _isPrivacyMode = !_isPrivacyMode;
+    _revealedPrivacyItemId = null;  // Clear revealed item when toggling privacy mode
+    notifyListeners();
+  }
+
+  /// Toggle the revealed state of a privacy item (only one can be revealed at a time)
+  void togglePrivacyItemReveal(String itemId) {
+    if (_revealedPrivacyItemId == itemId) {
+      // Same item tapped: hide it
+      _revealedPrivacyItemId = null;
+    } else {
+      // Different item tapped: reveal the new one (closes the previous)
+      _revealedPrivacyItemId = itemId;
+    }
     notifyListeners();
   }
 

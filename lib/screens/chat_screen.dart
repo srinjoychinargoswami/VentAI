@@ -30,6 +30,7 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _sidebarVisible = true;
 
   // Platform detection
+  bool get _isMobile => !kIsWeb && (Platform.isAndroid || Platform.isIOS);
   bool get _isDesktop => !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
   bool get _isLargeScreen => MediaQuery.of(context).size.width >= 600;
   
@@ -129,9 +130,11 @@ class _ChatScreenState extends State<ChatScreen> {
                               IconButton(
                                 icon: Icon(
                                   _sidebarVisible ? Icons.chevron_left : Icons.menu,
-                                  size: 24,
+                                  size: _isMobile ? 18 : 24,
                                   color: AppColors.primary,
                                 ),
+                                iconSize: _isMobile ? 18 : 24,
+                                padding: EdgeInsets.symmetric(horizontal: _isMobile ? 4 : 8),
                                 onPressed: () {
                                   setState(() {
                                     _sidebarVisible = !_sidebarVisible;
@@ -145,7 +148,9 @@ class _ChatScreenState extends State<ChatScreen> {
                                   return IconButton(
                                     icon: Stack(
                                       children: [
-                                        const Icon(Icons.menu, color: AppColors.primary),
+                                        Icon(Icons.menu,
+                                          size: _isMobile ? 18 : 24,
+                                          color: AppColors.primary),
                                         if (provider.conversationSessions.length > 1)
                                           Positioned(
                                             right: 0,
@@ -173,48 +178,28 @@ class _ChatScreenState extends State<ChatScreen> {
                                           ),
                                       ],
                                     ),
+                                    iconSize: _isMobile ? 18 : 24,
+                                    padding: EdgeInsets.symmetric(horizontal: _isMobile ? 4 : 8),
                                     onPressed: () => _showConversationDrawer(),
                                     tooltip: 'View conversations',
                                   );
                                 },
                               ),
 
-                            // CENTER: Title and status
+                            // CENTER: Title (centered, sized for mobile)
                             Expanded(
                               child: Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    PrivateMessage(
-                                      isPrivacy: provider.isPrivacyMode,
-                                      child: Text(
-                                        provider.activeConversation?.title ?? 'VentAI',
-                                        style: const TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w500,
-                                          color: AppColors.textPrimary,
-                                        ),
-                                      ),
+                                child: PrivateMessage(
+                                  isPrivacy: provider.isPrivacyMode,
+                                  itemId: 'chat-title',  // Unique ID for title
+                                  child: Text(
+                                    provider.activeConversation?.title ?? 'VentAI',
+                                    style: TextStyle(
+                                      fontSize: _isMobile ? 18 : 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textPrimary,
                                     ),
-                                    Consumer<SetupStateProvider>(
-                                      builder: (context, setupProvider, child) {
-                                        final isAdvancedAI = setupProvider.hasAdvancedAI;
-                                        final statusText = isAdvancedAI
-                                          ? 'AI Ready • Privacy Protected'
-                                          : 'Offline Mode • Data Stays Local';
-                                        final statusColor = isAdvancedAI ? AppColors.success : AppColors.primary;
-
-                                        return Text(
-                                          statusText,
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            color: statusColor,
-                                            fontWeight: FontWeight.normal,
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  ],
+                                  ),
                                 ),
                               ),
                             ),
@@ -228,10 +213,12 @@ class _ChatScreenState extends State<ChatScreen> {
                                   icon: Text(
                                     '🧘',
                                     style: TextStyle(
-                                      fontSize: 20,
+                                      fontSize: _isMobile ? 16 : 20,
                                       color: AppColors.primary,
                                     ),
                                   ),
+                                  iconSize: _isMobile ? 16 : 20,
+                                  padding: EdgeInsets.symmetric(horizontal: _isMobile ? 4 : 8),
                                   onPressed: () {
                                     showDialog(
                                       context: context,
@@ -243,7 +230,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
                                 // 👁️ Privacy Mode button
                                 Container(
-                                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                                  margin: EdgeInsets.symmetric(horizontal: _isMobile ? 2 : 4),
                                   decoration: BoxDecoration(
                                     color: provider.isPrivacyMode
                                       ? const Color(0xFFFEF3C7)
@@ -254,12 +241,14 @@ class _ChatScreenState extends State<ChatScreen> {
                                     icon: Text(
                                       provider.isPrivacyMode ? '👁️‍🗨️' : '👁️',
                                       style: TextStyle(
-                                        fontSize: 20,
+                                        fontSize: _isMobile ? 16 : 20,
                                         color: provider.isPrivacyMode
                                           ? const Color(0xFF92400E)
                                           : const Color(0xFF666666),
                                       ),
                                     ),
+                                    iconSize: _isMobile ? 16 : 20,
+                                    padding: EdgeInsets.symmetric(horizontal: _isMobile ? 4 : 8),
                                     onPressed: () {
                                       provider.togglePrivacyMode();
                                     },
@@ -274,10 +263,12 @@ class _ChatScreenState extends State<ChatScreen> {
                                   icon: Text(
                                     'ℹ️',
                                     style: TextStyle(
-                                      fontSize: 20,
+                                      fontSize: _isMobile ? 16 : 20,
                                       color: AppColors.primary,
                                     ),
                                   ),
+                                  iconSize: _isMobile ? 16 : 20,
+                                  padding: EdgeInsets.symmetric(horizontal: _isMobile ? 4 : 8),
                                   onPressed: () {
                                     Navigator.push(
                                       context,
@@ -294,10 +285,12 @@ class _ChatScreenState extends State<ChatScreen> {
                                   icon: Text(
                                     '🚨',
                                     style: TextStyle(
-                                      fontSize: 24,
+                                      fontSize: _isMobile ? 18 : 24,
                                       color: AppColors.error,
                                     ),
                                   ),
+                                  iconSize: _isMobile ? 18 : 24,
+                                  padding: EdgeInsets.symmetric(horizontal: _isMobile ? 4 : 8),
                                   onPressed: () => _showCrisisResourcesDialog(),
                                   tooltip: 'Crisis Resources & Help',
                                 ),
@@ -306,6 +299,8 @@ class _ChatScreenState extends State<ChatScreen> {
                                 if (!showSidebar)
                                   IconButton(
                                     icon: const Icon(Icons.delete_outline, color: AppColors.error),
+                                    iconSize: _isMobile ? 18 : 24,
+                                    padding: EdgeInsets.symmetric(horizontal: _isMobile ? 4 : 8),
                                     onPressed: () => _showClearConversationsDialog(),
                                     tooltip: 'Clear all conversations',
                                   ),
@@ -600,9 +595,12 @@ class _ChatScreenState extends State<ChatScreen> {
     return Consumer<ConversationProvider>(
       builder: (context, provider, child) {
         final isSending = provider.isSendingMessage;
+        final topPadding = _isMobile ? 6 : 16;
+        final horizontalPadding = _isMobile ? 6 : 20;
+        final bottomPadding = _isMobile ? 6 : 20;
 
         return Container(
-          padding: const EdgeInsets.only(top: 16, left: 20, right: 20, bottom: 20),
+          padding: EdgeInsets.only(top: topPadding.toDouble(), left: horizontalPadding.toDouble(), right: horizontalPadding.toDouble(), bottom: bottomPadding.toDouble()),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.bottomCenter,
@@ -635,18 +633,19 @@ class _ChatScreenState extends State<ChatScreen> {
                     child: LinearProgressIndicator(minHeight: 2),
                   ),
 
-                // Mood selector
+                // Mood selector (smaller on mobile)
                 Padding(
-                  padding: const EdgeInsets.only(left: 8, right: 8, top: 8, bottom: 8),
+                  padding: EdgeInsets.only(left: 6, right: 6, top: _isMobile ? 2 : 8, bottom: _isMobile ? 2 : 8),
                   child: MoodSelector(
                     selectedMood: _selectedMood,
                     onMoodSelected: (mood) => setState(() => _selectedMood = mood),
+                    isMobile: _isMobile,
                   ),
                 ),
 
-                // Text input
+                // Text input (2 lines max on mobile for compactness)
                 Padding(
-                  padding: const EdgeInsets.only(left: 16, right: 16, top: 12),
+                  padding: EdgeInsets.only(left: 10, right: 10, top: _isMobile ? 2 : 12),
                   child: TextField(
                     controller: _messageController,
                     decoration: InputDecoration(
@@ -661,23 +660,23 @@ class _ChatScreenState extends State<ChatScreen> {
                       isDense: true,
                     ),
                     minLines: 1,
-                    maxLines: 6,
+                    maxLines: _isMobile ? 2 : 6,
                     maxLength: 4000,
                     textCapitalization: TextCapitalization.sentences,
                     enabled: !isSending,
                     onChanged: (value) => setState(() {}),
                     onSubmitted: (_) => _sendMessage(),
-                    style: const TextStyle(
-                      fontSize: 16,
+                    style: TextStyle(
+                      fontSize: _isMobile ? 12 : 16,
                       color: AppColors.textPrimary,
-                      height: 1.5,
+                      height: 1.2,
                     ),
                   ),
                 ),
 
                 // Bottom action area (character count + send button)
                 Padding(
-                  padding: const EdgeInsets.only(left: 16, right: 16, top: 8, bottom: 12),
+                  padding: EdgeInsets.only(left: 10, right: 10, top: _isMobile ? 2 : 8, bottom: _isMobile ? 4 : 12),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -686,17 +685,17 @@ class _ChatScreenState extends State<ChatScreen> {
                         Text(
                           '${_messageController.text.length}/4000',
                           style: const TextStyle(
-                            fontSize: 12,
+                            fontSize: 9,
                             color: AppColors.textTertiary,
                           ),
                         )
                       else
                         const SizedBox(width: 0),
 
-                      // Send button
+                      // Send button (smaller on mobile)
                       Container(
-                        width: 40,
-                        height: 40,
+                        width: _isMobile ? 28 : 40,
+                        height: _isMobile ? 28 : 40,
                         decoration: const BoxDecoration(
                           color: AppColors.primary,
                           shape: BoxShape.circle,
@@ -709,8 +708,8 @@ class _ChatScreenState extends State<ChatScreen> {
                             child: Center(
                               child: isSending
                                   ? SizedBox(
-                                      width: 20,
-                                      height: 20,
+                                      width: 14,
+                                      height: 14,
                                       child: CircularProgressIndicator(
                                         strokeWidth: 2,
                                         valueColor: AlwaysStoppedAnimation(
@@ -718,9 +717,9 @@ class _ChatScreenState extends State<ChatScreen> {
                                         ),
                                       ),
                                     )
-                                  : const Icon(
+                                  : Icon(
                                       Icons.send,
-                                      size: 20,
+                                      size: _isMobile ? 12 : 20,
                                       color: AppColors.textOnPrimary,
                                     ),
                             ),
