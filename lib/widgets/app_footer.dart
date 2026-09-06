@@ -1,9 +1,13 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../theme/app_colors.dart';
 
 class AppFooter extends StatelessWidget {
   const AppFooter({super.key});
+
+  bool get _isMobile => !kIsWeb && (Platform.isAndroid || Platform.isIOS);
 
   Future<void> _openUrl(String url) async {
     final uri = Uri.parse(url);
@@ -14,6 +18,14 @@ class AppFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final verticalPadding = _isMobile ? 8.0 : 16.0;
+    final disclaimerFontSize = _isMobile ? 10.0 : 12.0;
+    final disclaimerHeight = _isMobile ? 1.2 : 1.5;
+    final copyrightHeight = _isMobile ? 1.1 : 1.4;
+    final linksFontSize = _isMobile ? 10.0 : 12.0;
+    final gapHeight = _isMobile ? 6.0 : 12.0;
+    final midGapHeight = _isMobile ? 4.0 : 16.0;
+
     return Container(
       decoration: BoxDecoration(
         color: AppColors.background,
@@ -24,57 +36,57 @@ class AppFooter extends StatelessWidget {
           ),
         ),
       ),
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+      padding: EdgeInsets.symmetric(vertical: verticalPadding, horizontal: 12),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           // Disclaimer section
-          const Text(
+          Text(
             'Vent AI is not a substitute for professional mental health care.\n100% on-device • Fully private • No data stored',
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 12,
+              fontSize: disclaimerFontSize,
               color: AppColors.textTertiary,
-              height: 1.5,
+              height: disclaimerHeight,
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: midGapHeight),
 
           // Copyright section
-          const Text(
+          Text(
             '© 2024-2026 Srinjoy Goswami & Resolveera\nLicensed under GNU Affero General Public License v3.0',
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 12,
+              fontSize: disclaimerFontSize,
               color: AppColors.textTertiary,
-              height: 1.4,
+              height: copyrightHeight,
             ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: gapHeight),
 
           // Links section
           Wrap(
             alignment: WrapAlignment.center,
-            spacing: 8,
+            spacing: _isMobile ? 4 : 8,
             children: [
               // Privacy Policy link
               GestureDetector(
                 onTap: () {
                   Navigator.of(context).pushNamed('/legal', arguments: 'privacy');
                 },
-                child: const Text(
+                child: Text(
                   'Privacy Policy',
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: linksFontSize,
                     color: AppColors.primary,
                     decoration: TextDecoration.none,
                   ),
                 ),
               ),
 
-              const Text(
+              Text(
                 '•',
-                style: TextStyle(color: AppColors.textTertiary),
+                style: TextStyle(color: AppColors.textTertiary, fontSize: linksFontSize),
               ),
 
               // Disclaimers link
@@ -82,28 +94,28 @@ class AppFooter extends StatelessWidget {
                 onTap: () {
                   Navigator.of(context).pushNamed('/legal', arguments: 'disclaimers');
                 },
-                child: const Text(
+                child: Text(
                   'Disclaimers',
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: linksFontSize,
                     color: AppColors.primary,
                     decoration: TextDecoration.none,
                   ),
                 ),
               ),
 
-              const Text(
+              Text(
                 '•',
-                style: TextStyle(color: AppColors.textTertiary),
+                style: TextStyle(color: AppColors.textTertiary, fontSize: linksFontSize),
               ),
 
               // AGPL link (external)
               GestureDetector(
                 onTap: () => _openUrl('https://www.gnu.org/licenses/agpl-3.0.en.html'),
-                child: const Text(
+                child: Text(
                   'AGPL v3.0',
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: linksFontSize,
                     color: AppColors.primary,
                     decoration: TextDecoration.none,
                   ),

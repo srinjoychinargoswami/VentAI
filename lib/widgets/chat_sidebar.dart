@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
@@ -24,6 +26,8 @@ class ChatSidebar extends StatefulWidget {
 class _ChatSidebarState extends State<ChatSidebar> {
   String? _hoveredConversationId;
 
+  bool get _isMobile => !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -41,7 +45,7 @@ class _ChatSidebarState extends State<ChatSidebar> {
       child: Column(
         mainAxisSize: MainAxisSize.max,
         children: [
-          // ✅ HEADER: New Chat Button - NO TOP PADDING
+          // ✅ HEADER: New Chat Button - SMALLER ON MOBILE
           Padding(
             padding: const EdgeInsets.only(left: 12, right: 12, top: 0, bottom: 12),
             child: ElevatedButton(
@@ -49,21 +53,30 @@ class _ChatSidebarState extends State<ChatSidebar> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: AppColors.textOnPrimary,
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                padding: EdgeInsets.symmetric(
+                  vertical: _isMobile ? 8 : 12,
+                  horizontal: _isMobile ? 12 : 16,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
                     '+ ',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontSize: _isMobile ? 14 : 18,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   Text(
                     'New Chat',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                    style: TextStyle(
+                      fontSize: _isMobile ? 12 : 14,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ],
               ),
@@ -91,6 +104,9 @@ class _ChatSidebarState extends State<ChatSidebar> {
           Expanded(
             child: Consumer<ConversationProvider>(
               builder: (context, provider, _) {
+                // Use provider privacy state directly for mobile reliability
+                final privacyMode = _isMobile ? provider.isPrivacyMode : widget.isPrivacyMode;
+
                 return ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   itemCount: provider.conversationSessions.length,
@@ -127,7 +143,8 @@ class _ChatSidebarState extends State<ChatSidebar> {
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         PrivateMessage(
-                                          isPrivacy: widget.isPrivacyMode && !isHovered,
+                                          isPrivacy: privacyMode,
+                                          itemId: 'conv-title-${conversation.id}',
                                           child: Text(
                                             conversation.title,
                                             maxLines: 1,
@@ -141,7 +158,8 @@ class _ChatSidebarState extends State<ChatSidebar> {
                                         ),
                                         const SizedBox(height: 2),
                                         PrivateMessage(
-                                          isPrivacy: widget.isPrivacyMode && !isHovered,
+                                          isPrivacy: privacyMode,
+                                          itemId: 'conv-meta-${conversation.id}',
                                           child: Text(
                                             '${conversation.messages.length} messages',
                                             maxLines: 1,
@@ -181,19 +199,22 @@ class _ChatSidebarState extends State<ChatSidebar> {
             ),
           ),
 
-          // ✅ CLEAR ALL BUTTON
+          // ✅ CLEAR ALL BUTTON - SMALLER ON MOBILE
           Padding(
             padding: const EdgeInsets.all(12),
             child: SizedBox(
               width: double.infinity,
-              height: 44,
+              height: _isMobile ? 36 : 44,
               child: ElevatedButton.icon(
                 onPressed: _showClearAllConfirmation,
-                icon: const Icon(Icons.delete_sweep, size: 18),
-                label: const Text(
+                icon: Icon(
+                  Icons.delete_sweep,
+                  size: _isMobile ? 14 : 18,
+                ),
+                label: Text(
                   'Clear all chats',
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: _isMobile ? 12 : 14,
                     fontWeight: FontWeight.w500,
                   ),
                 ),

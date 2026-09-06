@@ -4,11 +4,13 @@ import '../theme/app_colors.dart';
 class MoodSelector extends StatelessWidget {
   final String? selectedMood;
   final Function(String) onMoodSelected;
+  final bool isMobile;
 
   const MoodSelector({
     super.key,
     this.selectedMood,
     required this.onMoodSelected,
+    this.isMobile = false,
   });
 
   static const Map<String, IconData> moodIcons = {
@@ -39,23 +41,29 @@ class MoodSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final moodHeight = isMobile ? 70 : 80;
+    final moodWidth = isMobile ? 54 : 60;
+    final iconSize = isMobile ? 24 : 28;
+    final labelFontSize = isMobile ? 10.0 : 11.0;
+    final gapHeight = isMobile ? 4.0 : 6.0;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
+        Padding(
           padding: EdgeInsets.symmetric(horizontal: 4),
           child: Text(
             'How are you feeling? (Optional)',
             style: TextStyle(
               fontWeight: FontWeight.w500,
               color: AppColors.textTertiary,
-              fontSize: 12,
+              fontSize: isMobile ? 11 : 12,
             ),
           ),
         ),
-        const SizedBox(height: 12),
+        SizedBox(height: isMobile ? 8 : 12),
         SizedBox(
-          height: 80,
+          height: moodHeight.toDouble(),
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -67,12 +75,12 @@ class MoodSelector extends StatelessWidget {
               final isSelected = selectedMood == mood;
 
               return Padding(
-                padding: const EdgeInsets.only(right: 12),
+                padding: EdgeInsets.only(right: isMobile ? 8 : 12),
                 child: GestureDetector(
                   onTap: () => onMoodSelected(mood),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
-                    width: 60,
+                    width: moodWidth.toDouble(),
                     decoration: BoxDecoration(
                       color: isSelected
                         ? color.withOpacity(0.15)
@@ -100,22 +108,22 @@ class MoodSelector extends StatelessWidget {
                           duration: const Duration(milliseconds: 200),
                           child: Icon(
                             icon,
-                            color: isSelected 
-                              ? color 
+                            color: isSelected
+                              ? color
                               : Theme.of(context).colorScheme.onSurfaceVariant,
-                            size: 28,
+                            size: iconSize.toDouble(),
                           ),
                         ),
-                        const SizedBox(height: 6),
+                        SizedBox(height: gapHeight),
                         Text(
                           _capitalizeMood(mood),
                           style: TextStyle(
-                            fontSize: 11,
-                            color: isSelected 
-                              ? color 
+                            fontSize: labelFontSize,
+                            color: isSelected
+                              ? color
                               : Theme.of(context).colorScheme.onSurfaceVariant,
-                            fontWeight: isSelected 
-                              ? FontWeight.w600 
+                            fontWeight: isSelected
+                              ? FontWeight.w600
                               : FontWeight.w500,
                           ),
                           textAlign: TextAlign.center,
@@ -130,19 +138,19 @@ class MoodSelector extends StatelessWidget {
             },
           ),
         ),
-        
+
         //Clear selection option
         if (selectedMood != null) ...[
-          const SizedBox(height: 8),
+          SizedBox(height: isMobile ? 6 : 8),
           Align(
             alignment: Alignment.centerRight,
             child: TextButton.icon(
               onPressed: () => onMoodSelected(''),
-              icon: const Icon(Icons.clear, size: 16),
+              icon: const Icon(Icons.clear, size: 14),
               label: const Text('Clear selection'),
               style: TextButton.styleFrom(
                 foregroundColor: Theme.of(context).colorScheme.outline,
-                textStyle: const TextStyle(fontSize: 12),
+                textStyle: TextStyle(fontSize: isMobile ? 11 : 12),
               ),
             ),
           ),
