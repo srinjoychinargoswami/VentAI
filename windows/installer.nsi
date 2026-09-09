@@ -1,13 +1,13 @@
 ; VentAI NSIS Installer Script
-; Creates: VentAI-Setup-1.0.1.exe
-; Updated: AES-256 encrypted build with secure logging
+; Creates: VentAI-Setup-1.0.2.exe
+; Updated: Setup completion flag, improved lifecycle management
 
 !include "MUI2.nsh"
 !include "x64.nsh"
 
 ; Basic Settings
 Name "VentAI"
-OutFile "VentAI-Setup-1.0.1.exe"
+OutFile "VentAI-Setup-1.0.2.exe"
 InstallDir "$PROGRAMFILES\VentAI"
 InstallDirRegKey HKCU "Software\VentAI" "InstallDir"
 
@@ -51,7 +51,7 @@ Section "Install"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\VentAI" \
     "Publisher" "Srinjoy Goswami & Resolveera"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\VentAI" \
-    "DisplayVersion" "1.0.1"
+    "DisplayVersion" "1.0.2"
 SectionEnd
 
 ; Uninstall Section

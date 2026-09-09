@@ -57,6 +57,7 @@ app.*.map.json
 # Windows installer executable (build artifact, not source)
 VentAI-Setup.exe
 *.exe
+installer.nsi
 
 # Linux AppImage build artifacts
 VentAI.AppDir/

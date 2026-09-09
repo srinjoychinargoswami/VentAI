@@ -22,7 +22,7 @@ class ConversationProvider extends ChangeNotifier {
   // Conversation context tracking
   final List<String> _recentMessages = [];
   final List<String> _recentResponses = [];
-  final int _maxContextMessages = 3;
+  final int _maxContextMessages = 15;
   String? _currentSessionId;
 
   // Privacy mode
