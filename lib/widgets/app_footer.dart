@@ -109,11 +109,16 @@ class AppFooter extends StatelessWidget {
                 style: TextStyle(color: AppColors.textTertiary, fontSize: linksFontSize),
               ),
 
-              // AGPL link (external)
+              // License link (platform-specific)
               GestureDetector(
-                onTap: () => _openUrl('https://www.gnu.org/licenses/agpl-3.0.en.html'),
+                onTap: () {
+                  final licenseUrl = Platform.isIOS
+                    ? 'https://www.apache.org/licenses/LICENSE-2.0'
+                    : 'https://www.gnu.org/licenses/agpl-3.0.en.html';
+                  _openUrl(licenseUrl);
+                },
                 child: Text(
-                  'AGPL v3.0',
+                  Platform.isIOS ? 'Apache 2.0' : 'AGPL v3.0',
                   style: TextStyle(
                     fontSize: linksFontSize,
                     color: AppColors.primary,

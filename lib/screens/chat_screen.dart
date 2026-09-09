@@ -505,72 +505,77 @@ class _ChatScreenState extends State<ChatScreen> {
                           );
                         }
 
-                        return Scrollbar(
-                          controller: _scrollController,
-                          thumbVisibility: true,
-                          thickness: 8,
-                          radius: const Radius.circular(4),
-                          child: ListView.builder(
+                        return GestureDetector(
+                          onTap: () {
+                            FocusScope.of(context).unfocus();
+                          },
+                          child: Scrollbar(
                             controller: _scrollController,
-                            reverse: true,
-                            itemCount: messages.length + (_isWaitingForResponse ? 1 : 0),
-                            itemBuilder: (context, index) {
-                            // Show thinking bubble at the top (first item when reversed)
-                            if (_isWaitingForResponse && index == 0) {
-                              return Align(
-                                alignment: Alignment.centerLeft,
-                                child: Container(
-                                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                  decoration: BoxDecoration(
-                                    color: Theme.of(context).colorScheme.surfaceVariant,
-                                    borderRadius: const BorderRadius.only(
-                                      topLeft: Radius.circular(4),
-                                      topRight: Radius.circular(20),
-                                      bottomLeft: Radius.circular(20),
-                                      bottomRight: Radius.circular(20),
+                            thumbVisibility: true,
+                            thickness: 8,
+                            radius: const Radius.circular(4),
+                            child: ListView.builder(
+                              controller: _scrollController,
+                              reverse: true,
+                              itemCount: messages.length + (_isWaitingForResponse ? 1 : 0),
+                              itemBuilder: (context, index) {
+                              // Show thinking bubble at the top (first item when reversed)
+                              if (_isWaitingForResponse && index == 0) {
+                                return Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Container(
+                                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(context).colorScheme.surfaceVariant,
+                                      borderRadius: const BorderRadius.only(
+                                        topLeft: Radius.circular(4),
+                                        topRight: Radius.circular(20),
+                                        bottomLeft: Radius.circular(20),
+                                        bottomRight: Radius.circular(20),
+                                      ),
                                     ),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      SizedBox(
-                                        width: 20,
-                                        height: 20,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          valueColor: AlwaysStoppedAnimation(
-                                            Theme.of(context).colorScheme.primary,
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            valueColor: AlwaysStoppedAnimation(
+                                              Theme.of(context).colorScheme.primary,
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        'Thinking...',
-                                        style: TextStyle(
-                                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                          fontStyle: FontStyle.italic,
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          'Thinking...',
+                                          style: TextStyle(
+                                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                            fontStyle: FontStyle.italic,
+                                          ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
-                                ),
-                              );
-                            }
+                                );
+                              }
 
-                            final message = messages[messages.length - 1 - (_isWaitingForResponse ? index - 1 : index)];
-                            return ChatMessageWidget(
-                              content: message.content,
-                              isUserMessage: message.role == 'user',
-                              onRegenerate: () {
-                                // TODO: Regenerate last AI message
+                              final message = messages[messages.length - 1 - (_isWaitingForResponse ? index - 1 : index)];
+                              return ChatMessageWidget(
+                                content: message.content,
+                                isUserMessage: message.role == 'user',
+                                onRegenerate: () {
+                                  // TODO: Regenerate last AI message
+                                },
+                                onDelete: () async {
+                                  await provider.deleteMessageFromSession(message.id);
+                                },
+                                isPrivacyMode: provider.isPrivacyMode,
+                              );
                               },
-                              onDelete: () async {
-                                await provider.deleteMessageFromSession(message.id);
-                              },
-                              isPrivacyMode: provider.isPrivacyMode,
-                            );
-                            },
+                            ),
                           ),
                         );
                       },
@@ -835,23 +840,22 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  /// Scroll to bottom of chat
+  /// Scroll to bottom of chat (newest message)
   void _scrollToBottom() {
     if (!mounted) return;
-    
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients && mounted) {
         try {
           _scrollController.animateTo(
-            _scrollController.position.maxScrollExtent,
+            0.0,
             duration: const Duration(milliseconds: 400),
             curve: Curves.easeOutCubic,
           );
         } catch (e) {
           debugPrint('Scroll error: $e');
-          // Fallback: Try immediate jump if animation fails
           try {
-            _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+            _scrollController.jumpTo(0.0);
           } catch (jumpError) {
             debugPrint('Jump scroll also failed: $jumpError');
           }
