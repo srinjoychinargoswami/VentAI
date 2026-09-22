@@ -27,6 +27,7 @@ dependencies:
   flutter_gemma: ^1.5.9
   flutter_gemma_litertlm: ^1.4.2
 
+
   # Database Dependencies
   hive: ^2.2.3
   hive_flutter: ^1.1.0
