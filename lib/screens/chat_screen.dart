@@ -1041,9 +1041,11 @@ class _ChatScreenState extends State<ChatScreen> {
           SnackBar(
             content: const Row(
               children: [
-                const Icon(Icons.check_circle, color: AppColors.textPrimary),
+                Icon(Icons.check_circle, color: AppColors.textPrimary),
                 SizedBox(width: 8),
-                Text('All conversations cleared successfully'),
+                Expanded(
+                  child: Text('All conversations cleared successfully'),
+                ),
               ],
             ),
             backgroundColor: AppColors.success,
