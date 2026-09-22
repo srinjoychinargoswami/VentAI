@@ -41,11 +41,11 @@ class MoodSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final moodHeight = isMobile ? 70 : 80;
-    final moodWidth = isMobile ? 54 : 60;
-    final iconSize = isMobile ? 24 : 28;
-    final labelFontSize = isMobile ? 10.0 : 11.0;
-    final gapHeight = isMobile ? 4.0 : 6.0;
+    final moodHeight = isMobile ? 50 : 56;
+    final moodWidth = isMobile ? 44 : 48;
+    final iconSize = isMobile ? 18 : 20;
+    final labelFontSize = isMobile ? 8.0 : 8.5;
+    final gapHeight = isMobile ? 2.0 : 3.0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -57,16 +57,16 @@ class MoodSelector extends StatelessWidget {
             style: TextStyle(
               fontWeight: FontWeight.w500,
               color: AppColors.textTertiary,
-              fontSize: isMobile ? 11 : 12,
+              fontSize: isMobile ? 9 : 10,
             ),
           ),
         ),
-        SizedBox(height: isMobile ? 8 : 12),
+        SizedBox(height: isMobile ? 4 : 6),
         SizedBox(
           height: moodHeight.toDouble(),
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 2),
             itemCount: moodIcons.length,
             itemBuilder: (context, index) {
               final mood = moodIcons.keys.elementAt(index);
@@ -75,7 +75,7 @@ class MoodSelector extends StatelessWidget {
               final isSelected = selectedMood == mood;
 
               return Padding(
-                padding: EdgeInsets.only(right: isMobile ? 8 : 12),
+                padding: EdgeInsets.only(right: isMobile ? 5 : 7),
                 child: GestureDetector(
                   onTap: () => onMoodSelected(mood),
                   child: AnimatedContainer(

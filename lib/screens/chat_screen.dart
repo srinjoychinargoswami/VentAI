@@ -9,6 +9,7 @@ import '../widgets/chat_message_widget.dart';
 import '../widgets/chat_sidebar.dart';
 import '../widgets/app_footer.dart';
 import '../widgets/private_message.dart';
+import '../widgets/suggested_prompts_widget.dart';
 import '../providers/conversation_provider.dart';
 import '../providers/setup_state_provider.dart';
 import '../utils/secure_logger.dart';
@@ -104,8 +105,12 @@ class _ChatScreenState extends State<ChatScreen> {
 
             // Main chat area
             Expanded(
-              child: Column(
-                children: [
+              child: GestureDetector(
+                onTap: () {
+                  FocusScope.of(context).unfocus();
+                },
+                child: Column(
+                  children: [
                   // CUSTOM FIXED HEADER (pinned, can't be overlapped by messages)
                   Consumer<ConversationProvider>(
                     builder: (context, provider, _) {
@@ -367,18 +372,18 @@ class _ChatScreenState extends State<ChatScreen> {
                         SecureLogger.debug('🎯 Rendering ${messages.length} messages from active conversation');
 
                         if (messages.isEmpty && !_isWaitingForResponse) {
-                          return Center(
-                            child: Scrollbar(
+                          return Scrollbar(
+                            controller: _scrollController,
+                            thumbVisibility: true,
+                            thickness: 8,
+                            radius: const Radius.circular(4),
+                            child: SingleChildScrollView(
                               controller: _scrollController,
-                              thumbVisibility: true,
-                              thickness: 8,
-                              radius: const Radius.circular(4),
-                              child: SingleChildScrollView(
-                                controller: _scrollController,
-                                child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.start,
                                 crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
+                                  const SizedBox(height: 24),
                                   // Icon section: 96x96 circle with bulb
                                   Container(
                                     width: 96,
@@ -394,7 +399,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(height: 24), // Gap between icon and text
+                                  const SizedBox(height: 24),
 
                                   // Text section with max-width 512
                                   Padding(
@@ -430,7 +435,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                               ],
                                             ),
                                           ),
-                                          const SizedBox(height: 16), // Gap between title and body
+                                          const SizedBox(height: 16),
 
                                           // Body paragraphs
                                           const Text(
@@ -482,7 +487,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                             ),
                                             textAlign: TextAlign.center,
                                           ),
-                                          const SizedBox(height: 16), // Extra gap before privacy note
+                                          const SizedBox(height: 16),
 
                                           // Privacy policy note (smaller)
                                           const Text(
@@ -498,9 +503,15 @@ class _ChatScreenState extends State<ChatScreen> {
                                       ),
                                     ),
                                   ),
+                                  const SizedBox(height: 32),
+
+                                  // Suggested prompts widget
+                                  SuggestedPromptsWidget(
+                                    onPromptTap: _sendMessage,
+                                  ),
+                                  const SizedBox(height: 24),
                                 ],
                               ),
-                            ),
                             ),
                           );
                         }
@@ -584,9 +595,11 @@ class _ChatScreenState extends State<ChatScreen> {
 
                   // Message input (text only)
                   _buildMessageInput(),
-                  // Footer
-                  const AppFooter(),
-                ],
+                  // Footer (hidden on mobile when keyboard is visible)
+                  if (!(_isMobile && MediaQuery.of(context).viewInsets.bottom > 0))
+                    const AppFooter(),
+                  ],
+                ),
               ),
             ),
           ],
@@ -600,9 +613,9 @@ class _ChatScreenState extends State<ChatScreen> {
     return Consumer<ConversationProvider>(
       builder: (context, provider, child) {
         final isSending = provider.isSendingMessage;
-        final topPadding = _isMobile ? 6 : 16;
-        final horizontalPadding = _isMobile ? 6 : 20;
-        final bottomPadding = _isMobile ? 6 : 20;
+        final topPadding = _isMobile ? 3 : 8;
+        final horizontalPadding = _isMobile ? 4 : 12;
+        final bottomPadding = _isMobile ? 3 : 12;
 
         return Container(
           padding: EdgeInsets.only(top: topPadding.toDouble(), left: horizontalPadding.toDouble(), right: horizontalPadding.toDouble(), bottom: bottomPadding.toDouble()),
@@ -620,7 +633,7 @@ class _ChatScreenState extends State<ChatScreen> {
           child: Container(
             decoration: BoxDecoration(
               color: AppColors.surface,
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(20),
               border: Border(
                 top: BorderSide(
                   color: Color(0xFF94A3B8).withOpacity(0.2),
@@ -634,13 +647,13 @@ class _ChatScreenState extends State<ChatScreen> {
                 // Progress indicator while sending
                 if (isSending)
                   const Padding(
-                    padding: EdgeInsets.only(top: 8),
+                    padding: EdgeInsets.only(top: 4),
                     child: LinearProgressIndicator(minHeight: 2),
                   ),
 
                 // Mood selector (smaller on mobile)
                 Padding(
-                  padding: EdgeInsets.only(left: 6, right: 6, top: _isMobile ? 2 : 8, bottom: _isMobile ? 2 : 8),
+                  padding: EdgeInsets.only(left: 4, right: 4, top: _isMobile ? 1 : 4, bottom: _isMobile ? 1 : 4),
                   child: MoodSelector(
                     selectedMood: _selectedMood,
                     onMoodSelected: (mood) => setState(() => _selectedMood = mood),
@@ -650,7 +663,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
                 // Text input (2 lines max on mobile for compactness)
                 Padding(
-                  padding: EdgeInsets.only(left: 10, right: 10, top: _isMobile ? 2 : 12),
+                  padding: EdgeInsets.only(left: 6, right: 6, top: _isMobile ? 1 : 6),
                   child: TextField(
                     controller: _messageController,
                     decoration: InputDecoration(
@@ -665,14 +678,14 @@ class _ChatScreenState extends State<ChatScreen> {
                       isDense: true,
                     ),
                     minLines: 1,
-                    maxLines: _isMobile ? 2 : 6,
+                    maxLines: _isMobile ? 2 : 5,
                     maxLength: 4000,
                     textCapitalization: TextCapitalization.sentences,
                     enabled: !isSending,
                     onChanged: (value) => setState(() {}),
                     onSubmitted: (_) => _sendMessage(),
                     style: TextStyle(
-                      fontSize: _isMobile ? 12 : 16,
+                      fontSize: _isMobile ? 13 : 15,
                       color: AppColors.textPrimary,
                       height: 1.2,
                     ),
@@ -681,7 +694,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
                 // Bottom action area (character count + send button)
                 Padding(
-                  padding: EdgeInsets.only(left: 10, right: 10, top: _isMobile ? 2 : 8, bottom: _isMobile ? 4 : 12),
+                  padding: EdgeInsets.only(left: 6, right: 6, top: _isMobile ? 1 : 4, bottom: _isMobile ? 2 : 6),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -690,7 +703,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         Text(
                           '${_messageController.text.length}/4000',
                           style: const TextStyle(
-                            fontSize: 9,
+                            fontSize: 7.5,
                             color: AppColors.textTertiary,
                           ),
                         )
@@ -699,8 +712,8 @@ class _ChatScreenState extends State<ChatScreen> {
 
                       // Send button (smaller on mobile)
                       Container(
-                        width: _isMobile ? 28 : 40,
-                        height: _isMobile ? 28 : 40,
+                        width: _isMobile ? 24 : 32,
+                        height: _isMobile ? 24 : 32,
                         decoration: const BoxDecoration(
                           color: AppColors.primary,
                           shape: BoxShape.circle,
@@ -713,10 +726,10 @@ class _ChatScreenState extends State<ChatScreen> {
                             child: Center(
                               child: isSending
                                   ? SizedBox(
-                                      width: 14,
-                                      height: 14,
+                                      width: 12,
+                                      height: 12,
                                       child: CircularProgressIndicator(
-                                        strokeWidth: 2,
+                                        strokeWidth: 1.5,
                                         valueColor: AlwaysStoppedAnimation(
                                           Theme.of(context).colorScheme.onPrimary,
                                         ),
@@ -724,7 +737,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                     )
                                   : Icon(
                                       Icons.send,
-                                      size: _isMobile ? 12 : 20,
+                                      size: _isMobile ? 10 : 16,
                                       color: AppColors.textOnPrimary,
                                     ),
                             ),
@@ -743,8 +756,8 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   /// Send message and get AI response
-  Future<void> _sendMessage() async {
-    final message = _messageController.text.trim();
+  Future<void> _sendMessage([String? prompt]) async {
+    final message = prompt ?? _messageController.text.trim();
     if (message.isEmpty) return;
 
     final provider = context.read<ConversationProvider>();

@@ -18,13 +18,13 @@ class AppFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final verticalPadding = _isMobile ? 8.0 : 16.0;
-    final disclaimerFontSize = _isMobile ? 10.0 : 12.0;
-    final disclaimerHeight = _isMobile ? 1.2 : 1.5;
-    final copyrightHeight = _isMobile ? 1.1 : 1.4;
-    final linksFontSize = _isMobile ? 10.0 : 12.0;
-    final gapHeight = _isMobile ? 6.0 : 12.0;
-    final midGapHeight = _isMobile ? 4.0 : 16.0;
+    final verticalPadding = _isMobile ? 4.0 : 8.0;
+    final disclaimerFontSize = _isMobile ? 8.0 : 9.0;
+    final disclaimerHeight = _isMobile ? 1.1 : 1.3;
+    final copyrightHeight = _isMobile ? 1.0 : 1.2;
+    final linksFontSize = _isMobile ? 8.0 : 9.0;
+    final gapHeight = _isMobile ? 3.0 : 6.0;
+    final midGapHeight = _isMobile ? 2.0 : 6.0;
 
     return Container(
       decoration: BoxDecoration(
