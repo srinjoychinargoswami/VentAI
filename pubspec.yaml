@@ -1,6 +1,7 @@
 name: vent_ai
 description: "A Privacy-First Offline Emotional Support Companion"
 publish_to: 'none'
+version: 1.1.0+1
 
 environment:
   sdk: '>=3.6.0 <4.0.0'
