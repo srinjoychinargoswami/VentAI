@@ -121,19 +121,10 @@ class _AppSetupScreenState extends State<AppSetupScreen>
       final success = await bootstrapGemma(
         onProgress: (progress) {
           if (mounted) {
-            final message = progress == 0
-                ? 'Starting download...'
-                : progress == 50
-                    ? 'Download complete, installing...'
-                    : 'Installation complete';
-
             setState(() {
               _downloadProgress = progress / 100.0;
-              _statusMessage = 'Downloading Gemma 4 E2B model...';
-              _detailMessage = message;
               _currentStage = 1;
             });
-            debugPrint('📱 Progress: $progress% - $message');
           }
         },
       );
@@ -183,19 +174,10 @@ class _AppSetupScreenState extends State<AppSetupScreen>
       final success = await bootstrapGemma(
         onProgress: (progress) {
           if (mounted) {
-            final message = progress == 0
-                ? 'Starting download...'
-                : progress == 50
-                    ? 'Download complete, installing...'
-                    : 'Installation complete';
-
             setState(() {
               _downloadProgress = progress / 100.0;
-              _statusMessage = 'Downloading Gemma 4 E2B model...';
-              _detailMessage = message;
               _currentStage = 1;
             });
-            debugPrint('🖥️ Progress: $progress% - $message');
           }
         },
       );
@@ -454,13 +436,14 @@ class _AppSetupScreenState extends State<AppSetupScreen>
 
         // Otherwise show setup progress screen
         debugPrint('🏗️ [SETUP-SCREEN] Showing progress screen');
-        return _buildSetupProgressScreen(context);
+        return _buildSetupProgressScreen(context, setupState);
       },
     );
   }
 
   /// Build the setup progress screen
-  Widget _buildSetupProgressScreen(BuildContext context) {
+  Widget _buildSetupProgressScreen(BuildContext context, SetupStateProvider setupState) {
+    final stats = setupState.downloadStats;
     final platformEmoji = _isMobile ? '📱' : '🖥️';
     final platformName = _isMobile ? 'Mobile' : 'Desktop';
 
@@ -521,14 +504,14 @@ class _AppSetupScreenState extends State<AppSetupScreen>
                 const SizedBox(height: 32),
                 
                 // Download progress bar - simple and clean
-                if (_downloadProgress > 0 && _downloadProgress < 1.0 && !_isComplete && !_hasError) ...[
+                if (stats != null && stats.percent < 100 && !setupState.isSetupComplete && setupState.currentStage != SetupStage.error) ...[
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                     child: Column(
                       children: [
-                        const Text(
-                          'Downloading Gemma 4 E2B model...',
-                          style: TextStyle(
+                        Text(
+                          'Downloading Gemma 4 E2B... ${stats.percent}%',
+                          style: const TextStyle(
                             fontSize: 14,
                             color: AppColors.textSecondary,
                             fontWeight: FontWeight.w500,
@@ -536,12 +519,22 @@ class _AppSetupScreenState extends State<AppSetupScreen>
                         ),
                         const SizedBox(height: 12),
                         LinearProgressIndicator(
-                          value: _downloadProgress,
+                          value: stats.percent / 100.0,
                           minHeight: 6,
                           backgroundColor: AppColors.surface,
                           valueColor: const AlwaysStoppedAnimation<Color>(
                             AppColors.primary,
                           ),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          'Speed: ${stats.speedMBps.toStringAsFixed(1)} MB/s',
+                          style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Time remaining: ${stats.remainingText}',
+                          style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
                         ),
                         const SizedBox(height: 16),
                         Container(
