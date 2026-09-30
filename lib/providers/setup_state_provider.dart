@@ -34,6 +34,7 @@ class SetupStateProvider extends ChangeNotifier {
   String _setupMessage = '';
   double _setupProgress = 0.0;
   String? _errorMessage;
+  DownloadStats? _downloadStats;
 
   // Platform detection
   bool get isMobile => Platform.isAndroid || Platform.isIOS;
@@ -48,6 +49,7 @@ class SetupStateProvider extends ChangeNotifier {
   String get setupMessage => _setupMessage;
   double get setupProgress => _setupProgress;
   String? get errorMessage => _errorMessage;
+  DownloadStats? get downloadStats => _downloadStats;
 
   /// Check if Gemma license has been accepted
   Future<bool> isGemmaLicenseAccepted() async {
@@ -151,20 +153,17 @@ class SetupStateProvider extends ChangeNotifier {
 
       // Track download with progress callback
       final success = await bootstrapGemma(
-        onProgress: (progress) async {
-          final displayProgress = 0.15 + (progress / 100.0 * 0.65); // 15%-80% range
-
-          final message = progress >= 100
+        onProgress: (progress) {
+          _currentStage = SetupStage.downloadingModels;
+          _setupProgress = 0.15 + (progress / 100.0 * 0.65); // 15%-80% range
+          _setupMessage = progress >= 100
               ? 'Download complete, installing...'
-              : 'Downloading Gemma 4 E2B model...';
-
-          debugPrint('📥 Download: $progress%');
-
-          await _updateSetupStage(
-            SetupStage.downloadingModels,
-            message,
-            displayProgress,
-          );
+              : 'Downloading Gemma 4 E2B...';
+          notifyListeners();
+        },
+        onStats: (stats) {
+          _downloadStats = stats;
+          notifyListeners();
         },
       );
 
@@ -220,20 +219,17 @@ class SetupStateProvider extends ChangeNotifier {
 
       // Track download with progress callback (same as mobile)
       final success = await bootstrapGemma(
-        onProgress: (progress) async {
-          final displayProgress = 0.15 + (progress / 100.0 * 0.65); // 15%-80% range
-
-          final message = progress >= 100
+        onProgress: (progress) {
+          _currentStage = SetupStage.downloadingModels;
+          _setupProgress = 0.15 + (progress / 100.0 * 0.65); // 15%-80% range
+          _setupMessage = progress >= 100
               ? 'Download complete, installing...'
-              : 'Downloading Gemma 4 E2B model...';
-
-          debugPrint('📥 Download: $progress%');
-
-          await _updateSetupStage(
-            SetupStage.downloadingModels,
-            message,
-            displayProgress,
-          );
+              : 'Downloading Gemma 4 E2B...';
+          notifyListeners();
+        },
+        onStats: (stats) {
+          _downloadStats = stats;
+          notifyListeners();
         },
       );
 
