@@ -77,7 +77,7 @@ class _AppMainScreenState extends State<AppMainScreen> {
   @override
   Widget build(BuildContext context) {
     debugPrint('📱 Building AppMainScreen');
-    final screenSize = MediaQuery.of(context).size;
+    final screenSize = MediaQuery.sizeOf(context);
     debugPrint('Screen size: ${screenSize.width} x ${screenSize.height}');
     debugPrint('Is portrait: ${screenSize.height > screenSize.width}');
 

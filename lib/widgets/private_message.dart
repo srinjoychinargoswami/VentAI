@@ -1,9 +1,8 @@
-import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:ui' as ui;
 import '../providers/conversation_provider.dart';
+import '../utils/platform_utils.dart';
 
 class PrivateMessage extends StatelessWidget {
   final Widget child;
@@ -18,12 +17,11 @@ class PrivateMessage extends StatelessWidget {
     this.itemId,
   });
 
-  bool get _isMobile => !kIsWeb && (Platform.isAndroid || Platform.isIOS);
 
   @override
   Widget build(BuildContext context) {
     // Desktop: hover behavior (no provider state needed for hover)
-    if (!_isMobile) {
+    if (!isMobileOS()) {
       return MouseRegion(
         onEnter: (_) {
           if (!isPrivacy || itemId == null) return;

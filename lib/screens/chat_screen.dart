@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -11,10 +11,10 @@ import '../widgets/app_footer.dart';
 import '../widgets/private_message.dart';
 import '../widgets/suggested_prompts_widget.dart';
 import '../providers/conversation_provider.dart';
-import '../providers/setup_state_provider.dart';
 import '../utils/secure_logger.dart';
 import 'legal_page.dart';
 import 'breathing_exercise_screen.dart';
+import '../utils/platform_utils.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -29,11 +29,13 @@ class _ChatScreenState extends State<ChatScreen> {
   String? _selectedMood;
   bool _isWaitingForResponse = false;
   bool _sidebarVisible = true;
+  // Reply text accumulated so far while the model streams tokens.
+  final ValueNotifier<String> _streamingText = ValueNotifier<String>('');
+  ConversationProvider? _conversationProvider; // subscribed provider, for dispose()
+  bool _aiLoading = true; // model loading in background after first frame
 
   // Platform detection
-  bool get _isMobile => !kIsWeb && (Platform.isAndroid || Platform.isIOS);
-  bool get _isDesktop => !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
-  bool get _isLargeScreen => MediaQuery.of(context).size.width >= 600;
+  bool get _isLargeScreen => isTablet(context);
   
   @override
   void initState() {
@@ -49,7 +51,9 @@ class _ChatScreenState extends State<ChatScreen> {
 
     // Auto-scroll on message changes (React-style useEffect)
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ConversationProvider>().addListener(_onMessagesChanged);
+      if (!mounted) return; // disposed before the first frame: don't subscribe
+      _conversationProvider = context.read<ConversationProvider>()
+        ..addListener(_onMessagesChanged);
     });
   }
 
@@ -65,13 +69,15 @@ class _ChatScreenState extends State<ChatScreen> {
       SecureLogger.debug('✅ GemmaService ready for chat');
     } catch (e) {
       SecureLogger.redacted('❌ Failed to initialize GemmaService: $e');
+    } finally {
+      if (mounted) setState(() => _aiLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     SecureLogger.debug('📱 Building ChatScreen');
-    final screenSize = MediaQuery.of(context).size;
+    final screenSize = MediaQuery.sizeOf(context);
     SecureLogger.debug('Screen size: ${screenSize.width} x ${screenSize.height}');
 
     final provider = context.read<ConversationProvider>();
@@ -80,7 +86,7 @@ class _ChatScreenState extends State<ChatScreen> {
     SecureLogger.silent('  - activeConversationId: ${provider.activeConversationId}');
 
     // Determine if we should show sidebar (desktop layout)
-    final showSidebar = _isDesktop || _isLargeScreen;
+    final showSidebar = isDesktop() || _isLargeScreen;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -135,11 +141,11 @@ class _ChatScreenState extends State<ChatScreen> {
                               IconButton(
                                 icon: Icon(
                                   _sidebarVisible ? Icons.chevron_left : Icons.menu,
-                                  size: _isMobile ? 18 : 24,
+                                  size: isMobilePhone(context) ? 18 : 24,
                                   color: AppColors.primary,
                                 ),
-                                iconSize: _isMobile ? 18 : 24,
-                                padding: EdgeInsets.symmetric(horizontal: _isMobile ? 4 : 8),
+                                iconSize: isMobilePhone(context) ? 18 : 24,
+                                padding: EdgeInsets.symmetric(horizontal: isMobilePhone(context) ? 4 : 8),
                                 onPressed: () {
                                   setState(() {
                                     _sidebarVisible = !_sidebarVisible;
@@ -154,7 +160,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                     icon: Stack(
                                       children: [
                                         Icon(Icons.menu,
-                                          size: _isMobile ? 18 : 24,
+                                          size: isMobilePhone(context) ? 18 : 24,
                                           color: AppColors.primary),
                                         if (provider.conversationSessions.length > 1)
                                           Positioned(
@@ -183,8 +189,8 @@ class _ChatScreenState extends State<ChatScreen> {
                                           ),
                                       ],
                                     ),
-                                    iconSize: _isMobile ? 18 : 24,
-                                    padding: EdgeInsets.symmetric(horizontal: _isMobile ? 4 : 8),
+                                    iconSize: isMobilePhone(context) ? 18 : 24,
+                                    padding: EdgeInsets.symmetric(horizontal: isMobilePhone(context) ? 4 : 8),
                                     onPressed: () => _showConversationDrawer(),
                                     tooltip: 'View conversations',
                                   );
@@ -200,7 +206,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                   child: Text(
                                     provider.activeConversation?.title ?? 'VentAI',
                                     style: TextStyle(
-                                      fontSize: _isMobile ? 18 : 16,
+                                      fontSize: isMobilePhone(context) ? 18 : 16,
                                       fontWeight: FontWeight.w600,
                                       color: AppColors.textPrimary,
                                     ),
@@ -218,12 +224,12 @@ class _ChatScreenState extends State<ChatScreen> {
                                   icon: Text(
                                     '🧘',
                                     style: TextStyle(
-                                      fontSize: _isMobile ? 16 : 20,
+                                      fontSize: isMobilePhone(context) ? 16 : 20,
                                       color: AppColors.primary,
                                     ),
                                   ),
-                                  iconSize: _isMobile ? 16 : 20,
-                                  padding: EdgeInsets.symmetric(horizontal: _isMobile ? 4 : 8),
+                                  iconSize: isMobilePhone(context) ? 16 : 20,
+                                  padding: EdgeInsets.symmetric(horizontal: isMobilePhone(context) ? 4 : 8),
                                   onPressed: () {
                                     showDialog(
                                       context: context,
@@ -235,7 +241,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
                                 // 👁️ Privacy Mode button
                                 Container(
-                                  margin: EdgeInsets.symmetric(horizontal: _isMobile ? 2 : 4),
+                                  margin: EdgeInsets.symmetric(horizontal: isMobilePhone(context) ? 2 : 4),
                                   decoration: BoxDecoration(
                                     color: provider.isPrivacyMode
                                       ? const Color(0xFFFEF3C7)
@@ -246,14 +252,14 @@ class _ChatScreenState extends State<ChatScreen> {
                                     icon: Text(
                                       provider.isPrivacyMode ? '👁️‍🗨️' : '👁️',
                                       style: TextStyle(
-                                        fontSize: _isMobile ? 16 : 20,
+                                        fontSize: isMobilePhone(context) ? 16 : 20,
                                         color: provider.isPrivacyMode
                                           ? const Color(0xFF92400E)
                                           : const Color(0xFF666666),
                                       ),
                                     ),
-                                    iconSize: _isMobile ? 16 : 20,
-                                    padding: EdgeInsets.symmetric(horizontal: _isMobile ? 4 : 8),
+                                    iconSize: isMobilePhone(context) ? 16 : 20,
+                                    padding: EdgeInsets.symmetric(horizontal: isMobilePhone(context) ? 4 : 8),
                                     onPressed: () {
                                       provider.togglePrivacyMode();
                                     },
@@ -268,12 +274,12 @@ class _ChatScreenState extends State<ChatScreen> {
                                   icon: Text(
                                     'ℹ️',
                                     style: TextStyle(
-                                      fontSize: _isMobile ? 16 : 20,
+                                      fontSize: isMobilePhone(context) ? 16 : 20,
                                       color: AppColors.primary,
                                     ),
                                   ),
-                                  iconSize: _isMobile ? 16 : 20,
-                                  padding: EdgeInsets.symmetric(horizontal: _isMobile ? 4 : 8),
+                                  iconSize: isMobilePhone(context) ? 16 : 20,
+                                  padding: EdgeInsets.symmetric(horizontal: isMobilePhone(context) ? 4 : 8),
                                   onPressed: () {
                                     Navigator.push(
                                       context,
@@ -290,12 +296,12 @@ class _ChatScreenState extends State<ChatScreen> {
                                   icon: Text(
                                     '🚨',
                                     style: TextStyle(
-                                      fontSize: _isMobile ? 18 : 24,
+                                      fontSize: isMobilePhone(context) ? 18 : 24,
                                       color: AppColors.error,
                                     ),
                                   ),
-                                  iconSize: _isMobile ? 18 : 24,
-                                  padding: EdgeInsets.symmetric(horizontal: _isMobile ? 4 : 8),
+                                  iconSize: isMobilePhone(context) ? 18 : 24,
+                                  padding: EdgeInsets.symmetric(horizontal: isMobilePhone(context) ? 4 : 8),
                                   onPressed: () => _showCrisisResourcesDialog(),
                                   tooltip: 'Crisis Resources & Help',
                                 ),
@@ -304,8 +310,8 @@ class _ChatScreenState extends State<ChatScreen> {
                                 if (!showSidebar)
                                   IconButton(
                                     icon: const Icon(Icons.delete_outline, color: AppColors.error),
-                                    iconSize: _isMobile ? 18 : 24,
-                                    padding: EdgeInsets.symmetric(horizontal: _isMobile ? 4 : 8),
+                                    iconSize: isMobilePhone(context) ? 18 : 24,
+                                    padding: EdgeInsets.symmetric(horizontal: isMobilePhone(context) ? 4 : 8),
                                     onPressed: () => _showClearConversationsDialog(),
                                     tooltip: 'Clear all conversations',
                                   ),
@@ -546,28 +552,48 @@ class _ChatScreenState extends State<ChatScreen> {
                                         bottomRight: Radius.circular(20),
                                       ),
                                     ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        SizedBox(
-                                          width: 20,
-                                          height: 20,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            valueColor: AlwaysStoppedAnimation(
-                                              Theme.of(context).colorScheme.primary,
+                                    child: ValueListenableBuilder<String>(
+                                      valueListenable: _streamingText,
+                                      builder: (context, text, _) {
+                                        if (text.isNotEmpty) {
+                                          // Streamed tokens; the trailing bar is the typing indicator.
+                                          return ConstrainedBox(
+                                            constraints: BoxConstraints(
+                                              maxWidth: math.min(600.0, MediaQuery.sizeOf(context).width * 0.9),
                                             ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          'Thinking...',
-                                          style: TextStyle(
-                                            color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                            fontStyle: FontStyle.italic,
-                                          ),
-                                        ),
-                                      ],
+                                            child: Text(
+                                              '$text\u258D',
+                                              style: TextStyle(
+                                                color: Theme.of(context).colorScheme.onSurface,
+                                                height: 1.4,
+                                              ),
+                                            ),
+                                          );
+                                        }
+                                        return Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            SizedBox(
+                                              width: 20,
+                                              height: 20,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                valueColor: AlwaysStoppedAnimation(
+                                                  Theme.of(context).colorScheme.primary,
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              'Thinking...',
+                                              style: TextStyle(
+                                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                                fontStyle: FontStyle.italic,
+                                              ),
+                                            ),
+                                          ],
+                                        );
+                                      },
                                     ),
                                   ),
                                 );
@@ -596,7 +622,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   // Message input (text only)
                   _buildMessageInput(),
                   // Footer (hidden on mobile when keyboard is visible)
-                  if (!(_isMobile && MediaQuery.of(context).viewInsets.bottom > 0))
+                  if (!(isMobileOS() && MediaQuery.viewInsetsOf(context).bottom > 0))
                     const AppFooter(),
                   ],
                 ),
@@ -613,9 +639,9 @@ class _ChatScreenState extends State<ChatScreen> {
     return Consumer<ConversationProvider>(
       builder: (context, provider, child) {
         final isSending = provider.isSendingMessage;
-        final topPadding = _isMobile ? 3 : 8;
-        final horizontalPadding = _isMobile ? 4 : 12;
-        final bottomPadding = _isMobile ? 3 : 12;
+        final topPadding = isMobilePhone(context) ? 3 : 8;
+        final horizontalPadding = isMobilePhone(context) ? 4 : 12;
+        final bottomPadding = isMobilePhone(context) ? 3 : 12;
 
         return Container(
           padding: EdgeInsets.only(top: topPadding.toDouble(), left: horizontalPadding.toDouble(), right: horizontalPadding.toDouble(), bottom: bottomPadding.toDouble()),
@@ -644,6 +670,27 @@ class _ChatScreenState extends State<ChatScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // Shown while the on-device model loads after launch
+                if (_aiLoading)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 6, bottom: 2),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SizedBox(
+                          width: 12,
+                          height: 12,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          'Preparing AI…',
+                          style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                        ),
+                      ],
+                    ),
+                  ),
+
                 // Progress indicator while sending
                 if (isSending)
                   const Padding(
@@ -653,17 +700,17 @@ class _ChatScreenState extends State<ChatScreen> {
 
                 // Mood selector (smaller on mobile)
                 Padding(
-                  padding: EdgeInsets.only(left: 4, right: 4, top: _isMobile ? 1 : 4, bottom: _isMobile ? 1 : 4),
+                  padding: EdgeInsets.only(left: 4, right: 4, top: isMobilePhone(context) ? 1 : 4, bottom: isMobilePhone(context) ? 1 : 4),
                   child: MoodSelector(
                     selectedMood: _selectedMood,
                     onMoodSelected: (mood) => setState(() => _selectedMood = mood),
-                    isMobile: _isMobile,
+                    isMobile: isMobilePhone(context),
                   ),
                 ),
 
                 // Text input (2 lines max on mobile for compactness)
                 Padding(
-                  padding: EdgeInsets.only(left: 6, right: 6, top: _isMobile ? 1 : 6),
+                  padding: EdgeInsets.only(left: 6, right: 6, top: isMobilePhone(context) ? 1 : 6),
                   child: TextField(
                     controller: _messageController,
                     decoration: InputDecoration(
@@ -678,14 +725,14 @@ class _ChatScreenState extends State<ChatScreen> {
                       isDense: true,
                     ),
                     minLines: 1,
-                    maxLines: _isMobile ? 2 : 5,
+                    maxLines: isMobilePhone(context) ? 2 : 5,
                     maxLength: 4000,
                     textCapitalization: TextCapitalization.sentences,
                     enabled: !isSending,
                     onChanged: (value) => setState(() {}),
                     onSubmitted: (_) => _sendMessage(),
                     style: TextStyle(
-                      fontSize: _isMobile ? 13 : 15,
+                      fontSize: isMobilePhone(context) ? 13 : 15,
                       color: AppColors.textPrimary,
                       height: 1.2,
                     ),
@@ -694,7 +741,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
                 // Bottom action area (character count + send button)
                 Padding(
-                  padding: EdgeInsets.only(left: 6, right: 6, top: _isMobile ? 1 : 4, bottom: _isMobile ? 2 : 6),
+                  padding: EdgeInsets.only(left: 6, right: 6, top: isMobilePhone(context) ? 1 : 4, bottom: isMobilePhone(context) ? 2 : 6),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -712,8 +759,8 @@ class _ChatScreenState extends State<ChatScreen> {
 
                       // Send button (smaller on mobile)
                       Container(
-                        width: _isMobile ? 24 : 32,
-                        height: _isMobile ? 24 : 32,
+                        width: isMobilePhone(context) ? 24 : 32,
+                        height: isMobilePhone(context) ? 24 : 32,
                         decoration: const BoxDecoration(
                           color: AppColors.primary,
                           shape: BoxShape.circle,
@@ -737,7 +784,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                     )
                                   : Icon(
                                       Icons.send,
-                                      size: _isMobile ? 10 : 16,
+                                      size: isMobilePhone(context) ? 10 : 16,
                                       color: AppColors.textOnPrimary,
                                     ),
                             ),
@@ -793,14 +840,15 @@ class _ChatScreenState extends State<ChatScreen> {
       SecureLogger.debug('⏳ Showing thinking bubble - waiting for AI response...');
 
       // Generate AI response - this waits for the COMPLETE response (mood-aware)
-      final response = await GemmaService().generateEmotionalResponse(message, mood: messageMood);
+      final response = await _streamAiResponse(message, messageMood);
       SecureLogger.debug('✅ AI response received: ${response.length} chars');
 
-      // Add AI response to active conversation
+      // Save the complete response once streaming has finished
       await provider.addMessageToSession('assistant', response);
       SecureLogger.debug('✅ AI message added to conversation');
 
-      // Hide thinking bubble and update UI
+      // Swap the streaming bubble for the saved message in one frame
+      _streamingText.value = '';
       setState(() {
         _isWaitingForResponse = false;
       });
@@ -815,6 +863,7 @@ class _ChatScreenState extends State<ChatScreen> {
       _messageController.text = message;
 
       // Hide loading state
+      _streamingText.value = '';
       setState(() {
         _isWaitingForResponse = false;
       });
@@ -854,6 +903,34 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   /// Scroll to bottom of chat (newest message)
+  /// Consume the token stream, repainting at most ~20 times a second so the
+  /// UI thread is never flooded. Returns the full reply (or the same gentle
+  /// fallback the non-streaming path used if generation fails before any text).
+  Future<String> _streamAiResponse(String message, String? mood) async {
+    const fallback = 'I hear you. I\'m here to support you. Could you tell me more?';
+    final buffer = StringBuffer();
+    final clock = Stopwatch()..start();
+    var lastPaint = 0;
+
+    try {
+      await for (final token in GemmaService().streamEmotionalResponse(message, mood: mood)) {
+        buffer.write(token);
+        if (!mounted) break;
+        if (clock.elapsedMilliseconds - lastPaint >= 50) {
+          lastPaint = clock.elapsedMilliseconds;
+          _streamingText.value = buffer.toString();
+        }
+      }
+    } catch (e) {
+      SecureLogger.redacted('❌ Streaming failed: $e');
+      if (buffer.isEmpty) return fallback;
+    }
+
+    _streamingText.value = buffer.toString();
+    final text = buffer.toString().trim();
+    return text.isEmpty ? 'I hear you. I\'m here to listen.' : text;
+  }
+
   void _scrollToBottom() {
     if (!mounted) return;
 
@@ -883,6 +960,7 @@ class _ChatScreenState extends State<ChatScreen> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
+          constraints: const BoxConstraints(maxWidth: 500),
           insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
           backgroundColor: AppColors.surface,
           shape: RoundedRectangleBorder(
@@ -978,6 +1056,7 @@ class _ChatScreenState extends State<ChatScreen> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
+          constraints: const BoxConstraints(maxWidth: 500),
           insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
           backgroundColor: AppColors.surface,
           shape: RoundedRectangleBorder(
@@ -1105,6 +1184,7 @@ class _ChatScreenState extends State<ChatScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      constraints: const BoxConstraints(maxWidth: 600),
       builder: (BuildContext context) {
         return Consumer<ConversationProvider>(
           builder: (context, provider, _) {
@@ -1114,7 +1194,7 @@ class _ChatScreenState extends State<ChatScreen> {
             return Container(
               padding: const EdgeInsets.all(16),
               constraints: BoxConstraints(
-                maxHeight: MediaQuery.of(context).size.height * 0.8,
+                maxHeight: MediaQuery.sizeOf(context).height * 0.8,
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -1159,6 +1239,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                 showDialog(
                                   context: context,
                                   builder: (dialogContext) => AlertDialog(
+                                    constraints: const BoxConstraints(maxWidth: 500),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(16),
                                       side: BorderSide(
@@ -1287,10 +1368,12 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   void dispose() {
+    _streamingText.dispose();
     _messageController.dispose();
     _scrollController.dispose();
-    // Remove auto-scroll listener
-    context.read<ConversationProvider>().removeListener(_onMessagesChanged);
+    // Remove auto-scroll listener via the cached reference; context lookups
+    // are unsafe once the element is deactivated.
+    _conversationProvider?.removeListener(_onMessagesChanged);
     super.dispose();
   }
 }

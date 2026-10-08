@@ -36,10 +36,9 @@ class _ModelLicenseScreenState extends State<ModelLicenseScreen> {
       if (mounted) {
         // Notify setup provider that license was accepted
         final setupProvider = Provider.of<SetupStateProvider>(context, listen: false);
+        // The setup screen swaps this screen out once the provider updates;
+        // this is the root route, so there is nothing to pop.
         await setupProvider.markLicenseAccepted();
-
-        // Close this screen - let setup flow continue
-        Navigator.of(context).pop();
       }
     } catch (e) {
       debugPrint('Error saving license acceptance: $e');
@@ -55,10 +54,63 @@ class _ModelLicenseScreenState extends State<ModelLicenseScreen> {
   }
 
   Future<void> _handleDecline() async {
-    // Close the app or return to startup
-    if (mounted) {
-      Navigator.of(context).pop();
-    }
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text(
+          'AI model required',
+          style: TextStyle(color: AppColors.textPrimary, fontSize: 18),
+        ),
+        content: const Text(
+          'Vent AI runs entirely on your device and needs the Gemma AI model '
+          '(a one-time ~2.6GB download) to work. Without accepting the terms '
+          'and downloading it, the app cannot be used. Nothing has been '
+          'downloaded. You can close the app now, or review the terms again.',
+          style: TextStyle(color: AppColors.textSecondary, fontSize: 14, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Review terms'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDownloadNotice() {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.primary.withOpacity(0.4)),
+      ),
+      child: const Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.download_for_offline_outlined, size: 22, color: AppColors.primary),
+          SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Vent AI needs a one-time ~2.6GB download (the on-device AI model) '
+              'before you can use it. Wi-Fi is recommended. After you accept, '
+              'you will be asked to confirm before anything is downloaded.',
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.4,
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -120,6 +172,9 @@ class _ModelLicenseScreenState extends State<ModelLicenseScreen> {
               ],
             ),
           ),
+
+          // Pinned download-size disclosure (visible without scrolling)
+          _buildDownloadNotice(),
 
           // Scrollable content
           Expanded(
