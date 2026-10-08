@@ -1,13 +1,11 @@
-import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../theme/app_colors.dart';
+import '../utils/platform_utils.dart';
 
 class AppFooter extends StatelessWidget {
   const AppFooter({super.key});
 
-  bool get _isMobile => !kIsWeb && (Platform.isAndroid || Platform.isIOS);
 
   Future<void> _openUrl(String url) async {
     final uri = Uri.parse(url);
@@ -18,13 +16,13 @@ class AppFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final verticalPadding = _isMobile ? 4.0 : 8.0;
-    final disclaimerFontSize = _isMobile ? 8.0 : 9.0;
-    final disclaimerHeight = _isMobile ? 1.1 : 1.3;
-    final copyrightHeight = _isMobile ? 1.0 : 1.2;
-    final linksFontSize = _isMobile ? 8.0 : 9.0;
-    final gapHeight = _isMobile ? 3.0 : 6.0;
-    final midGapHeight = _isMobile ? 2.0 : 6.0;
+    final verticalPadding = isMobilePhone(context) ? 4.0 : 8.0;
+    final disclaimerFontSize = isMobilePhone(context) ? 8.0 : 9.0;
+    final disclaimerHeight = isMobilePhone(context) ? 1.1 : 1.3;
+    final copyrightHeight = isMobilePhone(context) ? 1.0 : 1.2;
+    final linksFontSize = isMobilePhone(context) ? 8.0 : 9.0;
+    final gapHeight = isMobilePhone(context) ? 3.0 : 6.0;
+    final midGapHeight = isMobilePhone(context) ? 2.0 : 6.0;
 
     return Container(
       decoration: BoxDecoration(
@@ -67,7 +65,7 @@ class AppFooter extends StatelessWidget {
           // Links section
           Wrap(
             alignment: WrapAlignment.center,
-            spacing: _isMobile ? 4 : 8,
+            spacing: isMobilePhone(context) ? 4 : 8,
             children: [
               // Privacy Policy link
               GestureDetector(

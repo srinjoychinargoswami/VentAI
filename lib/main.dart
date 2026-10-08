@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,7 +9,6 @@ import 'package:flutter_gemma_litertlm/flutter_gemma_litertlm.dart';
 
 import 'services/hive_database.dart';
 import 'services/gemma_service.dart';
-import 'utils/secure_logger.dart';
 import 'providers/conversation_provider.dart';
 import 'providers/setup_state_provider.dart';
 import 'screens/app_setup_screen.dart';
@@ -19,23 +17,19 @@ import 'screens/legal_page.dart';
 import 'screens/licenses_page.dart';
 import 'screens/model_license_screen.dart';
 import 'themes/app_theme.dart';
+import 'utils/platform_utils.dart' as platform;
 
 // Platform detection
-bool get _isMobile => !kIsWeb && (Platform.isAndroid || Platform.isIOS);
-bool get _isDesktop => !kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux);
 bool get _isWeb => kIsWeb;
-
-// Setup completion flag - prevents cleanup during initial setup
-bool _isSetupComplete = false;
 
 /// Bootstrap Gemma with LiteRT-LM engine (flutter_gemma 1.5.9)
 /// LiteRtLmEngine: For .litertlm models (ARM64 optimized)
 /// Works on BOTH mobile and desktop platforms
 Future<void> _bootstrapGemma() async {
   try {
-    final platformPrefix = _isMobile ? '📱' : '🖥️';
+    final platformPrefix = platform.isMobileOS() ? '📱' : '🖥️';
     debugPrint('$platformPrefix Bootstrapping Gemma LiteRT-LM engine...');
-    debugPrint('📥 Model will download when user accepts license (~500MB)...');
+    debugPrint('📥 Model will download when user accepts license (~2.6GB)...');
 
     // Initialize flutter_gemma with LiteRtLmEngine for .litertlm models
     await FlutterGemma.initialize(
@@ -46,19 +40,6 @@ Future<void> _bootstrapGemma() async {
     debugPrint('✅ Gemma initialized (LiteRT-LM engine for .litertlm format)');
   } catch (e) {
     debugPrint('⚠️ Gemma bootstrap error: $e');
-    // Non-fatal — will use fallback responses
-  }
-}
-
-/// Initialize Gemma AI service (both platforms)
-Future<void> _initGemmaAI() async {
-  try {
-    final platformPrefix = _isMobile ? '📱' : '🖥️';
-    debugPrint('$platformPrefix Initializing Gemma AI service...');
-    await GemmaService().initialize();
-    debugPrint('✅ Gemma AI initialized');
-  } catch (e) {
-    debugPrint('⚠️ Gemma AI initialization error: $e');
     // Non-fatal — will use fallback responses
   }
 }
@@ -98,49 +79,14 @@ Future<void> main() async {
     // Don't crash - app can work without database
   }
 
-  // Handle app termination - cleanup model and temp files on exit
-  SystemChannels.lifecycle.setMessageHandler((msg) async {
-    if (msg?.contains('AppLifecycleState.detached') ?? false) {
-      debugPrint('🧹 App terminating - running cleanup... (setup_complete: $_isSetupComplete)');
-
-      // Only cleanup if setup was completed - avoids deleting model during initial setup
-      if (_isSetupComplete) {
-        try {
-          // Delete the Gemma model (~500MB)
-          debugPrint('🗑️ Deleting Gemma model...');
-          await HiveDatabase.deleteModel();
-          debugPrint('✅ Gemma model deleted');
-          SecureLogger.debug('✅ Gemma model deleted');
-
-          // Clean up temporary files
-          debugPrint('🧹 Cleaning temporary files...');
-          await HiveDatabase.cleanupTempDirectory();
-          debugPrint('✅ Temporary files cleaned');
-          SecureLogger.debug('✅ Temporary files cleaned');
-
-          SecureLogger.debug('✅ App termination cleanup complete');
-          debugPrint('✅ App termination cleanup complete');
-        } catch (e) {
-          debugPrint('⚠️ Termination cleanup error: $e');
-          SecureLogger.redacted('⚠️ Termination cleanup error: $e');
-          // Don't rethrow - cleanup errors shouldn't block uninstall
-        }
-      } else {
-        debugPrint('⏭️ Skipping cleanup - setup not yet complete');
-      }
-    }
-    return null;
-  });
-
-  // Initialize Gemma for both mobile and desktop
-  if (_isMobile) {
+  // Register the Gemma engine only (fast). The ~2.6GB model itself is loaded
+  // lazily by ChatScreen so the first frame is never blocked on it.
+  if (platform.isMobileOS()) {
     debugPrint('📱 Running on mobile platform');
     await _bootstrapGemma();
-    await _initGemmaAI();
-  } else if (_isDesktop) {
+  } else if (platform.isDesktop()) {
     debugPrint('🖥️ Running on desktop platform');
     await _bootstrapGemma();
-    await _initGemmaAI();
   } else if (_isWeb) {
     debugPrint('🌐 Running on web platform');
   }
@@ -182,7 +128,7 @@ class _VentAiAppState extends State<VentAiApp> with WidgetsBindingObserver {
   /// Platform-aware app initialization
   Future<void> _initializeApp() async {
     try {
-      final platformPrefix = _isMobile ? '📱' : '🖥️';
+      final platformPrefix = platform.isMobileOS() ? '📱' : '🖥️';
       debugPrint('$platformPrefix Starting app initialization...');
 
       // Initialize setup provider
@@ -190,11 +136,9 @@ class _VentAiAppState extends State<VentAiApp> with WidgetsBindingObserver {
         if (!mounted) return;
 
         final setupProvider = context.read<SetupStateProvider>();
+        // Setup itself is started by AppSetupScreen (the only caller of
+        // startCompleteSetup), which waits for this initialize() to finish.
         await setupProvider.initialize();
-
-        if (setupProvider.needsSetup) {
-          await setupProvider.startCompleteSetup();
-        }
       });
 
     } catch (e) {
@@ -205,7 +149,7 @@ class _VentAiAppState extends State<VentAiApp> with WidgetsBindingObserver {
   /// Platform-aware force reset (for testing only)
   Future<void> _forceResetForTesting() async {
     try {
-      final platformPrefix = _isMobile ? '📱' : '🖥️';
+      final platformPrefix = platform.isMobileOS() ? '📱' : '🖥️';
       debugPrint('$platformPrefix FORCING FRESH SETUP FOR TESTING...');
 
       // Clear SharedPreferences
@@ -225,7 +169,7 @@ class _VentAiAppState extends State<VentAiApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     
     // Mobile: Dispose Gemma service
-    if (_isMobile) {
+    if (platform.isMobileOS()) {
       GemmaService().dispose();
       debugPrint('📱 Gemma service disposed');
     }
@@ -236,14 +180,13 @@ class _VentAiAppState extends State<VentAiApp> with WidgetsBindingObserver {
   /// Platform-aware lifecycle management
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    final platformPrefix = _isMobile ? '📱' : '🖥️';
+    final platformPrefix = platform.isMobileOS() ? '📱' : '🖥️';
 
     switch (state) {
       case AppLifecycleState.detached:
-        debugPrint('$platformPrefix App detached - running cleanup');
-        // Cleanup model and temporary files on app exit (fire and forget)
-        HiveDatabase.deleteModel();
-        HiveDatabase.cleanupTempDirectory();
+        // Not reliably delivered on iOS, and the ~2.6GB model must persist
+        // between launches, so there is deliberately no cleanup here.
+        debugPrint('$platformPrefix App detached');
         break;
         
       case AppLifecycleState.paused:
@@ -264,7 +207,7 @@ class _VentAiAppState extends State<VentAiApp> with WidgetsBindingObserver {
   /// Service health check
   Future<void> _ensureServiceHealthy() async {
     try {
-      if (_isMobile) {
+      if (platform.isMobileOS()) {
         final status = await GemmaService().getStatus();
         final canGenerate = status['can_generate'] as bool? ?? false;
         debugPrint('📱 Gemma AI ${canGenerate ? "ready" : "not ready"}');
@@ -283,14 +226,8 @@ class _VentAiAppState extends State<VentAiApp> with WidgetsBindingObserver {
       themeMode: ThemeMode.system,
       home: Consumer<SetupStateProvider>(
         builder: (context, setupState, child) {
-          // Mark setup as complete when provider indicates it
-          if (setupState.isSetupComplete && !_isSetupComplete) {
-            _isSetupComplete = true;
-            debugPrint('✅ Setup marked complete - cleanup on exit enabled');
-          }
-
           if (setupState.needsSetup || setupState.isInitializing) {
-            final platformName = _isMobile ? 'mobile' : 'desktop';
+            final platformName = platform.isMobileOS() ? 'mobile' : 'desktop';
             String message = 'Setting up your $platformName AI companion...';
 
             if (setupState.isInitializing) {

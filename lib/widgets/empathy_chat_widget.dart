@@ -1,7 +1,7 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:vent_ai/models/conversation_model.dart';
 import '../theme/app_colors.dart';
-import '../providers/conversation_provider.dart';
 
 class EmpathyChatWidget extends StatelessWidget {
   final List<Conversation> conversations;
@@ -138,7 +138,7 @@ class EmpathyChatWidget extends StatelessWidget {
       alignment: Alignment.centerRight,
       child: Container(
         constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.75,
+          maxWidth: math.min(600.0, MediaQuery.sizeOf(context).width * 0.9),
         ),
         margin: const EdgeInsets.only(left: 48),
         child: Column(
@@ -221,7 +221,7 @@ class EmpathyChatWidget extends StatelessWidget {
       alignment: Alignment.centerLeft,
       child: Container(
         constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.75,
+          maxWidth: math.min(600.0, MediaQuery.sizeOf(context).width * 0.9),
         ),
         margin: const EdgeInsets.only(right: 48),
         child: Column(

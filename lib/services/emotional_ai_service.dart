@@ -1,6 +1,6 @@
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../services/gemma_service.dart';
+import '../utils/platform_utils.dart';
 
 class EmotionalAIService {
   static final EmotionalAIService _instance = EmotionalAIService._internal();
@@ -11,15 +11,13 @@ class EmotionalAIService {
   late GemmaService _gemmaService;
   bool _initialized = false;
 
-  bool get _isMobile => Platform.isAndroid || Platform.isIOS;
-  bool get _isDesktop => Platform.isWindows || Platform.isMacOS || Platform.isLinux;
 
   /// Initialize Gemma AI for both mobile and desktop
   Future<void> initialize() async {
     if (_initialized) return;
 
     try {
-      final platformPrefix = _isMobile ? '📱' : '🖥️';
+      final platformPrefix = isMobileOS() ? '📱' : '🖥️';
       debugPrint('$platformPrefix Initializing Gemma AI...');
       _gemmaService = GemmaService();
       await _gemmaService.initialize();
@@ -42,7 +40,7 @@ class EmotionalAIService {
     try {
       // Use Gemma on both mobile and desktop
       final response = await _gemmaService.generateEmotionalResponse(message);
-      final source = _isMobile ? 'gemma_mobile' : 'gemma_desktop';
+      final source = isMobileOS() ? 'gemma_mobile' : 'gemma_desktop';
 
       return {
         'response': response,
@@ -125,7 +123,7 @@ What would feel most helpful right now?''';
   }
 
   void dispose() {
-    if (_isMobile) {
+    if (isMobileOS()) {
       _gemmaService.dispose();
     }
     _initialized = false;

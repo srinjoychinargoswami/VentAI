@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -6,6 +5,7 @@ import '../theme/app_colors.dart';
 import '../utils/app_paths.dart';
 import '../services/gemma_service.dart';
 import '../services/gemma_bootstrap.dart';
+import '../utils/platform_utils.dart' as platform_utils;
 
 enum SetupStage {
   notStarted,
@@ -35,10 +35,11 @@ class SetupStateProvider extends ChangeNotifier {
   double _setupProgress = 0.0;
   String? _errorMessage;
   DownloadStats? _downloadStats;
+  String? _lastDownloadError; // raw exception text from the last failed download
 
   // Platform detection
-  bool get isMobile => Platform.isAndroid || Platform.isIOS;
-  bool get isDesktop => Platform.isWindows || Platform.isMacOS || Platform.isLinux;
+  bool get isMobile => platform_utils.isMobileOS();
+  bool get isDesktop => platform_utils.isDesktop();
 
   // Getters
   bool get needsSetup => _needsSetup;
@@ -58,7 +59,10 @@ class SetupStateProvider extends ChangeNotifier {
   }
 
   /// Initialize and check setup status (called on app startup)
-  Future<void> initialize() async {
+  Future<void> initialize() => _initFuture ??= _initialize();
+  Future<void>? _initFuture;
+
+  Future<void> _initialize() async {
     final platformPrefix = isMobile ? '📱' : '🖥️';
     debugPrint('$platformPrefix SetupStateProvider initializing...');
     
@@ -120,6 +124,10 @@ class SetupStateProvider extends ChangeNotifier {
   Future<void> startDownloading() async {
     _isInitializing = true;
     _errorMessage = null;
+    // Progress bar is visible on the very frame after the tap; real numbers
+    // replace this as soon as the tracker starts emitting.
+    _downloadStats = const DownloadStats(0, 0, null, 2600);
+    _currentStage = SetupStage.downloadingModels;
     notifyListeners();
 
     try {
@@ -147,12 +155,13 @@ class SetupStateProvider extends ChangeNotifier {
 
       await _updateSetupStage(
         SetupStage.downloadingModels,
-        'Downloading Gemma 4 E2B model (500MB)...\nInitializing...',
+        'Downloading Gemma 4 E2B model (~2.6GB)...\nInitializing...',
         0.1,
       );
 
       // Track download with progress callback
       final success = await bootstrapGemma(
+        onError: (e) => _lastDownloadError = e,
         onProgress: (progress) {
           _currentStage = SetupStage.downloadingModels;
           _setupProgress = 0.15 + (progress / 100.0 * 0.65); // 15%-80% range
@@ -213,12 +222,13 @@ class SetupStateProvider extends ChangeNotifier {
 
       await _updateSetupStage(
         SetupStage.downloadingModels,
-        'Downloading Gemma 4 E2B model (500MB)...\nInitializing...',
+        'Downloading Gemma 4 E2B model (~2.6GB)...\nInitializing...',
         0.1,
       );
 
       // Track download with progress callback (same as mobile)
       final success = await bootstrapGemma(
+        onError: (e) => _lastDownloadError = e,
         onProgress: (progress) {
           _currentStage = SetupStage.downloadingModels;
           _setupProgress = 0.15 + (progress / 100.0 * 0.65); // 15%-80% range
@@ -274,6 +284,11 @@ class SetupStateProvider extends ChangeNotifier {
 
   /// Start the complete setup process (checks license, doesn't start download)
   Future<void> startCompleteSetup() async {
+    // Wait for the startup check so it can't overwrite the state set here,
+    // and do nothing if that check found setup already complete.
+    await initialize();
+    if (!_needsSetup || _isInitializing) return;
+
     _isInitializing = true;
     _needsSetup = true;
     _errorMessage = null;
@@ -290,7 +305,7 @@ class SetupStateProvider extends ChangeNotifier {
         debugPrint('📱 [SETUP-FLOW] Checking if Gemma model is loaded...');
         final status = await GemmaService().getStatus();
         debugPrint('📱 [SETUP-FLOW] Status: $status');
-        final modelLoaded = status['model_loaded'] as bool? ?? false;
+        final modelLoaded = status['model_installed'] as bool? ?? false;
         debugPrint('📱 [SETUP-FLOW] Model loaded: $modelLoaded');
 
         if (modelLoaded) {
@@ -326,7 +341,7 @@ class SetupStateProvider extends ChangeNotifier {
         debugPrint('🖥️ [SETUP-FLOW] Checking if Gemma model is loaded...');
         final status = await GemmaService().getStatus();
         debugPrint('🖥️ [SETUP-FLOW] Status: $status');
-        final modelLoaded = status['model_loaded'] as bool? ?? false;
+        final modelLoaded = status['model_installed'] as bool? ?? false;
         debugPrint('🖥️ [SETUP-FLOW] Model loaded: $modelLoaded');
 
         if (modelLoaded) {
@@ -409,38 +424,12 @@ class SetupStateProvider extends ChangeNotifier {
 
   /// Handle mobile setup failures
   Future<void> _handleMobileSetupFailure(String error) async {
-    debugPrint('📱 Mobile setup failure: $error');
-
-    _errorMessage = error;
-
-    await _updateSetupStage(
-      SetupStage.error,
-      'Setup issue: $error\nUsing fallback mode...',
-      0.5
-    );
-
-    await Future.delayed(const Duration(seconds: 3));
-
-    await markSetupComplete('mobile_fallback');
-    debugPrint('📱 Mobile setup completed with fallback');
+    await _failDownload(error);
   }
 
   /// Handle desktop setup failures
   Future<void> _handleDesktopSetupFailure(String error) async {
-    debugPrint('🖥️ Desktop setup failure: $error');
-
-    _errorMessage = error;
-
-    await _updateSetupStage(
-      SetupStage.error,
-      'Setup issue: $error\nUsing fallback mode...',
-      0.5
-    );
-
-    await Future.delayed(const Duration(seconds: 3));
-
-    await markSetupComplete('desktop_fallback');
-    debugPrint('🖥️ Desktop setup completed with fallback');
+    await _failDownload(error);
   }
 
   /// Verify desktop AI (Gemma)
@@ -481,24 +470,43 @@ class SetupStateProvider extends ChangeNotifier {
     }
   }
 
+  /// The app cannot work without the model, so a failed download is shown as
+  /// an error with a Retry button rather than silently completing setup.
+  Future<void> _failDownload(String error) async {
+    debugPrint('Download failure: $error');
+    // Prefer the real exception over the generic "AI model download failed".
+    _errorMessage = _lastDownloadError ?? error;
+    _lastDownloadError = null;
+    _downloadStats = null;
+    _needsSetup = true;
+    await _updateSetupStage(
+      SetupStage.error,
+      'Download did not finish. Check your internet connection and tap Retry.',
+      0.15,
+    );
+  }
+
+  /// User chose Cancel after a failed download: forget the license acceptance
+  /// and return to the license screen. Setup is NOT marked complete and no
+  /// fallback mode is set; the app needs the model to work.
+  Future<void> cancelAfterFailure() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_gemmadaLicenseAcceptedKey);
+    await prefs.remove('ventai_license_accepted');
+    await prefs.remove('ventai_license_date');
+    _errorMessage = null;
+    _downloadStats = null;
+    _isInitializing = false;
+    _needsSetup = true;
+    _currentStage = SetupStage.acceptingLicense;
+    _setupMessage = 'Please accept Gemma model license to continue';
+    _setupProgress = 0.15;
+    notifyListeners();
+  }
+
   /// Handle installation failures
   Future<void> _handleInstallationFailure(String error) async {
-    final platformPrefix = isMobile ? '📱' : '🖥️';
-    debugPrint('$platformPrefix Installation failure: $error');
-    
-    _errorMessage = error;
-    
-    await _updateSetupStage(
-      SetupStage.error, 
-      'Installation issue: $error\nUsing fallback mode...', 
-      0.5
-    );
-    
-    await Future.delayed(const Duration(seconds: 3));
-    
-    final fallbackType = isMobile ? 'mobile_fallback' : 'desktop_fallback';
-    await markSetupComplete(fallbackType);
-    debugPrint('$platformPrefix Setup completed with fallback');
+    await _failDownload(error);
   }
 
   /// Check if setup is needed
@@ -555,7 +563,7 @@ class SetupStateProvider extends ChangeNotifier {
         case 'gemma_mobile':
         case 'gemma_desktop':
           final status = await GemmaService().getStatus();
-          final canGenerate = status['can_generate'] as bool? ?? false;
+          final canGenerate = status['model_installed'] as bool? ?? false;
           debugPrint('Gemma verification: canGenerate=$canGenerate');
           return canGenerate;
 

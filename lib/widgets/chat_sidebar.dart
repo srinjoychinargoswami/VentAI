@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -6,6 +5,7 @@ import '../theme/app_colors.dart';
 import '../providers/conversation_provider.dart';
 import '../models/conversation_model.dart';
 import 'private_message.dart';
+import '../utils/platform_utils.dart';
 
 class ChatSidebar extends StatefulWidget {
   final VoidCallback onNewChat;
@@ -26,7 +26,6 @@ class ChatSidebar extends StatefulWidget {
 class _ChatSidebarState extends State<ChatSidebar> {
   String? _hoveredConversationId;
 
-  bool get _isMobile => !kIsWeb && (Platform.isAndroid || Platform.isIOS);
 
   @override
   Widget build(BuildContext context) {
@@ -54,8 +53,8 @@ class _ChatSidebarState extends State<ChatSidebar> {
                 backgroundColor: AppColors.primary,
                 foregroundColor: AppColors.textOnPrimary,
                 padding: EdgeInsets.symmetric(
-                  vertical: _isMobile ? 8 : 12,
-                  horizontal: _isMobile ? 12 : 16,
+                  vertical: isMobilePhone(context) ? 8 : 12,
+                  horizontal: isMobilePhone(context) ? 12 : 16,
                 ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
@@ -67,14 +66,14 @@ class _ChatSidebarState extends State<ChatSidebar> {
                   Text(
                     '+ ',
                     style: TextStyle(
-                      fontSize: _isMobile ? 14 : 18,
+                      fontSize: isMobilePhone(context) ? 14 : 18,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   Text(
                     'New Chat',
                     style: TextStyle(
-                      fontSize: _isMobile ? 12 : 14,
+                      fontSize: isMobilePhone(context) ? 12 : 14,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -105,7 +104,7 @@ class _ChatSidebarState extends State<ChatSidebar> {
             child: Consumer<ConversationProvider>(
               builder: (context, provider, _) {
                 // Use provider privacy state directly for mobile reliability
-                final privacyMode = _isMobile ? provider.isPrivacyMode : widget.isPrivacyMode;
+                final privacyMode = isMobileOS() ? provider.isPrivacyMode : widget.isPrivacyMode;
 
                 return ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -204,17 +203,17 @@ class _ChatSidebarState extends State<ChatSidebar> {
             padding: const EdgeInsets.all(12),
             child: SizedBox(
               width: double.infinity,
-              height: _isMobile ? 36 : 44,
+              height: isMobilePhone(context) ? 36 : 44,
               child: ElevatedButton.icon(
                 onPressed: _showClearAllConfirmation,
                 icon: Icon(
                   Icons.delete_sweep,
-                  size: _isMobile ? 14 : 18,
+                  size: isMobilePhone(context) ? 14 : 18,
                 ),
                 label: Text(
                   'Clear all chats',
                   style: TextStyle(
-                    fontSize: _isMobile ? 12 : 14,
+                    fontSize: isMobilePhone(context) ? 12 : 14,
                     fontWeight: FontWeight.w500,
                   ),
                 ),

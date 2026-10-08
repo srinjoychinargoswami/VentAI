@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../services/hive_database.dart';
@@ -6,6 +5,7 @@ import '../services/gemma_service.dart';
 import '../providers/setup_state_provider.dart';
 import '../models/conversation_model.dart';
 import '../utils/secure_logger.dart';
+import '../utils/platform_utils.dart';
 
 class ConversationProvider extends ChangeNotifier {
   final SetupStateProvider? _setupStateProvider;
@@ -30,8 +30,6 @@ class ConversationProvider extends ChangeNotifier {
   String? _revealedPrivacyItemId;  // Tracks which item is currently revealed
 
   // Platform detection
-  bool get _isMobile => Platform.isAndroid || Platform.isIOS;
-  bool get _isDesktop => Platform.isWindows || Platform.isMacOS || Platform.isLinux;
 
   ConversationProvider({
     SetupStateProvider? setupStateProvider
@@ -244,7 +242,7 @@ class ConversationProvider extends ChangeNotifier {
       Map<String, dynamic> aiResponseData;
 
       try {
-        final platformPrefix = _isMobile ? '📱' : '🖥️';
+        final platformPrefix = isMobileOS() ? '📱' : '🖥️';
         debugPrint('$platformPrefix Using Gemma AI');
         aiResponseData = await _generateGemmaAIResponse(enhancedMessage, mood);
       } catch (e) {
@@ -314,14 +312,14 @@ class ConversationProvider extends ChangeNotifier {
   /// Generate Gemma AI response for both mobile and desktop
   Future<Map<String, dynamic>> _generateGemmaAIResponse(String message, String? mood) async {
     try {
-      final platformPrefix = _isMobile ? '📱' : '🖥️';
+      final platformPrefix = isMobileOS() ? '📱' : '🖥️';
       debugPrint('$platformPrefix Generating Gemma AI response...');
 
       // Use GemmaService directly (singleton, already initialized)
       final response = await GemmaService().generateEmotionalResponse(message, mood: mood);
 
       if (response.isNotEmpty) {
-        final source = _isMobile ? 'gemma_mobile' : 'gemma_desktop';
+        final source = isMobileOS() ? 'gemma_mobile' : 'gemma_desktop';
         debugPrint('$platformPrefix Gemma AI response generated successfully');
         return {
           'response': response,
@@ -333,7 +331,7 @@ class ConversationProvider extends ChangeNotifier {
       }
 
     } catch (e) {
-      final platformPrefix = _isMobile ? '📱' : '🖥️';
+      final platformPrefix = isMobileOS() ? '📱' : '🖥️';
       debugPrint('$platformPrefix Gemma AI generation failed: $e');
       return await _generateFallbackResponse(message, mood);
     }

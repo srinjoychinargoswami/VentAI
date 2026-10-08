@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
+import '../utils/platform_utils.dart';
 
 class SuggestedPromptsWidget extends StatelessWidget {
   final Function(String) onPromptTap;
@@ -20,7 +21,7 @@ class SuggestedPromptsWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = MediaQuery.of(context).size.width < 600;
+    final isMobile = isMobilePhone(context);
 
     return Padding(
       padding: EdgeInsets.symmetric(

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
+import 'gemma_service.dart';
 
 /// Snapshot of download progress, emitted at most once per second.
 class DownloadStats {
@@ -9,7 +10,9 @@ class DownloadStats {
   final double speedMBps; // smoothed
   final Duration? remaining; // null until speed is known
   final double totalMB;
-  const DownloadStats(this.percent, this.speedMBps, this.remaining, this.totalMB);
+  final bool stalled; // no progress for a while
+  const DownloadStats(this.percent, this.speedMBps, this.remaining, this.totalMB,
+      {this.stalled = false});
 
   String get remainingText {
     final r = remaining;
@@ -21,12 +24,13 @@ class DownloadStats {
 }
 
 /// Approximate size used for speed/ETA when the real size can't be fetched.
-const double _fallbackModelMB = 2400;
+const double _fallbackModelMB = 2600;
 const String _modelUrl =
     'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm';
 
-/// Best-effort Content-Length lookup (HEAD, follows redirects). Never throws.
-Future<double> _fetchModelSizeMB(String token) async {
+/// Best-effort Content-Length lookup (HEAD, follows redirects). Never throws;
+/// returns null if the real size could not be determined.
+Future<double?> _fetchModelSizeMB(String token) async {
   final client = HttpClient()..connectionTimeout = const Duration(seconds: 5);
   try {
     final req = await client.headUrl(Uri.parse(_modelUrl));
@@ -39,7 +43,7 @@ Future<double> _fetchModelSizeMB(String token) async {
   } finally {
     client.close(force: true);
   }
-  return _fallbackModelMB;
+  return null;
 }
 
 /// Bootstrap Gemma model: initialize and download on first launch
@@ -50,20 +54,19 @@ Future<double> _fetchModelSizeMB(String token) async {
 Future<bool> bootstrapGemma({
   required Function(int) onProgress,
   void Function(DownloadStats)? onStats,
+  void Function(String error)? onError,
 }) async {
   try {
     debugPrint('📱 Starting Gemma model bootstrap...');
     debugPrint('📝 Engine already initialized by main.dart');
 
-    // Check if model already installed
-    try {
-      final model = await FlutterGemma.getActiveModel();
-      debugPrint('✅ Model already installed (NOT closing - model stays alive)');
+    // Check if model already installed (cheap: does not load the model)
+    if (await GemmaService().isInstalled()) {
+      debugPrint('✅ Model already installed');
       onProgress(100);
       return true;
-    } catch (e) {
-      debugPrint('📥 Model not installed, proceeding with download...');
     }
+    debugPrint('📥 Model not installed, proceeding with download...');
 
     debugPrint('📥 Starting model download...');
 
@@ -74,17 +77,28 @@ Future<bool> bootstrapGemma({
     }
 
     // Download and install Gemma 4 E2B .litertlm model (LiteRT-LM format)
-    // Lightweight model (~500MB) for fast downloads and ARM64 mobile inference
+    // Lightweight model (~2.6GB) for fast downloads and ARM64 mobile inference
     // .litertlm format optimized for ARM64 architecture (NOT compatible with x86_64 emulator)
     debugPrint('📥 Starting model download (no notifications, no background service)...');
-    debugPrint('📦 Model: Gemma 4 E2B (~500MB) - ARM64 optimized');
+    debugPrint('📦 Model: Gemma 4 E2B (~2.6GB) - ARM64 optimized');
 
     // Report download starting
     onProgress(0);
 
-    final totalMB = await _fetchModelSizeMB(hfToken);
-    debugPrint('📦 [DOWNLOAD] Model size: ${totalMB.toStringAsFixed(0)} MB');
-    final tracker = _ProgressTracker(totalMB, onProgress, onStats);
+    // Start with the fallback size so the progress UI appears immediately;
+    // refine the total in the background once the HEAD request returns.
+    final tracker = _ProgressTracker(_fallbackModelMB, onProgress, onStats);
+    _fetchModelSizeMB(hfToken).then((mb) {
+      if (mb == null) {
+        debugPrint('📦 [DOWNLOAD] Real size unavailable, keeping estimate '
+            '(${_fallbackModelMB.toStringAsFixed(0)} MB)');
+        return;
+      }
+      debugPrint('📦 [DOWNLOAD] Real size confirmed: ${mb.toStringAsFixed(0)} MB '
+          '(estimate was ${_fallbackModelMB.toStringAsFixed(0)} MB)');
+      // Picked up by the next 1s tick, so speed/ETA correct themselves.
+      tracker.totalMB = mb;
+    });
 
     try {
       debugPrint('📥 [DOWNLOAD STEP 1] Creating installModel builder...');
@@ -112,11 +126,12 @@ Future<bool> bootstrapGemma({
 
       // Verify installation
       debugPrint('📥 [DOWNLOAD STEP 5] Verifying model is active...');
-      try {
-        final activeModel = await FlutterGemma.getActiveModel(maxTokens: 1024);  // Matches .litertlm minimum context window
-        debugPrint('✅ [DOWNLOAD STEP 5] Verified - Active model ready');
-      } catch (e) {
-        debugPrint('⚠️ [DOWNLOAD STEP 5] Could not verify: $e');
+      // Cheap check only: loading the model here would load 2.6GB twice
+      // (GemmaService.initialize() loads it right after).
+      if (await GemmaService().isInstalled()) {
+        debugPrint('✅ [DOWNLOAD STEP 5] Verified - model installed');
+      } else {
+        debugPrint('⚠️ [DOWNLOAD STEP 5] Install finished but model not reported as installed');
       }
 
       // Stop file checker and report completion
@@ -126,11 +141,13 @@ Future<bool> bootstrapGemma({
       debugPrint('❌ [DOWNLOAD ERROR] Failed at step: $e');
       debugPrint('Stack trace: ${StackTrace.current}');
       tracker.dispose();
+      onError?.call(e.toString());
       rethrow;
     }
 
   } catch (e) {
     debugPrint('❌ Bootstrap failed: $e');
+    onError?.call(e.toString());
     return false;
   }
 }
@@ -138,7 +155,7 @@ Future<bool> bootstrapGemma({
 /// Turns raw percent callbacks into percent + MB/s + ETA, throttled to 1/s.
 /// Speed is an exponential moving average so the ETA doesn't jump around.
 class _ProgressTracker {
-  final double totalMB;
+  double totalMB;
   final Function(int) onProgress;
   final void Function(DownloadStats)? onStats;
 
@@ -147,6 +164,8 @@ class _ProgressTracker {
   int _lastEmitMs = -1000;
   int _lastSampleMs = 0;
   int _lastSamplePercent = 0;
+  int _lastChangeMs = 0;
+  int _seenPercent = 0;
   double _speed = 0;
   Timer? _ticker;
 
@@ -181,7 +200,12 @@ class _ProgressTracker {
       final leftMB = (100 - _lastPercent) / 100.0 * totalMB;
       remaining = Duration(seconds: (leftMB / _speed).round());
     }
-    final stats = DownloadStats(_lastPercent, _speed, remaining, totalMB);
+    if (_lastPercent != _seenPercent) {
+      _seenPercent = _lastPercent;
+      _lastChangeMs = now;
+    }
+    final stalled = now - _lastChangeMs > 45000;
+    final stats = DownloadStats(_lastPercent, _speed, remaining, totalMB, stalled: stalled);
     debugPrint('⬇️ [DOWNLOAD] Downloading Gemma 4 E2B... $_lastPercent% | '
         'Speed: ${_speed.toStringAsFixed(1)} MB/s | '
         'Time remaining: ${stats.remainingText}');
