@@ -3,12 +3,13 @@ import 'package:vent_ai/themes/app_colors.dart';
 
 class ChatMessageOptionsWidget extends StatelessWidget {
   final String messageContent;
-  final VoidCallback onRegenerate;
+  // Phase 2: regenerate is not implemented yet (App Store Guideline 2.1).
+  // final VoidCallback onRegenerate;
   final VoidCallback onDelete;
 
   const ChatMessageOptionsWidget({
     required this.messageContent,
-    required this.onRegenerate,
+    // required this.onRegenerate,
     required this.onDelete,
   });
 
@@ -19,16 +20,17 @@ class ChatMessageOptionsWidget extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          TextButton.icon(
-            icon: Icon(Icons.refresh, size: 16),
-            label: Text('Regenerate'),
-            onPressed: onRegenerate,
-            style: TextButton.styleFrom(
-              foregroundColor: AppColors.textSecondary,
-              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            ),
-          ),
-          SizedBox(width: 8),
+          // Phase 2: restore once regenerate is implemented.
+          // TextButton.icon(
+          //   icon: Icon(Icons.refresh, size: 16),
+          //   label: Text('Regenerate'),
+          //   onPressed: onRegenerate,
+          //   style: TextButton.styleFrom(
+          //     foregroundColor: AppColors.textSecondary,
+          //     padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          //   ),
+          // ),
+          // SizedBox(width: 8),
           TextButton.icon(
             icon: Icon(Icons.delete_outline, size: 16),
             label: Text('Delete'),

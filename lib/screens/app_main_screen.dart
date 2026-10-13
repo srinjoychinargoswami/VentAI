@@ -150,9 +150,9 @@ class _AppMainScreenState extends State<AppMainScreen> {
                                 return ChatMessageWidget(
                                   content: message.content,
                                   isUserMessage: message.role == 'user',
-                                  onRegenerate: () {
-                                    // TODO: Regenerate
-                                  },
+                                  // onRegenerate: () { // Phase 2
+                                  //   // TODO: Regenerate
+                                  // },
                                   onDelete: () {
                                     provider.deleteMessageFromSession(message.id);
                                   },
@@ -228,9 +228,9 @@ class _AppMainScreenState extends State<AppMainScreen> {
                       return ChatMessageWidget(
                         content: message.content,
                         isUserMessage: message.role == 'user',
-                        onRegenerate: () {
-                          // Regenerate last AI message
-                        },
+                        // onRegenerate: () { // Phase 2
+                        //   // Regenerate last AI message
+                        // },
                         onDelete: () {
                           provider.deleteMessageFromSession(message.id);
                         },
@@ -288,9 +288,9 @@ class _AppMainScreenState extends State<AppMainScreen> {
                             return ChatMessageWidget(
                               content: message.content,
                               isUserMessage: message.role == 'user',
-                              onRegenerate: () {
-                                // Regenerate last AI message
-                              },
+                              // onRegenerate: () { // Phase 2
+                              //   // Regenerate last AI message
+                              // },
                               onDelete: () {
                                 provider.deleteMessageFromSession(message.id);
                               },

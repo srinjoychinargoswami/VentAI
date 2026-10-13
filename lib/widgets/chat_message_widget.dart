@@ -9,14 +9,15 @@ import '../utils/platform_utils.dart';
 class ChatMessageWidget extends StatefulWidget {
   final String content;
   final bool isUserMessage;
-  final VoidCallback onRegenerate;
+  // Phase 2: regenerate is not implemented yet (App Store Guideline 2.1).
+  // final VoidCallback onRegenerate;
   final VoidCallback onDelete;
   final bool isPrivacyMode;
 
   const ChatMessageWidget({
     required this.content,
     required this.isUserMessage,
-    required this.onRegenerate,
+    // required this.onRegenerate,
     required this.onDelete,
     this.isPrivacyMode = false,
   });
@@ -121,7 +122,7 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
                     if (_showOptions && !widget.isUserMessage)
                       ChatMessageOptionsWidget(
                         messageContent: widget.content,
-                        onRegenerate: widget.onRegenerate,
+                        // onRegenerate: widget.onRegenerate, // Phase 2
                         onDelete: widget.onDelete,
                       ),
                   ],

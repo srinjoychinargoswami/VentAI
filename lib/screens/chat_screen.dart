@@ -603,9 +603,10 @@ class _ChatScreenState extends State<ChatScreen> {
                               return ChatMessageWidget(
                                 content: message.content,
                                 isUserMessage: message.role == 'user',
-                                onRegenerate: () {
-                                  // TODO: Regenerate last AI message
-                                },
+                                // Phase 2: regenerate is not implemented yet (App Store Guideline 2.1).
+                                // onRegenerate: () {
+                                //   // TODO: Regenerate last AI message
+                                // },
                                 onDelete: () async {
                                   await provider.deleteMessageFromSession(message.id);
                                 },
