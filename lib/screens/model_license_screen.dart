@@ -136,209 +136,219 @@ class _ModelLicenseScreenState extends State<ModelLicenseScreen> {
     debugPrint('📜 [LICENSE-SCREEN] Rendering license content');
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: Column(
-        children: [
-          // Header
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-            decoration: BoxDecoration(
-              color: AppColors.background,
-              border: Border(
-                bottom: BorderSide(
-                  color: Color(0xFF94A3B8).withOpacity(0.2),
-                  width: 1,
-                ),
-              ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Expanded(
-                  child: Text(
-                    'Terms of Service & Agreements',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                ),
-                // Close button
-                GestureDetector(
-                  onTap: _handleDecline,
-                  child: Text(
-                    '×',
-                    style: TextStyle(
-                      fontSize: 32,
-                      color: AppColors.textTertiary,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Pinned download-size disclosure (visible without scrolling)
-          _buildDownloadNotice(),
-
-          // Scrollable content
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildLicenseSection(),
-                  const SizedBox(height: 24),
-                  _buildPrivacySection(),
-                  const SizedBox(height: 24),
-                  _buildDisclaimersSection(),
-                  const SizedBox(height: 32),
-                ],
-              ),
-            ),
-          ),
-
-          // HuggingFace License Button
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: GestureDetector(
-              onTap: () async {
-                final url = Uri.parse('https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm');
-                if (await canLaunchUrl(url)) {
-                  await launchUrl(url, mode: LaunchMode.externalApplication);
-                }
-              },
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
-                decoration: BoxDecoration(
-                  border: Border.all(color: AppColors.primary, width: 1),
-                  borderRadius: BorderRadius.circular(8),
-                  color: Colors.transparent,
-                ),
-                child: const Text(
-                  '🔗 View Full Gemma License on HuggingFace',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primary,
-                  ),
-                ),
-              ),
-            ),
-          ),
-
-          // Checkbox + Buttons section
-          Container(
-            decoration: BoxDecoration(
-              border: Border(
-                top: BorderSide(
-                  color: Color(0xFF94A3B8).withOpacity(0.2),
-                  width: 1,
-                ),
-              ),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      // SafeArea keeps the header clear of the status bar / Dynamic Island
+      // and the footer clear of the home indicator; the 600 cap matches the
+      // other setup screens on iPad.
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 600),
             child: Column(
-              mainAxisSize: MainAxisSize.min,
               children: [
-                // Checkbox with label
-                GestureDetector(
-                  onTap: () {
-                    setState(() => _licenseAccepted = !_licenseAccepted);
-                  },
-                  child: Row(
-                    children: [
-                      Checkbox(
-                        value: _licenseAccepted,
-                        onChanged: (value) {
-                          setState(() => _licenseAccepted = value ?? false);
-                        },
-                        activeColor: AppColors.primary,
-                        checkColor: AppColors.textOnPrimary,
+                // Header
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  decoration: BoxDecoration(
+                    color: AppColors.background,
+                    border: Border(
+                      bottom: BorderSide(
+                        color: Color(0xFF94A3B8).withOpacity(0.2),
+                        width: 1,
                       ),
-                      Expanded(
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Expanded(
                         child: Text(
-                          'I have read and accept all terms',
+                          'Terms of Service & Agreements',
+                          textAlign: TextAlign.center,
                           style: TextStyle(
-                            fontSize: 14,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
                             color: AppColors.textPrimary,
-                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      // Close button
+                      GestureDetector(
+                        onTap: _handleDecline,
+                        child: Text(
+                          '×',
+                          style: TextStyle(
+                            fontSize: 32,
+                            color: AppColors.textTertiary,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
 
-                // Buttons row
-                Row(
-                  children: [
-                    // Decline button
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: _handleDecline,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.surface,
-                          foregroundColor: AppColors.textPrimary,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            side: BorderSide(
-                              color: Color(0xFF94A3B8).withOpacity(0.3),
-                              width: 1,
+                // Pinned download-size disclosure (visible without scrolling)
+                _buildDownloadNotice(),
+
+                // Scrollable content
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildLicenseSection(),
+                        const SizedBox(height: 24),
+                        _buildPrivacySection(),
+                        const SizedBox(height: 24),
+                        _buildDisclaimersSection(),
+                        const SizedBox(height: 32),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // HuggingFace License Button
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: GestureDetector(
+                    onTap: () async {
+                      final url = Uri.parse('https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm');
+                      if (await canLaunchUrl(url)) {
+                        await launchUrl(url, mode: LaunchMode.externalApplication);
+                      }
+                    },
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: AppColors.primary, width: 1),
+                        borderRadius: BorderRadius.circular(8),
+                        color: Colors.transparent,
+                      ),
+                      child: const Text(
+                        '🔗 View Full Gemma License on HuggingFace',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+
+                // Checkbox + Buttons section
+                Container(
+                  decoration: BoxDecoration(
+                    border: Border(
+                      top: BorderSide(
+                        color: Color(0xFF94A3B8).withOpacity(0.2),
+                        width: 1,
+                      ),
+                    ),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Checkbox with label
+                      GestureDetector(
+                        onTap: () {
+                          setState(() => _licenseAccepted = !_licenseAccepted);
+                        },
+                        child: Row(
+                          children: [
+                            Checkbox(
+                              value: _licenseAccepted,
+                              onChanged: (value) {
+                                setState(() => _licenseAccepted = value ?? false);
+                              },
+                              activeColor: AppColors.primary,
+                              checkColor: AppColors.textOnPrimary,
+                            ),
+                            Expanded(
+                              child: Text(
+                                'I have read and accept all terms',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: AppColors.textPrimary,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Buttons row
+                      Row(
+                        children: [
+                          // Decline button
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: _handleDecline,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.surface,
+                                foregroundColor: AppColors.textPrimary,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  side: BorderSide(
+                                    color: Color(0xFF94A3B8).withOpacity(0.3),
+                                    width: 1,
+                                  ),
+                                ),
+                              ),
+                              child: const Text(
+                                'Decline',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                        child: const Text(
-                          'Decline',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
+                          const SizedBox(width: 12),
 
-                    // Accept button (disabled if checkbox not checked)
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: _licenseAccepted ? _handleAccept : null,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _licenseAccepted
-                              ? AppColors.primary
-                              : AppColors.primary.withOpacity(0.5),
-                          foregroundColor: AppColors.textOnPrimary,
-                          disabledForegroundColor: AppColors.textOnPrimary.withOpacity(0.6),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                          // Accept button (disabled if checkbox not checked)
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: _licenseAccepted ? _handleAccept : null,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _licenseAccepted
+                                    ? AppColors.primary
+                                    : AppColors.primary.withOpacity(0.5),
+                                foregroundColor: AppColors.textOnPrimary,
+                                disabledForegroundColor: AppColors.textOnPrimary.withOpacity(0.6),
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                              child: const Text(
+                                'Accept & Continue',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
-                        child: const Text(
-                          'Accept & Continue',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
+                        ],
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
+
+                // Footer
+                const AppFooter(),
               ],
             ),
           ),
-
-          // Footer
-          const AppFooter(),
-        ],
+        ),
       ),
     );
   }
