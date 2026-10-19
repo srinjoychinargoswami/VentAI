@@ -6,8 +6,8 @@
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
-	<key>ITSEncryptionExportComplianceCode</key>
-<false/>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<true/>
 	<key>CFBundleDisplayName</key>
 	<string>Vent Ai</string>
 	<key>CFBundleExecutable</key>

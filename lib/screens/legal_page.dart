@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_footer.dart';
+import '../legal/privacy_policy_text.dart';
 
 class LegalPage extends StatefulWidget {
   const LegalPage({super.key});
@@ -124,66 +125,28 @@ class _LegalPageState extends State<LegalPage> {
     );
   }
 
+  /// Renders [kPrivacyPolicyText]: ALL-CAPS lines are headings, "* " lines
+  /// are bullets, other lines are body text.
   Widget _buildPrivacyPolicy() {
+    final children = <Widget>[];
+    for (final rawLine in kPrivacyPolicyText.split('\n')) {
+      final line = rawLine.trim();
+      if (line.isEmpty) continue;
+      final isHeading =
+          line == line.toUpperCase() && line.contains(RegExp('[A-Z]'));
+      if (line.startsWith('* ')) {
+        children.add(_bulletPoint(line.substring(2)));
+      } else if (isHeading) {
+        if (children.isNotEmpty) children.add(const SizedBox(height: 24));
+        children.add(_heading(line));
+      } else {
+        children.add(_bodyText(line));
+      }
+    }
+    children.add(const SizedBox(height: 40));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _heading('OVERVIEW'),
-        _bodyText(
-          'VentAI is a privacy-first emotional support companion app. We are committed to protecting your privacy. This policy explains how we handle your data.',
-        ),
-        const SizedBox(height: 24),
-        _heading('DATA WE DO NOT COLLECT'),
-        _bodyText('VentAI does NOT collect, store, or transmit any personal information about you, including:'),
-        _bulletPoint('Your name, email, phone number, or location'),
-        _bulletPoint('Your conversations or emotional support chats'),
-        _bulletPoint('Your device information or identifiers'),
-        _bulletPoint('Analytics or usage statistics'),
-        _bulletPoint('Behavioral data or activity logs'),
-        _bulletPoint('Any biometric or health data beyond what you voluntarily share in conversations'),
-        const SizedBox(height: 24),
-        _heading('ALL DATA STAYS ON YOUR DEVICE'),
-        _bulletPoint('Every conversation you have with VentAI is stored ONLY on your device'),
-        _bulletPoint('No data is sent to servers or cloud storage'),
-        _bulletPoint('No data is shared with third parties'),
-        _bulletPoint('Conversations are deleted only when you uninstall the app or manually clear app data'),
-        const SizedBox(height: 24),
-        _heading('HOW THE APP WORKS'),
-        _bodyText('VentAI uses an offline AI model (Gemma 4 E2B) that runs entirely on your device:'),
-        _bulletPoint('The AI model is downloaded once from Hugging Face (~2.6GB) on first launch'),
-        _bulletPoint('After download, the app works completely offline'),
-        _bulletPoint('No internet connection is required after the initial setup'),
-        _bulletPoint('Your conversations never leave your device'),
-        const SizedBox(height: 24),
-        _heading('PERMISSIONS WE REQUEST'),
-        _bodyText('VentAI requests certain permissions:'),
-        _bulletPoint('INTERNET: Only used to download the AI model on first launch'),
-        _bulletPoint('STORAGE: To cache the AI model locally on your device'),
-        _bulletPoint('No other data is transmitted'),
-        const SizedBox(height: 24),
-        _heading('THIRD-PARTY SERVICES'),
-        _bulletPoint('HuggingFace: Used only for downloading the AI model on first launch. No personal data is shared.'),
-        _bulletPoint('No analytics, crash reporting, or tracking services are used'),
-        _bulletPoint('No advertisements or ad networks'),
-        const SizedBox(height: 24),
-        _heading('YOUR RIGHTS'),
-        _bulletPoint('You have full control over your data'),
-        _bulletPoint('You can delete all app data by uninstalling or clearing app data in settings'),
-        _bulletPoint('You are not required to provide any personal information to use VentAI'),
-        _bulletPoint('Your privacy is respected at all times'),
-        const SizedBox(height: 24),
-        _heading('CHANGES TO THIS POLICY'),
-        _bodyText('We may update this privacy policy occasionally. Any changes will be reflected here with an updated date.'),
-        const SizedBox(height: 24),
-        _heading('CONTACT US'),
-        _bodyText('If you have privacy questions or concerns, please contact: resolveera@gmail.com'),
-        const SizedBox(height: 24),
-        _heading('COMMITMENT'),
-        _bodyText(
-          'VentAI is designed with privacy as the foundation. We believe emotional support should be private, secure, and personal. Your data belongs to you, not to us.',
-        ),
-        const SizedBox(height: 40),
-      ],
+      children: children,
     );
   }
 

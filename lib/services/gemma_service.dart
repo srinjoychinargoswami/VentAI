@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
+import '../utils/backup_exclusion.dart';
+import '../utils/device_memory.dart';
 import '../utils/secure_logger.dart';
 
 class GemmaService {
@@ -36,7 +38,7 @@ class GemmaService {
   Future<bool> isInstalled() async {
     try {
       if (FlutterGemma.hasActiveModel()) return true;
-      return await FlutterGemma.isModelInstalled('gemma-4-E2B-it.litertlm');
+      return await FlutterGemma.isModelInstalled(kGemmaModelFilename);
     } catch (e) {
       debugPrint('⚠️ [GEMMA-INIT] isInstalled check failed: $e');
       return false;
@@ -45,6 +47,9 @@ class GemmaService {
 
   Future<void> _loadModel() async {
     try {
+      // iOS: refuse to load rather than be terminated by the OS mid-load.
+      await ensureEnoughMemoryForModel();
+
       debugPrint('📱 [GEMMA-INIT] Loading Gemma model (maxTokens=2048)...');
       SecureLogger.debug('📱 Loading Gemma model...');
 

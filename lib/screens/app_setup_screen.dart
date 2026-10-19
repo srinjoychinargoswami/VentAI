@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/setup_state_provider.dart';
 import '../theme/app_colors.dart';
 import 'model_license_screen.dart';
+import 'unsupported_device_screen.dart';
 import '../utils/platform_utils.dart';
 
 class AppSetupScreen extends StatefulWidget {
@@ -221,6 +222,13 @@ class _AppSetupScreenState extends State<AppSetupScreen>
               _showFailureDialog(setupState);
             }
           });
+        }
+
+        // Not enough memory: no license screen, no download, no size dialog.
+        if (setupState.currentStage == SetupStage.unsupportedDevice) {
+          return UnsupportedDeviceScreen(
+            onTryAgain: setupState.retryUnsupportedDevice,
+          );
         }
 
         final isAcceptingLicense =
@@ -531,6 +539,12 @@ class _AppSetupScreenState extends State<AppSetupScreen>
                             child: ElevatedButton.icon(
                               onPressed: () async {
                                 debugPrint('User tapping "Start Download"...');
+                                // Memory check before the size dialog; an
+                                // unsupported device switches to that screen.
+                                if (!await setupProvider.ensureDeviceSupported()) {
+                                  return;
+                                }
+                                if (!context.mounted) return;
                                 final confirmed =
                                     await _confirmDownload(context);
                                 if (!confirmed) {

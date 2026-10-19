@@ -17,6 +17,7 @@ import 'screens/legal_page.dart';
 import 'screens/licenses_page.dart';
 import 'screens/model_license_screen.dart';
 import 'themes/app_theme.dart';
+import 'utils/backup_exclusion.dart';
 import 'utils/platform_utils.dart' as platform;
 
 // Platform detection
@@ -75,8 +76,9 @@ Future<void> main() async {
     await HiveDatabase.initialize();
     debugPrint('✅ Hive initialized');
   } catch (e) {
+    // _DatabaseGate shows an error screen with Retry; the chat list is never
+    // opened on top of an unmigrated or unreadable database.
     debugPrint('❌ Hive init failed: $e');
-    // Don't crash - app can work without database
   }
 
   // Register the Gemma engine only (fast). The ~2.6GB model itself is loaded
@@ -91,23 +93,102 @@ Future<void> main() async {
     debugPrint('🌐 Running on web platform');
   }
 
-  // Then run app with providers
-  runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider<SetupStateProvider>(
-          create: (_) => SetupStateProvider(),
-        ),
+  // iOS: keep the ~2.6GB model and chat history out of iCloud backup.
+  // Runs every launch so installs from earlier builds are covered too.
+  await excludeDocumentsFromBackup(
+      [kGemmaModelFilename, kChatHistoryFilename, kChatHistoryPreMigrationFilename]);
 
-        ChangeNotifierProvider<ConversationProvider>(
-          create: (context) => ConversationProvider(
-            setupStateProvider: context.read<SetupStateProvider>(),
+  // Then run app with providers (gated on the database being ready)
+  runApp(const _DatabaseGate());
+}
+
+/// Builds the app only once [HiveDatabase] has initialized (boxes open, key
+/// migration done, key loaded). Otherwise shows an error with Retry. Sits above
+/// the providers because ConversationProvider reads conversations on creation.
+class _DatabaseGate extends StatefulWidget {
+  const _DatabaseGate();
+
+  @override
+  State<_DatabaseGate> createState() => _DatabaseGateState();
+}
+
+class _DatabaseGateState extends State<_DatabaseGate> {
+  bool _retrying = false;
+
+  Future<void> _retry() async {
+    setState(() => _retrying = true);
+    try {
+      await HiveDatabase.initialize();
+    } catch (e) {
+      debugPrint('❌ Hive init retry failed: $e');
+    }
+    if (mounted) setState(() => _retrying = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (HiveDatabase.isInitialized) {
+      return MultiProvider(
+        providers: [
+          ChangeNotifierProvider<SetupStateProvider>(
+            create: (_) => SetupStateProvider(),
+          ),
+
+          ChangeNotifierProvider<ConversationProvider>(
+            create: (context) => ConversationProvider(
+              setupStateProvider: context.read<SetupStateProvider>(),
+            ),
+          ),
+        ],
+        child: const VentAiApp(),
+      );
+    }
+
+    return MaterialApp(
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: ThemeMode.system,
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        body: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.lock_outline, size: 48),
+                  const SizedBox(height: 16),
+                  const Text(
+                    "Your conversations couldn't be opened",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Nothing has been deleted. Try again, and if this keeps '
+                    'happening, restart your device and reopen Vent AI.',
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: _retrying ? null : _retry,
+                    child: _retrying
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Try again'),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
-      ],
-      child: const VentAiApp(),
-    ),
-  );
+      ),
+    );
+  }
 }
 
 class VentAiApp extends StatefulWidget {

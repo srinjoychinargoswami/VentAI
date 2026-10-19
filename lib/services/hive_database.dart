@@ -7,54 +7,80 @@ import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:encrypt/encrypt.dart' as encrypt;
 import 'package:path_provider/path_provider.dart';
+import '../utils/backup_exclusion.dart';
 import '../utils/secure_logger.dart';
+import 'conversation_key.dart';
 
 class HiveDatabase {
   static late Box<dynamic> conversationBox;
   static late Box<dynamic> preferenceBox;
   static bool _initialized = false;
 
+  // Hive compacts by writing a new file and renaming it over conversations.hive,
+  // which drops the iOS "excluded from backup" flag. Set when a compaction is
+  // about to run so the next write re-marks the file.
+  static bool _conversationFileReplaced = false;
+
+  /// Same thresholds as Hive's (unexported) defaultCompactionStrategy.
+  static bool _conversationCompactionStrategy(int entries, int deletedEntries) {
+    final compact = deletedEntries > 60 && deletedEntries / entries > 0.15;
+    if (compact) _conversationFileReplaced = true;
+    return compact;
+  }
+
+  /// Re-applies the backup exclusion if the last write triggered a compaction.
+  /// Hive awaits compaction inside put/add/delete, so the new file exists here.
+  static Future<void> _reexcludeIfCompacted() async {
+    if (!_conversationFileReplaced) return;
+    _conversationFileReplaced = false;
+    await excludeDocumentsFromBackup([kChatHistoryFilename]);
+  }
+
   static const String conversationBoxName = 'conversations';
   static const String preferenceBoxName = 'preferences';
 
-  /// Generate deterministic encryption key from seed
-  /// Same device = same key, different device = different key (privacy by design)
-  /// Key is NOT persisted; uninstalling app = key lost forever
-  static List<int> _generateEncryptionKey() {
-    const seed = 'ventai-conversations-2026';
-    return sha256.convert(utf8.encode(seed)).bytes.take(32).toList();
+  // ===== Encryption =====
+  // Record layout (unchanged): base64(IV[16] + AES-CTR/PKCS7 ciphertext of JSON).
+
+  /// The fixed key used before per-install keys. Library-private and called
+  /// ONLY from [_migrateToPerInstallKey]; never used to read or write data
+  /// anywhere else.
+  static List<int> _legacyConversationKey() =>
+      sha256.convert(utf8.encode('ventai-data-2026')).bytes.take(32).toList();
+
+  static String _encryptWithKey(String plaintext, List<int> key) {
+    final encrypter = encrypt.Encrypter(encrypt.AES(encrypt.Key(Uint8List.fromList(key))));
+    final iv = encrypt.IV.fromSecureRandom(16);
+    final encrypted = encrypter.encrypt(plaintext, iv: iv);
+    return base64.encode(iv.bytes + encrypted.bytes);
   }
 
-  /// Encrypt conversation data using AES-256
-  static String _encryptConversation(Map<String, dynamic> conversation) {
+  /// Throws if [key] is wrong (padding/UTF-8 error) or the data is corrupt.
+  static String _decryptWithKey(String encoded, List<int> key) {
+    final combined = base64.decode(encoded);
+    final iv = encrypt.IV(Uint8List.fromList(combined.sublist(0, 16)));
+    final ciphertext = combined.sublist(16);
+    final encrypter = encrypt.Encrypter(encrypt.AES(encrypt.Key(Uint8List.fromList(key))));
+    return encrypter.decrypt(encrypt.Encrypted(Uint8List.fromList(ciphertext)), iv: iv);
+  }
+
+  /// Plaintext JSON if [encoded] decrypts with [key] to a JSON object, else null.
+  static String? _tryDecryptJson(String encoded, List<int> key) {
     try {
-      debugPrint('🔐 [ENCRYPT-DEBUG] Encrypting conversation...');
+      final plaintext = _decryptWithKey(encoded, key);
+      return jsonDecode(plaintext) is Map ? plaintext : null;
+    } catch (_) {
+      return null;
+    }
+  }
 
-      // Serialize to JSON
+  /// Encrypt conversation data with this install's key. Throws (never writes
+  /// plaintext) if the key is unavailable.
+  static Future<String> _encryptConversation(Map<String, dynamic> conversation) async {
+    try {
       final jsonString = jsonEncode(conversation);
-      debugPrint('🔐 [ENCRYPT-DEBUG] JSON BEFORE ENCRYPTION: $jsonString');
-      debugPrint('🔐 [ENCRYPT-DEBUG] JSON length: ${jsonString.length}');
-
-      // Generate key
-      final key = sha256.convert(utf8.encode('ventai-data-2026')).bytes.take(32).toList();
-      final encrypter = encrypt.Encrypter(encrypt.AES(encrypt.Key(Uint8List.fromList(key))));
-
-      // Encrypt with random IV
-      final iv = encrypt.IV.fromSecureRandom(16);
-      final encrypted = encrypter.encrypt(jsonString, iv: iv);
-
-      // Combine IV + ciphertext and encode to base64
-      final combined = iv.bytes + encrypted.bytes;
-      final encoded = base64.encode(combined);
-
-      debugPrint('🔐 [ENCRYPT-DEBUG] Base64 AFTER ENCRYPTION (first 100 chars): ${encoded.substring(0, 100)}...');
-      debugPrint('✅ [ENCRYPT-DEBUG] Conversation encrypted successfully. Encoded length: ${encoded.length}');
-
-      // Verify UUID is NOT in plaintext in encoded result
-      if (encoded.contains('ff7bc42c') || encoded.contains('4d8d') || encoded.contains('3dbd')) {
-        debugPrint('❌ [ENCRYPT-DEBUG] WARNING: Possible UUID found in encrypted output!');
-      }
-
+      final encoded = _encryptWithKey(jsonString, await getConversationKey());
+      debugPrint('✅ [ENCRYPT-DEBUG] Conversation encrypted. Encoded length: ${encoded.length}');
       return encoded;
     } catch (e) {
       debugPrint('❌ [ENCRYPT-DEBUG] Encryption failed: $e');
@@ -63,35 +89,14 @@ class HiveDatabase {
     }
   }
 
-  /// Decrypt conversation data using AES-256
-  static Map<String, dynamic> _decryptConversation(dynamic encrypted) {
+  /// Decrypt conversation data with this install's key.
+  static Future<Map<String, dynamic>> _decryptConversation(dynamic encrypted) async {
     try {
-      debugPrint('🔐 [DECRYPT-DEBUG] Decrypting conversation...');
-      debugPrint('🔐 [DECRYPT-DEBUG] Encrypted input (first 100 chars): ${encrypted.toString().substring(0, 100)}...');
-
       if (encrypted is! String) {
         throw Exception('Encrypted data must be a String');
       }
-
-      // Decode from base64
-      final combined = base64.decode(encrypted);
-
-      // Extract IV (first 16 bytes) and ciphertext (rest)
-      final iv = encrypt.IV(Uint8List.fromList(combined.sublist(0, 16)));
-      final ciphertext = combined.sublist(16);
-
-      // Generate key
-      final key = sha256.convert(utf8.encode('ventai-data-2026')).bytes.take(32).toList();
-      final encrypter = encrypt.Encrypter(encrypt.AES(encrypt.Key(Uint8List.fromList(key))));
-
-      // Decrypt
-      final decrypted = encrypter.decrypt(encrypt.Encrypted(Uint8List.fromList(ciphertext)), iv: iv);
-
-      // Parse JSON
-      final conversation = jsonDecode(decrypted) as Map<String, dynamic>;
-      debugPrint('🔐 [DECRYPT-DEBUG] Decrypted JSON: $decrypted');
-      debugPrint('✅ [DECRYPT-DEBUG] Conversation decrypted successfully');
-      return conversation;
+      final decrypted = _decryptWithKey(encrypted, await getConversationKey());
+      return jsonDecode(decrypted) as Map<String, dynamic>;
     } catch (e) {
       debugPrint('❌ [DECRYPT-DEBUG] Decryption failed: $e');
       SecureLogger.redacted('❌ Conversation decryption error: $e');
@@ -116,22 +121,148 @@ class HiveDatabase {
       SecureLogger.debug('🗄️ Opening Hive boxes (manual AES-256 encryption applied)...');
 
       debugPrint('🗄️ [HIVE-DEBUG] Opening conversations box...');
-      conversationBox = await Hive.openBox(conversationBoxName);
+      conversationBox = await Hive.openBox(
+        conversationBoxName,
+        compactionStrategy: _conversationCompactionStrategy,
+      );
       debugPrint('✅ [HIVE-DEBUG] conversations box opened successfully');
+
+      // iOS: openBox may have just created (first launch / after Clear All) or
+      // replaced (crash-recovered compaction) the file, so mark it here.
+      _conversationFileReplaced = false;
+      await excludeDocumentsFromBackup([kChatHistoryFilename]);
 
       debugPrint('🗄️ [HIVE-DEBUG] Opening preferences box...');
       preferenceBox = await Hive.openBox(preferenceBoxName);
       debugPrint('✅ [HIVE-DEBUG] preferences box opened successfully');
 
+      // Must run before anything reads a conversation.
+      await _migrateToPerInstallKey();
+      // Load (or create) the key now so a secure-storage failure surfaces at
+      // startup instead of mid-conversation.
+      await getConversationKey();
+      // Only after the flag is read and the key has loaded: if the key were
+      // unavailable, the copy could be the last readable version of the data.
+      await removePreMigrationCopyIfSafe();
+
       _initialized = true;
+      lastInitError = null;
       debugPrint('✅ [HIVE-DEBUG] Hive initialization complete. conversationBox=${conversationBox.runtimeType}, preferenceBox=${preferenceBox.runtimeType}');
       SecureLogger.debug('✅ Hive database initialized (manual AES-256 encryption applied at save time)');
     } catch (e) {
+      lastInitError = e;
       debugPrint('❌ [HIVE-DEBUG] Hive initialization FAILED: $e');
       debugPrint('❌ [HIVE-DEBUG] Stack trace: ${StackTrace.current}');
       SecureLogger.redacted('❌ Hive init error: $e');
       rethrow;
     }
+  }
+
+  /// True once boxes are open, migration has finished and the key is loaded.
+  static bool get isInitialized => _initialized;
+
+  /// Error from the last failed [initialize] call (null after a success).
+  static Object? lastInitError;
+
+  static bool get isKeyMigrationDone => preferenceBox.get(kMigrationFlagName) == true;
+
+  static bool get hasConversationRecords => conversationBox.isNotEmpty;
+
+  /// One-time move from the legacy fixed key to this install's key.
+  /// Never deletes a record. Sets [kMigrationFlagName] only if the whole pass
+  /// completes without an exception; otherwise the error propagates and the
+  /// pass runs again on the next initialize().
+  static Future<void> _migrateToPerInstallKey() async {
+    if (isKeyMigrationDone) return;
+
+    try {
+      await _copyBoxBeforeMigration();
+
+      final newKey = await getConversationKey();
+      final legacyKey = _legacyConversationKey();
+      var migrated = 0, alreadyCurrent = 0, plaintextEncrypted = 0, failed = 0;
+
+      for (final recordKey in conversationBox.keys.toList()) {
+        final value = conversationBox.get(recordKey);
+        if (value is String) {
+          if (_tryDecryptJson(value, newKey) != null) {
+            alreadyCurrent++;
+            continue;
+          }
+          final legacyPlaintext = _tryDecryptJson(value, legacyKey);
+          if (legacyPlaintext != null) {
+            await conversationBox.put(recordKey, _encryptWithKey(legacyPlaintext, newKey));
+            migrated++;
+            continue;
+          }
+        } else if (value is Map) {
+          // Old unencrypted records: encrypt in place.
+          await conversationBox.put(recordKey, _encryptWithKey(jsonEncode(value), newKey));
+          plaintextEncrypted++;
+          continue;
+        }
+        failed++;
+        debugPrint('⚠️ [KEY-MIGRATION] Record "$recordKey" matched neither key; left untouched');
+      }
+
+      await _reexcludeIfCompacted();
+      await preferenceBox.put(kMigrationFlagName, true);
+
+      if (kDebugMode) {
+        debugPrint('🔐 [KEY-MIGRATION] Done: migrated=$migrated, '
+            'alreadyCurrent=$alreadyCurrent, plaintextEncrypted=$plaintextEncrypted, '
+            'failed=$failed');
+      }
+    } catch (e) {
+      debugPrint('❌ [KEY-MIGRATION] Failed, will retry on next start: $e');
+      SecureLogger.redacted('❌ Key migration failed: $e');
+      rethrow;
+    }
+  }
+
+  /// conversations.hive.pre-encryption-v2, next to the box file. Null if the
+  /// box has no file path. The one place this path is built for the migration
+  /// copy and its cleanup.
+  static String? get _preMigrationCopyPath {
+    final boxPath = conversationBox.path;
+    return boxPath == null ? null : '$boxPath$kChatHistoryPreMigrationSuffix';
+  }
+
+  /// Deletes the pre-migration copy once the migration flag confirms every
+  /// record has moved to this install's key. Runs every launch so devices that
+  /// migrated earlier are cleaned up too. Never reads the copy, never throws:
+  /// the copy is only a leftover, so a failed delete must not block startup.
+  static Future<void> removePreMigrationCopyIfSafe() async {
+    if (!isKeyMigrationDone) return; // not confirmed: keep the copy
+    final copyPath = _preMigrationCopyPath;
+    if (copyPath == null) return;
+    final copy = File(copyPath);
+    try {
+      if (!await copy.exists()) return;
+      await copy.delete();
+      final stillThere = await copy.exists();
+      debugPrint(stillThere
+          ? '⚠️ [KEY-MIGRATION] Pre-migration copy still present after delete'
+          : '🗑️ [KEY-MIGRATION] Pre-migration copy removed');
+    } catch (e) {
+      debugPrint('⚠️ [KEY-MIGRATION] Could not remove pre-migration copy: $e');
+    }
+  }
+
+  /// Copies conversations.hive to conversations.hive.pre-encryption-v2 before
+  /// the first migration write. Never overwrites an existing copy.
+  static Future<void> _copyBoxBeforeMigration() async {
+    if (conversationBox.isEmpty) return; // nothing to protect on a fresh install
+    final boxPath = conversationBox.path;
+    final copyPath = _preMigrationCopyPath;
+    if (boxPath == null || copyPath == null) {
+      throw StateError('Conversation box has no file path; refusing to migrate without a copy.');
+    }
+    final copy = File(copyPath);
+    if (await copy.exists()) return;
+    await File(boxPath).copy(copy.path);
+    await excludeDocumentsFromBackup([kChatHistoryPreMigrationFilename]);
+    debugPrint('🗄️ [KEY-MIGRATION] Pre-migration copy written');
   }
 
   // Conversations
@@ -167,10 +298,11 @@ class HiveDatabase {
 
       // Encrypt conversation before storing
       debugPrint('🔐 [SAVE-DEBUG] Encrypting conversation...');
-      final encrypted = _encryptConversation(conversation);
+      final encrypted = await _encryptConversation(conversation);
 
       debugPrint('💾 [SAVE-DEBUG] Calling conversationBox.add() with encrypted data...');
       final key = await conversationBox.add(encrypted);
+      await _reexcludeIfCompacted();
 
       debugPrint('✅ [SAVE-DEBUG] Conversation saved successfully! Key: $key');
       debugPrint('✅ [SAVE-DEBUG] conversationBox length is now: ${conversationBox.length}');
@@ -191,7 +323,7 @@ class HiveDatabase {
         if (encrypted is String) {
           try {
             // Decrypt conversation
-            final conversation = _decryptConversation(encrypted);
+            final conversation = await _decryptConversation(encrypted);
             conversations.add(conversation);
           } catch (e) {
             debugPrint('⚠️ [DECRYPT-DEBUG] Failed to decrypt conversation at index $i: $e');
@@ -288,8 +420,11 @@ class HiveDatabase {
       final conversationLock = File('${appDir.path}/conversations.lock');
       final preferencesFile = File('${appDir.path}/preferences.hive');
       final preferencesLock = File('${appDir.path}/preferences.lock');
+      // The pre-migration copy holds the same chats, so it goes too. The
+      // conversation key is deliberately kept (Clear All deletes chats only).
+      final preMigrationCopy = File('${appDir.path}/$kChatHistoryPreMigrationFilename');
 
-      for (final file in [conversationFile, conversationLock, preferencesFile, preferencesLock]) {
+      for (final file in [conversationFile, conversationLock, preferencesFile, preferencesLock, preMigrationCopy]) {
         if (await file.exists()) {
           try {
             await file.delete();
@@ -342,6 +477,7 @@ class HiveDatabase {
   static Future<void> deleteConversationById(int id) async {
     try {
       await conversationBox.deleteAt(id);
+      await _reexcludeIfCompacted();
       SecureLogger.debug('✅ Conversation $id deleted');
     } catch (e) {
       SecureLogger.redacted('❌ Delete by id error: $e');
@@ -356,7 +492,7 @@ class HiveDatabase {
         if (encrypted is String) {
           try {
             // Decrypt to read timestamp
-            final conv = _decryptConversation(encrypted);
+            final conv = await _decryptConversation(encrypted);
             final timestamp = DateTime.tryParse(conv['timestamp'] as String? ?? '');
             if (timestamp != null && timestamp.isBefore(olderThan)) {
               keysToDelete.add(i);
@@ -370,6 +506,7 @@ class HiveDatabase {
       for (final key in keysToDelete.reversed) {
         await conversationBox.deleteAt(key);
       }
+      await _reexcludeIfCompacted();
       SecureLogger.debug('✅ Old conversations deleted');
     } catch (e) {
       SecureLogger.redacted('❌ Delete old error: $e');
@@ -381,8 +518,9 @@ class HiveDatabase {
   static Future<void> saveConversationSession(String conversationId, Map<String, dynamic> conversationJson) async {
     try {
       // Encrypt before storing
-      final encrypted = _encryptConversation(conversationJson);
+      final encrypted = await _encryptConversation(conversationJson);
       await conversationBox.put(conversationId, encrypted);
+      await _reexcludeIfCompacted();
       SecureLogger.debug('💾 Conversation session saved: $conversationId');
     } catch (e) {
       SecureLogger.redacted('❌ Save conversation session error: $e');
@@ -394,7 +532,7 @@ class HiveDatabase {
     try {
       final encrypted = conversationBox.get(conversationId);
       if (encrypted is String) {
-        return _decryptConversation(encrypted);
+        return await _decryptConversation(encrypted);
       }
       return null;
     } catch (e) {
@@ -411,7 +549,7 @@ class HiveDatabase {
           final encrypted = conversationBox.get(key);
           if (encrypted is String) {
             // Decrypt if it's encrypted (new system)
-            final sessionMap = _decryptConversation(encrypted);
+            final sessionMap = await _decryptConversation(encrypted);
             // Only include if it has required fields (new system conversation)
             if (sessionMap.containsKey('id') && sessionMap.containsKey('title')) {
               sessions.add(sessionMap);
@@ -449,6 +587,7 @@ class HiveDatabase {
   static Future<void> deleteConversationSession(String conversationId) async {
     try {
       await conversationBox.delete(conversationId);
+      await _reexcludeIfCompacted();
       SecureLogger.debug('✅ Conversation session deleted: $conversationId');
     } catch (e) {
       SecureLogger.redacted('❌ Delete conversation session error: $e');

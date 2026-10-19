@@ -27,6 +27,8 @@ dependencies:
   # Modular engines ONLY (no base flutter_gemma = no large_file_handler v1 embedding!)
   flutter_gemma: ^1.5.9
   flutter_gemma_litertlm: ^1.4.2
+  # Direct dep so we can configure iOS backup exclusion for flutter_gemma's downloads
+  background_downloader: ^9.5.6
 
 
   # Database Dependencies
@@ -41,6 +43,7 @@ dependencies:
   convert: ^3.1.1
   collection: ^1.17.2
   uuid: ^4.0.0
+  flutter_secure_storage: ^11.2.0
 
 dev_dependencies:
   flutter_test:

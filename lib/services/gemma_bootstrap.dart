@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:background_downloader/background_downloader.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_gemma/flutter_gemma.dart';
+import '../utils/backup_exclusion.dart';
 import 'gemma_service.dart';
 
 /// Snapshot of download progress, emitted at most once per second.
@@ -101,6 +103,14 @@ Future<bool> bootstrapGemma({
     });
 
     try {
+      // iOS: background_downloader (used by flutter_gemma) marks the finished
+      // file as excluded from iCloud backup when this is set.
+      if (!kIsWeb && Platform.isIOS) {
+        await FileDownloader().configure(
+          iOSConfig: (Config.excludeFromCloudBackup, Config.always),
+        );
+      }
+
       debugPrint('📥 [DOWNLOAD STEP 1] Creating installModel builder...');
       final builder = FlutterGemma.installModel(
         modelType: ModelType.gemma4,
@@ -118,6 +128,10 @@ Future<bool> bootstrapGemma({
       debugPrint('📥 [DOWNLOAD STEP 3] Starting actual download & install...');
       await networkBuilder.install();
       debugPrint('✅ [DOWNLOAD STEP 3] Model installed successfully');
+
+      // iOS: mark the new model file directly too, in case the downloader
+      // config above didn't apply (no-op on other platforms).
+      await excludeDocumentsFromBackup([kGemmaModelFilename]);
 
       debugPrint('📥 [DOWNLOAD STEP 4] Skipping setActiveModel (auto-set by install)');
       // FlutterGemma automatically sets model as active during installModel()

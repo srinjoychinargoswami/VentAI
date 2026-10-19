@@ -5,6 +5,13 @@ import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
 import '../widgets/app_footer.dart';
 import '../providers/setup_state_provider.dart';
+import '../legal/privacy_policy_text.dart';
+
+/// [kPrivacyPolicyText] with "* " bullets shown as "• ", matching this screen's other sections.
+final String _privacyPolicyDisplayText = kPrivacyPolicyText
+    .split('\n')
+    .map((line) => line.startsWith('* ') ? '• ${line.substring(2)}' : line)
+    .join('\n');
 
 class ModelLicenseScreen extends StatefulWidget {
   const ModelLicenseScreen({super.key});
@@ -385,48 +392,8 @@ class _ModelLicenseScreenState extends State<ModelLicenseScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        const Text(
-          'OVERVIEW\n\n'
-          'VentAI is a privacy-first emotional support companion app. We are committed to protecting your privacy. This policy explains how we handle your data.\n\n'
-          'DATA WE DO NOT COLLECT\n\n'
-          'VentAI does NOT collect, store, or transmit any personal information about you, including:\n\n'
-          '• Your name, email, phone number, or location\n'
-          '• Your conversations or emotional support chats\n'
-          '• Your device information or identifiers\n'
-          '• Analytics or usage statistics\n'
-          '• Behavioral data or activity logs\n'
-          '• Any biometric or health data beyond what you voluntarily share in conversations\n\n'
-          'ALL DATA STAYS ON YOUR DEVICE\n\n'
-          '• Every conversation you have with VentAI is stored ONLY on your device\n'
-          '• No data is sent to servers or cloud storage\n'
-          '• No data is shared with third parties\n'
-          '• Conversations are deleted only when you uninstall the app or manually clear app data\n\n'
-          'HOW THE APP WORKS\n\n'
-          'VentAI uses an offline AI model (Gemma 4 E2B) that runs entirely on your device:\n\n'
-          '• The AI model is downloaded once from Hugging Face (~2.6GB) on first launch\n'
-          '• After download, the app works completely offline\n'
-          '• No internet connection is required after the initial setup\n'
-          '• Your conversations never leave your device\n\n'
-          'PERMISSIONS WE REQUEST\n\n'
-          'VentAI requests certain permissions:\n\n'
-          '• INTERNET: Only used to download the AI model on first launch\n'
-          '• STORAGE: To cache the AI model locally on your device\n'
-          '• No other data is transmitted\n\n'
-          'THIRD-PARTY SERVICES\n\n'
-          '• HuggingFace: Used only for downloading the AI model on first launch. No personal data is shared.\n'
-          '• No analytics, crash reporting, or tracking services are used\n'
-          '• No advertisements or ad networks\n\n'
-          'YOUR RIGHTS\n\n'
-          '• You have full control over your data\n'
-          '• You can delete all app data by uninstalling or clearing app data in settings\n'
-          '• You are not required to provide any personal information to use VentAI\n'
-          '• Your privacy is respected at all times\n\n'
-          'CHANGES TO THIS POLICY\n\n'
-          'We may update this privacy policy occasionally. Any changes will be reflected here with an updated date.\n\n'
-          'CONTACT US\n\n'
-          'If you have privacy questions or concerns, please contact: resolveera@gmail.com\n\n'
-          'COMMITMENT\n\n'
-          'VentAI is designed with privacy as the foundation. We believe emotional support should be private, secure, and personal. Your data belongs to you, not to us.',
+        Text(
+          _privacyPolicyDisplayText,
           style: TextStyle(
             fontSize: 13,
             color: AppColors.textSecondary,

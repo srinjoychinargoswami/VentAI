@@ -14,6 +14,8 @@ import '../providers/conversation_provider.dart';
 import '../utils/secure_logger.dart';
 import 'legal_page.dart';
 import 'breathing_exercise_screen.dart';
+import 'unsupported_device_screen.dart';
+import '../utils/device_memory.dart';
 import '../utils/platform_utils.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -33,6 +35,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final ValueNotifier<String> _streamingText = ValueNotifier<String>('');
   ConversationProvider? _conversationProvider; // subscribed provider, for dispose()
   bool _aiLoading = true; // model loading in background after first frame
+  bool _insufficientMemory = false; // load-time memory backstop fired
 
   // Platform detection
   bool get _isLargeScreen => isTablet(context);
@@ -67,6 +70,11 @@ class _ChatScreenState extends State<ChatScreen> {
     try {
       await GemmaService().initialize();
       SecureLogger.debug('✅ GemmaService ready for chat');
+      if (mounted && _insufficientMemory) setState(() => _insufficientMemory = false);
+    } on InsufficientMemoryException catch (e) {
+      // Backstop: show the unsupported screen rather than canned replies.
+      SecureLogger.debug('🧠 Not enough memory to load model: $e');
+      if (mounted) setState(() => _insufficientMemory = true);
     } catch (e) {
       SecureLogger.redacted('❌ Failed to initialize GemmaService: $e');
     } finally {
@@ -76,6 +84,10 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_insufficientMemory) {
+      return UnsupportedDeviceScreen(onTryAgain: _initializeAI);
+    }
+
     SecureLogger.debug('📱 Building ChatScreen');
     final screenSize = MediaQuery.sizeOf(context);
     SecureLogger.debug('Screen size: ${screenSize.width} x ${screenSize.height}');
@@ -603,7 +615,7 @@ class _ChatScreenState extends State<ChatScreen> {
                               return ChatMessageWidget(
                                 content: message.content,
                                 isUserMessage: message.role == 'user',
-                                // Phase 2: regenerate is not implemented yet (App Store Guideline 2.1).
+                                // Phase 2: regenerate is not implemented yet.
                                 // onRegenerate: () {
                                 //   // TODO: Regenerate last AI message
                                 // },

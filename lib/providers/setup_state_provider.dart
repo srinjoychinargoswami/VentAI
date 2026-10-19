@@ -5,6 +5,7 @@ import '../theme/app_colors.dart';
 import '../utils/app_paths.dart';
 import '../services/gemma_service.dart';
 import '../services/gemma_bootstrap.dart';
+import '../utils/device_memory.dart';
 import '../utils/platform_utils.dart' as platform_utils;
 
 enum SetupStage {
@@ -17,6 +18,7 @@ enum SetupStage {
   testing,
   complete,
   error,
+  unsupportedDevice,
 }
 
 class SetupStateProvider extends ChangeNotifier {
@@ -36,6 +38,9 @@ class SetupStateProvider extends ChangeNotifier {
   String? _errorMessage;
   DownloadStats? _downloadStats;
   String? _lastDownloadError; // raw exception text from the last failed download
+  // Set when the stage is unsupportedDevice: true if the model is already
+  // downloaded (the load-time backstop fired), false if the download was gated.
+  bool _unsupportedAfterDownload = false;
 
   // Platform detection
   bool get isMobile => platform_utils.isMobileOS();
@@ -120,8 +125,56 @@ class SetupStateProvider extends ChangeNotifier {
     }
   }
 
+  /// Pre-download memory gate. Returns false and switches to the unsupported
+  /// screen if the device can't run the model. Never writes setup state.
+  Future<bool> ensureDeviceSupported() async {
+    final result = await checkDeviceCanRunModel();
+    if (result.isSupported) return true;
+    _showUnsupported(result.availableBytes, afterDownload: false);
+    return false;
+  }
+
+  void _showUnsupported(int? availableBytes, {required bool afterDownload}) {
+    _unsupportedAfterDownload = afterDownload;
+    _needsSetup = true;
+    _downloadStats = null;
+    _currentStage = SetupStage.unsupportedDevice;
+    _setupMessage = 'Not enough memory on this device';
+    debugPrint('🧠 Unsupported device (available: $availableBytes bytes, '
+        'afterDownload: $afterDownload)');
+    notifyListeners();
+  }
+
+  /// "Try again" on the unsupported screen. Before download: re-check and, if
+  /// it passes, return to the Start Download step (the size dialog still
+  /// shows). After download: retry loading the model and finish setup.
+  Future<void> retryUnsupportedDevice() async {
+    if (_unsupportedAfterDownload) {
+      _isInitializing = true;
+      notifyListeners();
+      try {
+        await _finishSetupAfterDownload();
+      } finally {
+        _isInitializing = false;
+        notifyListeners();
+      }
+      return;
+    }
+
+    if (await ensureDeviceSupported()) {
+      await _updateSetupStage(
+        SetupStage.acceptingLicense,
+        'License accepted! Ready to download Gemma model.\nTap "Start Download" to begin.',
+        0.15,
+      );
+    }
+  }
+
   /// Start model download (called AFTER license accepted and user explicitly taps download)
   Future<void> startDownloading() async {
+    // Gate every entry point (Start Download and both Retry buttons).
+    if (!await ensureDeviceSupported()) return;
+
     _isInitializing = true;
     _errorMessage = null;
     // Progress bar is visible on the very frame after the tap; real numbers
@@ -177,35 +230,7 @@ class SetupStateProvider extends ChangeNotifier {
       );
 
       if (success) {
-        // Initialize GemmaService singleton model after download completes
-        debugPrint('📱 Initializing GemmaService singleton model...');
-        try {
-          await GemmaService().initialize();
-          debugPrint('✅ GemmaService model initialized - ready for inference');
-        } catch (e) {
-          debugPrint('⚠️ GemmaService initialization: $e');
-        }
-
-        await _updateSetupStage(
-          SetupStage.configuringAI,
-          'Configuring AI for optimal performance...',
-          0.85,
-        );
-
-        await _updateSetupStage(
-          SetupStage.testing,
-          'Testing AI functionality...',
-          0.95,
-        );
-
-        // Wait for model to fully load before testing
-        debugPrint('📥 Waiting for model to fully load into memory...');
-        await Future.delayed(const Duration(milliseconds: 500));
-
-        await _verifyMobileAI();
-
-        await markSetupComplete('gemma_mobile');
-        debugPrint('📱 DOWNLOAD COMPLETE - Gemma AI ready');
+        await _finishSetupAfterDownload();
       } else {
         await _handleMobileSetupFailure('AI model download failed');
       }
@@ -213,6 +238,49 @@ class SetupStateProvider extends ChangeNotifier {
       debugPrint('📱 Download failed: $e');
       await _handleMobileSetupFailure('Download error: $e');
     }
+  }
+
+  /// Loads the freshly downloaded model, tests it and marks setup complete.
+  /// If the memory backstop in GemmaService fires, shows the unsupported
+  /// screen instead and does NOT mark setup complete.
+  Future<void> _finishSetupAfterDownload() async {
+    final platformPrefix = isMobile ? '📱' : '🖥️';
+    debugPrint('$platformPrefix Initializing GemmaService singleton model...');
+    try {
+      await GemmaService().initialize();
+      debugPrint('✅ GemmaService model initialized - ready for inference');
+    } on InsufficientMemoryException catch (e) {
+      debugPrint('$platformPrefix Not enough memory to load model: $e');
+      _showUnsupported(e.availableBytes, afterDownload: true);
+      return;
+    } catch (e) {
+      debugPrint('⚠️ GemmaService initialization: $e');
+    }
+
+    await _updateSetupStage(
+      SetupStage.configuringAI,
+      'Configuring AI for optimal performance...',
+      0.85,
+    );
+
+    await _updateSetupStage(
+      SetupStage.testing,
+      'Testing AI functionality...',
+      0.95,
+    );
+
+    // Wait for model to fully load before testing
+    debugPrint('📥 Waiting for model to fully load into memory...');
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    if (isMobile) {
+      await _verifyMobileAI();
+    } else {
+      await _verifyDesktopAI();
+    }
+
+    await markSetupComplete(isMobile ? 'gemma_mobile' : 'gemma_desktop');
+    debugPrint('$platformPrefix DOWNLOAD COMPLETE - Gemma AI ready');
   }
 
   /// Download and setup desktop model (same as mobile - using Gemma)
@@ -244,35 +312,7 @@ class SetupStateProvider extends ChangeNotifier {
       );
 
       if (success) {
-        // Initialize GemmaService singleton model after download completes
-        debugPrint('🖥️ Initializing GemmaService singleton model...');
-        try {
-          await GemmaService().initialize();
-          debugPrint('✅ GemmaService model initialized - ready for inference');
-        } catch (e) {
-          debugPrint('⚠️ GemmaService initialization: $e');
-        }
-
-        await _updateSetupStage(
-          SetupStage.configuringAI,
-          'Configuring AI for optimal performance...',
-          0.85,
-        );
-
-        await _updateSetupStage(
-          SetupStage.testing,
-          'Testing AI functionality...',
-          0.95,
-        );
-
-        // Wait for model to fully load before testing
-        debugPrint('📥 Waiting for model to fully load into memory...');
-        await Future.delayed(const Duration(milliseconds: 500));
-
-        await _verifyDesktopAI();
-
-        await markSetupComplete('gemma_desktop');
-        debugPrint('🖥️ DOWNLOAD COMPLETE - Gemma AI ready');
+        await _finishSetupAfterDownload();
       } else {
         await _handleDesktopSetupFailure('AI model download failed');
       }
