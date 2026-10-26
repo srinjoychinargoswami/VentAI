@@ -6,6 +6,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:encrypt/encrypt.dart' as encrypt;
+import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import '../utils/backup_exclusion.dart';
 import '../utils/secure_logger.dart';
@@ -33,11 +34,13 @@ class HiveDatabase {
   static Future<void> _reexcludeIfCompacted() async {
     if (!_conversationFileReplaced) return;
     _conversationFileReplaced = false;
-    await excludeDocumentsFromBackup([kChatHistoryFilename]);
+    await excludeDocumentsFromBackup([kChatHistoryFilename, kQuarantineFilename]);
   }
 
   static const String conversationBoxName = 'conversations';
   static const String preferenceBoxName = 'preferences';
+  // Dotted so the file is conversations.quarantine.hive (see kQuarantineFilename).
+  static const String quarantineBoxName = 'conversations.quarantine';
 
   // ===== Encryption =====
   // Record layout (unchanged): base64(IV[16] + AES-CTR/PKCS7 ciphertext of JSON).
@@ -130,7 +133,7 @@ class HiveDatabase {
       // iOS: openBox may have just created (first launch / after Clear All) or
       // replaced (crash-recovered compaction) the file, so mark it here.
       _conversationFileReplaced = false;
-      await excludeDocumentsFromBackup([kChatHistoryFilename]);
+      await excludeDocumentsFromBackup([kChatHistoryFilename, kQuarantineFilename]);
 
       debugPrint('🗄️ [HIVE-DEBUG] Opening preferences box...');
       preferenceBox = await Hive.openBox(preferenceBoxName);
@@ -169,8 +172,9 @@ class HiveDatabase {
   static bool get hasConversationRecords => conversationBox.isNotEmpty;
 
   /// One-time move from the legacy fixed key to this install's key.
-  /// Never deletes a record. Sets [kMigrationFlagName] only if the whole pass
-  /// completes without an exception; otherwise the error propagates and the
+  /// Never deletes a record that isn't first verified in the quarantine box.
+  /// Sets [kMigrationFlagName] only if the whole pass completes without an
+  /// exception and every unreadable record is quarantined; otherwise the error propagates and the
   /// pass runs again on the next initialize().
   static Future<void> _migrateToPerInstallKey() async {
     if (isKeyMigrationDone) return;
@@ -180,7 +184,9 @@ class HiveDatabase {
 
       final newKey = await getConversationKey();
       final legacyKey = _legacyConversationKey();
-      var migrated = 0, alreadyCurrent = 0, plaintextEncrypted = 0, failed = 0;
+      var migrated = 0, alreadyCurrent = 0, plaintextEncrypted = 0;
+      // Raw stored values that neither key can read, by record key.
+      final unreadable = <dynamic, dynamic>{};
 
       for (final recordKey in conversationBox.keys.toList()) {
         final value = conversationBox.get(recordKey);
@@ -201,15 +207,24 @@ class HiveDatabase {
           plaintextEncrypted++;
           continue;
         }
-        failed++;
+        unreadable[recordKey] = value;
         debugPrint('⚠️ [KEY-MIGRATION] Record "$recordKey" matched neither key; left untouched');
       }
 
       await _reexcludeIfCompacted();
-      await preferenceBox.put(kMigrationFlagName, true);
+      // Unreadable records are moved to the quarantine box first; the flag is
+      // set (and the pre-migration copy becomes removable) only once every one
+      // of them is verified there and gone from conversations.hive.
+      final failed = unreadable.length;
+      if (failed == 0 || await _quarantineUnreadable(unreadable)) {
+        await preferenceBox.put(kMigrationFlagName, true);
+      } else if (kDebugMode) {
+        debugPrint('⚠️ [KEY-MIGRATION] Incomplete: failed=$failed, flag not set, '
+            'pre-migration copy kept');
+      }
 
       if (kDebugMode) {
-        debugPrint('🔐 [KEY-MIGRATION] Done: migrated=$migrated, '
+        debugPrint('🔐 [KEY-MIGRATION] Pass finished: migrated=$migrated, '
             'alreadyCurrent=$alreadyCurrent, plaintextEncrypted=$plaintextEncrypted, '
             'failed=$failed');
       }
@@ -217,6 +232,93 @@ class HiveDatabase {
       debugPrint('❌ [KEY-MIGRATION] Failed, will retry on next start: $e');
       SecureLogger.redacted('❌ Key migration failed: $e');
       rethrow;
+    }
+  }
+
+  /// conversations.quarantine.hive, next to the box file. Null if the box has
+  /// no file path. The one place this path is built.
+  static String? get _quarantinePath {
+    final boxPath = conversationBox.path;
+    return boxPath == null ? null : p.join(p.dirname(boxPath), kQuarantineFilename);
+  }
+
+  static bool _rawEquals(dynamic a, dynamic b) {
+    if (a is List && b is List) {
+      if (a.length != b.length) return false;
+      for (var i = 0; i < a.length; i++) {
+        if (!_rawEquals(a[i], b[i])) return false;
+      }
+      return true;
+    }
+    if (a is Map && b is Map) {
+      if (a.length != b.length) return false;
+      for (final k in a.keys) {
+        if (!b.containsKey(k) || !_rawEquals(a[k], b[k])) return false;
+      }
+      return true;
+    }
+    return a == b;
+  }
+
+  /// Copies [unreadable] (record key -> raw stored value) into the quarantine
+  /// box, reads every entry back, and only then removes them from
+  /// conversations.hive. Returns true only if all of that succeeded. Never
+  /// overwrites a different quarantined value, never throws: on any problem the
+  /// records stay where they are and the caller leaves the flag unset.
+  static Future<bool> _quarantineUnreadable(Map<dynamic, dynamic> unreadable) async {
+    var verified = 0, conflicts = 0, errors = 0;
+    Box<dynamic>? quarantine;
+    try {
+      final path = _quarantinePath;
+      if (path == null) {
+        debugPrint('⚠️ [KEY-MIGRATION] Quarantine failed: conversation box has no file path');
+        return false;
+      }
+      quarantine = await Hive.openBox(quarantineBoxName, path: p.dirname(path));
+
+      for (final entry in unreadable.entries) {
+        try {
+          if (!quarantine.containsKey(entry.key)) {
+            await quarantine.put(entry.key, entry.value);
+          } else if (!_rawEquals(quarantine.get(entry.key), entry.value)) {
+            conflicts++;
+          }
+        } catch (e) {
+          errors++;
+          debugPrint('⚠️ [KEY-MIGRATION] Quarantine write failed for "${entry.key}": $e');
+        }
+      }
+
+      for (final entry in unreadable.entries) {
+        if (quarantine.containsKey(entry.key) &&
+            _rawEquals(quarantine.get(entry.key), entry.value)) {
+          verified++;
+        }
+      }
+
+      if (conflicts > 0 || errors > 0 || verified != unreadable.length) {
+        debugPrint('⚠️ [KEY-MIGRATION] Quarantine not applied: quarantined=${unreadable.length} '
+            'verified=$verified conflicts=$conflicts errors=$errors, flag not set');
+        return false;
+      }
+
+      await conversationBox.deleteAll(unreadable.keys);
+      await _reexcludeIfCompacted();
+      if (kDebugMode) {
+        debugPrint('🔐 [KEY-MIGRATION] Quarantined=${unreadable.length} '
+            'verified=$verified conflicts=$conflicts, flag set');
+      }
+      return true;
+    } catch (e) {
+      debugPrint('⚠️ [KEY-MIGRATION] Quarantine failed: $e (flag not set)');
+      return false;
+    } finally {
+      try {
+        await quarantine?.close();
+        await excludeDocumentsFromBackup([kQuarantineFilename]);
+      } catch (e) {
+        debugPrint('⚠️ [KEY-MIGRATION] Could not close quarantine box: $e');
+      }
     }
   }
 
@@ -423,8 +525,11 @@ class HiveDatabase {
       // The pre-migration copy holds the same chats, so it goes too. The
       // conversation key is deliberately kept (Clear All deletes chats only).
       final preMigrationCopy = File('${appDir.path}/$kChatHistoryPreMigrationFilename');
+      // Quarantined records are old chats too, so they go with Clear All.
+      final quarantineFile = File('${appDir.path}/$kQuarantineFilename');
+      final quarantineLock = File('${appDir.path}/conversations.quarantine.lock');
 
-      for (final file in [conversationFile, conversationLock, preferencesFile, preferencesLock, preMigrationCopy]) {
+      for (final file in [conversationFile, conversationLock, preferencesFile, preferencesLock, preMigrationCopy, quarantineFile, quarantineLock]) {
         if (await file.exists()) {
           try {
             await file.delete();

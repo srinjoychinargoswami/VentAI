@@ -15,6 +15,10 @@ const String kChatHistoryPreMigrationSuffix = '.pre-encryption-v2';
 const String kChatHistoryPreMigrationFilename =
     '$kChatHistoryFilename$kChatHistoryPreMigrationSuffix';
 
+/// Hive box file holding chat records no key could decrypt (Hive box name
+/// 'conversations.quarantine', so the file is `<name>.hive`).
+const String kQuarantineFilename = 'conversations.quarantine.hive';
+
 const MethodChannel _storageChannel = MethodChannel('com.ventai.app/storage');
 
 /// iOS only: marks [filenames] in the Documents directory as excluded from

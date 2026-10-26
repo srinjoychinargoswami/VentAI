@@ -96,7 +96,12 @@ Future<void> main() async {
   // iOS: keep the ~2.6GB model and chat history out of iCloud backup.
   // Runs every launch so installs from earlier builds are covered too.
   await excludeDocumentsFromBackup(
-      [kGemmaModelFilename, kChatHistoryFilename, kChatHistoryPreMigrationFilename]);
+      [
+    kGemmaModelFilename,
+    kChatHistoryFilename,
+    kChatHistoryPreMigrationFilename,
+    kQuarantineFilename,
+  ]);
 
   // Then run app with providers (gated on the database being ready)
   runApp(const _DatabaseGate());
