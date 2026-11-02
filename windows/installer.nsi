@@ -1,6 +1,6 @@
 ; VentAI NSIS Installer Script
-; Creates: VentAI-Setup-1.2.0.exe
-; Updated: October 10, 2026 — Performance improvements (H1, H3, M2, M5), iPad layout, platform detection
+; Creates: VentAI-Setup-1.2.1.exe
+; Updated: October 25, 2026 — Performance improvements (H1, H3, M2, M5), iPad layout, platform detection
 
 !include "MUI2.nsh"
 !include "x64.nsh"
@@ -10,7 +10,7 @@
 
 ; Basic Settings
 Name "VentAI"
-OutFile "VentAI-Setup-1.2.0.exe"
+OutFile "VentAI-Setup-1.2.1.exe"
 InstallDir "$PROGRAMFILES\VentAI"
 InstallDirRegKey HKCU "Software\VentAI" "InstallDir"
 
@@ -54,7 +54,7 @@ Section "Install"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\VentAI" \
     "Publisher" "Srinjoy Goswami & Resolveera"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\VentAI" \
-    "DisplayVersion" "1.2.0"
+    "DisplayVersion" "1.2.1"
 SectionEnd
 
 ; Uninstall Section
