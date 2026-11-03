@@ -40,7 +40,7 @@ class AppFooter extends StatelessWidget {
         children: [
           // Disclaimer section
           Text(
-            'Vent AI is not a substitute for professional mental health care.\n100% on-device • Fully private • No data stored',
+            'Vent AI is not a substitute for professional mental health care.\n100% on-device • Fully private • No accounts. No data sent to us.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: disclaimerFontSize,

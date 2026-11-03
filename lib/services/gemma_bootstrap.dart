@@ -72,10 +72,10 @@ Future<bool> bootstrapGemma({
 
     debugPrint('📥 Starting model download...');
 
-    // Get HuggingFace token from environment (compile-time define)
+    // Get Hugging Face token from environment (compile-time define)
     const String hfToken = String.fromEnvironment('HUGGINGFACE_TOKEN');
     if (hfToken.isNotEmpty) {
-      debugPrint('✅ Using HuggingFace token');
+      debugPrint('✅ Using Hugging Face token');
     }
 
     // Download and install Gemma 4 E2B .litertlm model (LiteRT-LM format)

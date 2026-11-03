@@ -208,7 +208,7 @@ class _ModelLicenseScreenState extends State<ModelLicenseScreen> {
                   ),
                 ),
 
-                // HuggingFace License Button
+                // Hugging Face License Button
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   child: GestureDetector(
@@ -227,7 +227,7 @@ class _ModelLicenseScreenState extends State<ModelLicenseScreen> {
                         color: Colors.transparent,
                       ),
                       child: const Text(
-                        '🔗 View Full Gemma License on HuggingFace',
+                        '🔗 View Full Gemma License on Hugging Face',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 14,
@@ -370,8 +370,8 @@ class _ModelLicenseScreenState extends State<ModelLicenseScreen> {
         const Text(
           'This application uses Google\'s Gemma 4 E2B model for offline emotional support and conversation.\n\n'
           'Model: gemma-4-E2B-it (LiteRT-LM format)\n'
-          'Provider: Google via HuggingFace\n\n'
-          'The model will be downloaded to your device (2.59 GB) on first launch and cached locally. No data is sent to external servers.\n\n'
+          'Provider: Google via Hugging Face\n\n'
+          'The model will be downloaded to your device (2.59 GB) on first launch and cached locally. The model is downloaded from Hugging Face. During the download, Hugging Face collects your device’s IP address, the date and time of the request, and device and software details, as described in its privacy policy at huggingface.co/privacy. It may share that information with its service providers. No conversation data is sent.\n\n'
           'By accepting this license, you agree to:\n\n'
           '• Use the model only for personal, non-commercial purposes\n'
           '• Comply with the Gemma model license terms\n'

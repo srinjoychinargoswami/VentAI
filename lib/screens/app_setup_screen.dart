@@ -147,7 +147,8 @@ class _AppSetupScreenState extends State<AppSetupScreen>
             fontWeight: FontWeight.w600,
           ),
         ),
-        content: const Column(
+        content: const SingleChildScrollView(
+          child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -175,7 +176,17 @@ class _AppSetupScreenState extends State<AppSetupScreen>
               'Keep the app open while it downloads.',
               style: TextStyle(color: AppColors.textTertiary, fontSize: 13),
             ),
+            SizedBox(height: 12),
+            Text(
+              'The AI engine downloads from Hugging Face. During the download, '
+              'Hugging Face collects your device’s IP address, the date and time '
+              'of the request, and device and software details, as described in '
+              'its privacy policy at huggingface.co/privacy. It may share that '
+              'information with its service providers. No conversation data is sent.',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+            ),
           ],
+          ),
         ),
         actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
         actions: [

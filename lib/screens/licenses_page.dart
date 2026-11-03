@@ -675,7 +675,7 @@ class _LicensesPageState extends State<LicensesPage> {
         const SizedBox(height: 12),
         _bodyText(
           'Model: Gemma 4 E2B (LiteRT-LM format)\n'
-          'Provider: Google via HuggingFace\n'
+          'Provider: Google via Hugging Face\n'
           'Model Version: 2024+\n\n'
           'This application uses Google\'s Gemma 4 E2B model for offline emotional support '
           'and conversation.',
@@ -690,7 +690,12 @@ class _LicensesPageState extends State<LicensesPage> {
         _heading('USAGE'),
         _bulletPoint('Model downloads to your device (~2.6GB) on first launch'),
         _bulletPoint('Model is cached locally for offline use'),
-        _bulletPoint('No data is sent to external servers'),
+        _bulletPoint(
+          'During the download, Hugging Face collects your device’s IP address, '
+          'the date and time of the request, and device and software details, as '
+          'described in its privacy policy at huggingface.co/privacy. It may share '
+          'that information with its service providers. No conversation data is sent.',
+        ),
         _bulletPoint('You accept full responsibility for model outputs'),
         const SizedBox(height: 24),
         _heading('RESTRICTIONS'),
