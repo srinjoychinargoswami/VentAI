@@ -373,8 +373,8 @@ class _ModelLicenseScreenState extends State<ModelLicenseScreen> {
           'Provider: Google via Hugging Face\n\n'
           'The model will be downloaded to your device (2.59 GB) on first launch and cached locally. The model is downloaded from Hugging Face. During the download, Hugging Face collects your device’s IP address, the date and time of the request, and device and software details, as described in its privacy policy at huggingface.co/privacy. It may share that information with its service providers. No conversation data is sent.\n\n'
           'By accepting this license, you agree to:\n\n'
-          '• Use the model only for personal, non-commercial purposes\n'
-          '• Comply with the Gemma model license terms\n'
+          '• The Gemma 4 E2B model is licensed under the Apache License 2.0.\n'
+          '• The full licence text is shown on the Licences screen.\n'
           '• Accept responsibility for model outputs\n\n'
           'For full license details, visit:\n'
           'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm',

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../legal/app_licence.dart';
 import '../theme/app_colors.dart';
 import '../utils/platform_utils.dart';
 
@@ -35,95 +36,100 @@ class AppFooter extends StatelessWidget {
         ),
       ),
       padding: EdgeInsets.symmetric(vertical: verticalPadding, horizontal: 12),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Disclaimer section
-          Text(
-            'Vent AI is not a substitute for professional mental health care.\n100% on-device • Fully private • No accounts. No data sent to us.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: disclaimerFontSize,
-              color: AppColors.textTertiary,
-              height: disclaimerHeight,
+      // Keeps the text above the iPhone home indicator; the background still
+      // runs to the screen edge. No-op when a parent SafeArea already applied it.
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Disclaimer section
+            Text(
+              'Vent AI is not a substitute for professional mental health care.\n100% on-device • Fully private • No accounts. No data sent to us.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: disclaimerFontSize,
+                color: AppColors.textTertiary,
+                height: disclaimerHeight,
+              ),
             ),
-          ),
-          SizedBox(height: midGapHeight),
+            SizedBox(height: midGapHeight),
 
-          // Copyright section
-          Text(
-            '© 2024-2026 Srinjoy Goswami & Resolveera\nLicensed under GNU Affero General Public License v3.0',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: disclaimerFontSize,
-              color: AppColors.textTertiary,
-              height: copyrightHeight,
+            // Copyright section (licence line depends on the platform)
+            Text(
+              '© 2024-2026 Srinjoy Goswami & Resolveera\n${currentAppLicence().footerLine}',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: disclaimerFontSize,
+                color: AppColors.textTertiary,
+                height: copyrightHeight,
+              ),
             ),
-          ),
-          SizedBox(height: gapHeight),
+            SizedBox(height: gapHeight),
 
-          // Links section
-          Wrap(
-            alignment: WrapAlignment.center,
-            spacing: isMobilePhone(context) ? 4 : 8,
-            children: [
-              // Privacy Policy link
-              GestureDetector(
-                onTap: () {
-                  Navigator.of(context).pushNamed('/legal', arguments: 'privacy');
-                },
-                child: Text(
-                  'Privacy Policy',
-                  style: TextStyle(
-                    fontSize: linksFontSize,
-                    color: AppColors.primary,
-                    decoration: TextDecoration.none,
+            // Links section
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: isMobilePhone(context) ? 4 : 8,
+              children: [
+                // Privacy Policy link
+                GestureDetector(
+                  onTap: () {
+                    Navigator.of(context).pushNamed('/legal', arguments: 'privacy');
+                  },
+                  child: Text(
+                    'Privacy Policy',
+                    style: TextStyle(
+                      fontSize: linksFontSize,
+                      color: AppColors.primary,
+                      decoration: TextDecoration.none,
+                    ),
                   ),
                 ),
-              ),
 
-              Text(
-                '•',
-                style: TextStyle(color: AppColors.textTertiary, fontSize: linksFontSize),
-              ),
+                Text(
+                  '•',
+                  style: TextStyle(color: AppColors.textTertiary, fontSize: linksFontSize),
+                ),
 
-              // Disclaimers link
-              GestureDetector(
-                onTap: () {
-                  Navigator.of(context).pushNamed('/legal', arguments: 'disclaimers');
-                },
-                child: Text(
-                  'Disclaimers',
-                  style: TextStyle(
-                    fontSize: linksFontSize,
-                    color: AppColors.primary,
-                    decoration: TextDecoration.none,
+                // Disclaimers link
+                GestureDetector(
+                  onTap: () {
+                    Navigator.of(context).pushNamed('/legal', arguments: 'disclaimers');
+                  },
+                  child: Text(
+                    'Disclaimers',
+                    style: TextStyle(
+                      fontSize: linksFontSize,
+                      color: AppColors.primary,
+                      decoration: TextDecoration.none,
+                    ),
                   ),
                 ),
-              ),
 
-              Text(
-                '•',
-                style: TextStyle(color: AppColors.textTertiary, fontSize: linksFontSize),
-              ),
+                Text(
+                  '•',
+                  style: TextStyle(color: AppColors.textTertiary, fontSize: linksFontSize),
+                ),
 
-              // Licenses link (in-app, platform-aware)
-              GestureDetector(
-                onTap: () {
-                  Navigator.of(context).pushNamed('/licenses');
-                },
-                child: Text(
-                  'Licenses',
-                  style: TextStyle(
-                    fontSize: linksFontSize,
-                    color: AppColors.primary,
-                    decoration: TextDecoration.none,
+                // Licenses link (in-app; the licence shown depends on the platform)
+                GestureDetector(
+                  onTap: () {
+                    Navigator.of(context).pushNamed('/licenses');
+                  },
+                  child: Text(
+                    'Licenses',
+                    style: TextStyle(
+                      fontSize: linksFontSize,
+                      color: AppColors.primary,
+                      decoration: TextDecoration.none,
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
-        ],
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

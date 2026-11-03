@@ -1204,8 +1204,12 @@ class _ChatScreenState extends State<ChatScreen> {
             debugPrint('🗂️ Showing conversations: ${provider.conversationSessions.length}');
             debugPrint('📌 Current active: ${provider.activeConversationId}');
 
+            // Bottom inset keeps the last item clear of the iPhone/iPad home
+            // indicator and the Android navigation bar (0 on desktop).
             return Container(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.fromLTRB(
+                16, 16, 16, 16 + MediaQuery.paddingOf(context).bottom,
+              ),
               constraints: BoxConstraints(
                 maxHeight: MediaQuery.sizeOf(context).height * 0.8,
               ),
